@@ -78,14 +78,20 @@ def objective(trial: optuna.Trial, device: torch.device, dataset: TimeOfDayDatas
     """
 
     # ── Suggest hyperparameters ────────────────────────────────────────────
-    lr           = trial.suggest_float("lr",           1e-3, 5e-3, log=True)
-    weight_decay = trial.suggest_float("weight_decay", 1e-5, 5e-4, log=True)
-    hidden_dim   = trial.suggest_categorical("hidden_dim",   [180, 256, 320])
-    dropout      = trial.suggest_float("dropout",      0.2,  0.4)
-    batch_size   = trial.suggest_categorical("batch_size",   [16, 24, 32])
-    freeze_until = trial.suggest_categorical(
-        "freeze_until", ["layer1", "layer2", "layer3", "layer4"]
-    )
+    lr           = trial.suggest_float("lr", 2e-3, 5e-3, log=True)   # was 1e-3–5e-3
+    weight_decay = trial.suggest_float("weight_decay", 1e-5, 1e-4, log=True)  # top trials all <1e-4
+    hidden_dim   = trial.suggest_categorical("hidden_dim", [256, 320, 384])    # try wider
+    dropout      = trial.suggest_float("dropout", 0.15, 0.35)          # was 0.2–0.7, high is wasteful
+    batch_size   = 24  # just fix it, categorical search wasted trials here
+    freeze_until = trial.suggest_categorical("freeze_until", ["layer2", "layer3"])  # skip 1 and 4
+    # Scheduler
+    eta_min = trial.suggest_float("eta_min", 1e-6, 1e-4, log=True)
+
+    # Augmentation strength — big lever with small datasets
+    aug_magnitude = trial.suggest_categorical("aug_magnitude", ["light", "medium", "heavy"])
+
+    # Unfreeze schedule — start frozen, unfreeze mid-training
+    unfreeze_epoch = trial.suggest_int("unfreeze_epoch", 5, 20)
 
     # ── Dataloaders ───────────────────────────────────────────────────
     train_loader, val_loader = create_dataloaders(

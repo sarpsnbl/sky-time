@@ -27,7 +27,7 @@ class Config:
     BATCH_SIZE = 24             # Training batch size
     LR = 0.00365               # Learning rate
     WEIGHT_DECAY = 0.000186     # Weight decay for AdamW
-    NUM_WORKERS = 4             # DataLoader worker processes
+    NUM_WORKERS = 8             # DataLoader worker processes
     USE_AMP = True              # Enable automatic mixed precision (CUDA only)
     WEIGHTED_SAMPLER = False    # Oversample underrepresented hours
 
