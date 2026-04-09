@@ -1,2 +1,5 @@
 /dataset
+/__pycache__
+/checkpoints
 .vscode
+
