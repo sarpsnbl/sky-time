@@ -15,6 +15,8 @@ from typing import Callable, Dict, List, Optional, Tuple
 import numpy as np
 import torch
 from PIL import Image, ExifTags
+Image.MAX_IMAGE_PIXELS = None  # Disable PIL decompression bomb warning for large images
+import imageio.v3 as iio
 from datetime import datetime
 import exifread
 import rawpy
@@ -22,7 +24,9 @@ from sklearn.model_selection import KFold, ShuffleSplit
 from torch.utils.data import DataLoader, Dataset, Subset
 from torchvision import transforms
 
-# HEIC/HEIF support (optional – install pillow-heif if needed)
+from config import Config as cfg
+
+# HEIC/HEIF support
 try:
     from pillow_heif import register_heif_opener
     register_heif_opener()
@@ -155,7 +159,7 @@ class TimeOfDayDataset(Dataset):
         self,
         image_dir: str,
         transform: Optional[Callable] = None,
-        target_size: int = 448,
+        target_size: int = cfg.IMAGE_SIZE,
         random_seed: int = 42,
     ):
         self.image_dir   = image_dir
@@ -213,7 +217,7 @@ class TimeOfDayDataset(Dataset):
         ow, oh = image.size
         
         # Fast initial resize for massive 2K/4K images to save RAM
-        working_max = self.target_size * 2
+        working_max = self.target_size
         if ow > working_max or oh > working_max:
             image.thumbnail((working_max, working_max), Image.Resampling.BILINEAR)
             ow, oh = image.size
@@ -221,8 +225,7 @@ class TimeOfDayDataset(Dataset):
         scale  = min(self.target_size / ow, self.target_size / oh)
         nw, nh = int(ow * scale), int(oh * scale)
         
-        # High-quality final Lanczos resize
-        resized = image.resize((nw, nh), Image.Resampling.LANCZOS)
+        resized = image.resize((nw, nh), Image.Resampling.BILINEAR)
         
         canvas  = Image.new("RGB", (self.target_size, self.target_size), (0, 0, 0))
         canvas.paste(resized, ((self.target_size - nw) // 2,
@@ -255,43 +258,50 @@ class TimeOfDayDataset(Dataset):
 
     def __getitem__(self, idx: int) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
         img_path, label = self.samples[idx]
+        image = None
+
+        # if idx % 10 == 0:
+        #    print(f"  [Loader] Loading sample {idx}: {os.path.basename(img_path)}")
 
         try:
             if img_path.lower().endswith('.dng'):
-                with rawpy.imread(img_path) as raw:
-                    # use half_size=True for much faster processing of 4K DNGs
-                    rgb = raw.postprocess(
-                        use_camera_wb=True, 
-                        no_auto_bright=False, 
-                        bright=1.0,
-                        half_size=True
-                    )
-                    image = Image.fromarray(rgb)
-            else:
-                image = Image.open(img_path)
-                if image.mode != "RGB":
-                    image = image.convert("RGB")
-            
+                try:
+                    with rawpy.imread(img_path) as raw:
+                        rgb = raw.postprocess(use_camera_wb=True, half_size=True)
+                        image = Image.fromarray(rgb)
+                except Exception:
+                    pass 
+
+            if image is None:
+                try:
+                    img_np = iio.imread(img_path)
+                    image = Image.fromarray(img_np).convert("RGB")
+                except Exception:
+                    pass
+
+            if image is None:
+                image = Image.open(img_path).convert("RGB")
+
+            if hasattr(image, "format") and image.format == "JPEG":
+                image.draft("RGB", (self.target_size * 2, self.target_size * 2))
+                
             image = self._letterbox_resize(image)
             
         except Exception as exc:
-            print(f"  ERROR loading '{img_path}': {exc} – using black fallback.")
+            print(f"  ERROR: All decoders failed for {img_path}: {exc}")
             image = Image.new("RGB", (self.target_size, self.target_size), (0, 0, 0))
 
         if self.transform:
             image = self.transform(image)
 
-        metadata = label.to_metadata_tensor()
-        target   = label.to_target_tensor()
-
-        return image, metadata, target
+        return image, label.to_metadata_tensor(), label.to_target_tensor()
 
 
 # ---------------------------------------------------------------------------
 # Transforms
 # ---------------------------------------------------------------------------
 
-def get_transforms(augment: bool = True, target_size: int = 448) -> transforms.Compose:
+def get_transforms(augment: bool = True, target_size: int = cfg.IMAGE_SIZE) -> transforms.Compose:
     normalize = transforms.Normalize(
         mean=[0.485, 0.456, 0.406],
         std =[0.229, 0.224, 0.225],
@@ -316,6 +326,9 @@ def get_transforms(augment: bool = True, target_size: int = 448) -> transforms.C
         ])
 
 def minutes_to_hhmm(minutes: float) -> str:
+    if torch.is_tensor(minutes):
+        minutes = minutes.item()
+        
     total = int(round(minutes)) % MINUTES_PER_DAY
     h, m  = divmod(int(total), 60)
     return f"{h:02d}:{m:02d}"
@@ -371,7 +384,7 @@ def create_dataloaders(
         num_workers=num_workers,
         pin_memory=True,
         persistent_workers=_pw,
-        prefetch_factor=2 if _pw else None,
+        prefetch_factor=1 if _pw else None,
     )
 
     val_loader = DataLoader(
@@ -381,7 +394,7 @@ def create_dataloaders(
         num_workers=num_workers,
         pin_memory=True,
         persistent_workers=_pw,
-        prefetch_factor=2 if _pw else None,
+        prefetch_factor=1 if _pw else None,
     )
 
     print(f"\nFold {fold}  |  train: {len(train_idx)} samples  |  "

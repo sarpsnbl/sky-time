@@ -1,4 +1,5 @@
 /dataset
+/dataset_512
 /__pycache__
 /checkpoints
 checkpoints/
