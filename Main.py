@@ -1,5 +1,5 @@
 """
-Main.py
+main.py
 =======
 Training and evaluation pipeline for:
 
@@ -22,12 +22,13 @@ decoded from the cyclic representation.
 Usage
 -----
 Adjust settings in config.py, then run:
-python Main.py
+python main.py
 """
 
 import os
 import time
 from typing import Optional, Tuple
+import multiprocessing as mp
 
 import torch
 import torch.nn as nn
@@ -179,7 +180,7 @@ def train_one_epoch(
         optimizer.zero_grad()
 
         if scaler is not None:
-            with torch.cuda.amp.autocast():
+            with torch.amp.autocast('cuda'):
                 preds = model(images, metadata)
                 loss  = criterion(preds, targets)
             scaler.scale(loss).backward()
@@ -438,4 +439,7 @@ def main() -> None:
     print(f"  Best checkpoint : {best_ckpt}")
 
 if __name__ == "__main__":
+    if mp.get_start_method(allow_none=True) != 'spawn':
+        mp.set_start_method('spawn', force=True)
+
     main()

@@ -7,7 +7,7 @@ Adjust these parameters before running Main.py.
 
 class Config:
     # --- Data -----------------------------------------------------------------
-    IMAGE_DIR = "data/images"   # Flat folder containing images with EXIF data
+    IMAGE_DIR = "dataset"   # Flat folder containing images with EXIF data
 
     # --- CV (Cross-Validation) ------------------------------------------------
     FOLD = 0                    # Which CV fold to use (0-indexed)

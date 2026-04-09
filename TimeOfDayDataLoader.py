@@ -4,18 +4,7 @@ TimeOfDayDataLoader.py
 Dataset loading, augmentation, and DataLoader creation for
 time-of-day regression from sky/outdoor images + EXIF date metadata.
 
-Problem
--------
-Predict the exact time of day (in minutes since midnight, 0–1439) from:
-  - An outdoor / sky photograph
-  - The calendar date on which the photo was taken (extracted via EXIF)
-
-Expected folder layout
-----------------------
-data/
-    image_001.jpg          <- any supported format with EXIF data
-    image_002.png
-    ...
+Optimized for high-resolution (2K/4K) inputs.
 """
 
 import math
@@ -26,6 +15,9 @@ from typing import Callable, Dict, List, Optional, Tuple
 import numpy as np
 import torch
 from PIL import Image, ExifTags
+from datetime import datetime
+import exifread
+import rawpy
 from sklearn.model_selection import KFold, ShuffleSplit
 from torch.utils.data import DataLoader, Dataset, Subset
 from torchvision import transforms
@@ -72,29 +64,41 @@ def _day_of_year(month: int, day: int, year: int = 2024) -> int:
     leap_offset = 1 if (month > 2 and year % 4 == 0) else 0
     return days_before[month - 1] + day + leap_offset
 
-def extract_exif_datetime(image_path: str) -> Optional[Tuple[float, int, int, int]]:
+def extract_exif_datetime(image_path: str):
     """
-    Extracts time in minutes, month, day, and year from image EXIF data.
-    Returns None if EXIF data is missing or unparseable.
+    Robust metadata extraction supporting standard formats and DNG/RAW.
     """
     try:
-        with Image.open(image_path) as img:
-            exif = img._getexif()
-            if not exif:
-                return None
+        with open(image_path, 'rb') as f:
+            tags = exifread.process_file(f, stop_tag='DateTimeOriginal', details=False)
             
-            # 36867 is DateTimeOriginal, 306 is DateTime
-            dt_str = exif.get(36867) or exif.get(306)
-            if not dt_str:
-                return None
+        ts_str = None
+        for tag in ['EXIF DateTimeOriginal', 'Image DateTime', 'EXIF DateTimeDigitized']:
+            if tag in tags:
+                ts_str = str(tags[tag])
+                break
+        
+        if ts_str:
+            try:
+                dt = datetime.strptime(ts_str, '%Y:%m:%d %H:%M:%S')
+                return dt.hour * 60 + dt.minute, dt.month, dt.day, dt.year
+            except ValueError:
+                pass
 
-            # Standard EXIF format: "YYYY:MM:DD HH:MM:SS"
-            date_part, time_part = dt_str.split(" ")
-            year, month, day = map(int, date_part.split(":"))
-            hour, minute, second = map(int, time_part.split(":"))
+        with Image.open(image_path) as img:
+            exif = img.getexif()
+            for tag_id in [36867, 306, 36868]:
+                if tag_id in exif:
+                    dt = datetime.strptime(exif[tag_id], '%Y:%m:%d %H:%M:%S')
+                    return dt.hour * 60 + dt.minute, dt.month, dt.day, dt.year
 
-            time_min = float(hour * 60 + minute + second / 60.0)
-            return time_min, month, day, year
+    except Exception as e:
+        print(f"Metadata error for {image_path}: {e}")
+
+    try:
+        mtime = os.path.getmtime(image_path)
+        dt = datetime.fromtimestamp(mtime)
+        return dt.hour * 60 + dt.minute, dt.month, dt.day, dt.year
     except Exception:
         return None
 
@@ -144,14 +148,14 @@ class TimeOfDayLabel:
 class TimeOfDayDataset(Dataset):
     VALID_EXTENSIONS: frozenset = frozenset(
         {".jpg", ".jpeg", ".png", ".bmp", ".gif", ".tiff", ".webp",
-         ".heic", ".heif"}
+         ".heic", ".heif", ".dng"}
     )
 
     def __init__(
         self,
         image_dir: str,
         transform: Optional[Callable] = None,
-        target_size: int = 224,
+        target_size: int = 448,
         random_seed: int = 42,
     ):
         self.image_dir   = image_dir
@@ -207,9 +211,19 @@ class TimeOfDayDataset(Dataset):
 
     def _letterbox_resize(self, image: Image.Image) -> Image.Image:
         ow, oh = image.size
+        
+        # Fast initial resize for massive 2K/4K images to save RAM
+        working_max = self.target_size * 2
+        if ow > working_max or oh > working_max:
+            image.thumbnail((working_max, working_max), Image.Resampling.BILINEAR)
+            ow, oh = image.size
+
         scale  = min(self.target_size / ow, self.target_size / oh)
         nw, nh = int(ow * scale), int(oh * scale)
+        
+        # High-quality final Lanczos resize
         resized = image.resize((nw, nh), Image.Resampling.LANCZOS)
+        
         canvas  = Image.new("RGB", (self.target_size, self.target_size), (0, 0, 0))
         canvas.paste(resized, ((self.target_size - nw) // 2,
                                (self.target_size - nh) // 2))
@@ -243,11 +257,23 @@ class TimeOfDayDataset(Dataset):
         img_path, label = self.samples[idx]
 
         try:
-            # Re-open the image (avoiding EXIF orientation issues using convert)
-            image = Image.open(img_path)
-            if image.mode != "RGB":
-                image = image.convert("RGB")
+            if img_path.lower().endswith('.dng'):
+                with rawpy.imread(img_path) as raw:
+                    # use half_size=True for much faster processing of 4K DNGs
+                    rgb = raw.postprocess(
+                        use_camera_wb=True, 
+                        no_auto_bright=False, 
+                        bright=1.0,
+                        half_size=True
+                    )
+                    image = Image.fromarray(rgb)
+            else:
+                image = Image.open(img_path)
+                if image.mode != "RGB":
+                    image = image.convert("RGB")
+            
             image = self._letterbox_resize(image)
+            
         except Exception as exc:
             print(f"  ERROR loading '{img_path}': {exc} – using black fallback.")
             image = Image.new("RGB", (self.target_size, self.target_size), (0, 0, 0))
@@ -265,7 +291,7 @@ class TimeOfDayDataset(Dataset):
 # Transforms
 # ---------------------------------------------------------------------------
 
-def get_transforms(augment: bool = True) -> transforms.Compose:
+def get_transforms(augment: bool = True, target_size: int = 448) -> transforms.Compose:
     normalize = transforms.Normalize(
         mean=[0.485, 0.456, 0.406],
         std =[0.229, 0.224, 0.225],
@@ -278,7 +304,8 @@ def get_transforms(augment: bool = True) -> transforms.Compose:
             transforms.ColorJitter(
                 brightness=0.25, contrast=0.2, saturation=0.25, hue=0.04
             ),
-            transforms.RandomResizedCrop(size=224, scale=(0.85, 1.0)),
+            # Crop to actual model target resolution
+            transforms.RandomResizedCrop(size=target_size, scale=(0.85, 1.0)),
             transforms.ToTensor(),
             normalize,
         ])
@@ -360,44 +387,3 @@ def create_dataloaders(
     print(f"\nFold {fold}  |  train: {len(train_idx)} samples  |  "
           f"val: {len(val_idx)} samples")
     return train_loader, val_loader
-
-
-# ---------------------------------------------------------------------------
-# Smoke-test
-# ---------------------------------------------------------------------------
-
-if __name__ == "__main__":
-    import argparse
-
-    parser = argparse.ArgumentParser(description="TimeOfDayDataLoader smoke-test")
-    parser.add_argument("image_dir",  help="Flat folder containing images with EXIF")
-    parser.add_argument("--batch-size",  type=int, default=16)
-    parser.add_argument("--num-workers", type=int, default=0)
-    parser.add_argument("--fold",        type=int, default=0)
-    parser.add_argument("--n-splits",    type=int, default=5)
-    args = parser.parse_args()
-
-    train_tf = get_transforms(augment=True)
-    dataset  = TimeOfDayDataset(
-        image_dir=args.image_dir,
-        transform=train_tf,
-    )
-
-    train_loader, val_loader = create_dataloaders(
-        dataset,
-        fold=args.fold,
-        n_splits=args.n_splits,
-        batch_size=args.batch_size,
-        num_workers=args.num_workers,
-    )
-
-    images, metadata, targets = next(iter(train_loader))
-    print(f"\nSample batch shapes:")
-    print(f"  images   : {images.shape}")
-    print(f"  metadata : {metadata.shape}")
-    print(f"  targets  : {targets.shape}")
-
-    decoded = decode_time_tensor(targets)
-    print(f"\nFirst 5 decoded times (minutes): {decoded[:5].tolist()}")
-    print(f"First 5 decoded times (HH:MM)  : "
-          f"{[minutes_to_hhmm(t.item()) for t in decoded[:5]]}")
