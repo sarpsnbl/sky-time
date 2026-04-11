@@ -1,62 +1,62 @@
-function preds = predictCNN(net, imgPaths, dateFeat, cfg)
-% PREDICTCNN  Run inference with the trained multi-input network.
+function minutesPred = predictCNN(net, imgPaths, dateFeat, cfg)
+% PREDICTCNN  Run inference and decode cyclic output to minutes-of-day.
 %
-%   preds = predictCNN(net, imgPaths, dateFeat, cfg)
+%   The network outputs [sin(t), cos(t)] (2-D regression target).
+%   This function converts those back to clock minutes in [0, 1440).
 %
-%   Returns an Nx1 vector of predicted times in fractional hours [0, 24).
+%   Inputs
+%     net      – trained SeriesNetwork / DAGNetwork
+%     imgPaths – cell array of image paths
+%     dateFeat – M×D numeric date feature matrix
+%     cfg      – configuration struct (needs cfg.inputSize, cfg.miniBatch)
+%
+%   Output
+%     minutesPred – M×1 vector of predicted minutes in [0, 1440)
 
-    N     = numel(imgPaths);
-    preds = zeros(N, 1);
+    MINUTES_PER_DAY = 1440.0;
+    N = numel(imgPaths);
 
-    for i = 1:N
-        % Load and preprocess image (no augmentation)
-        try
-            img = readImageForInference(imgPaths{i}, cfg.inputSize);
-        catch ME
-            warning('predictCNN: cannot read %s — %s. Using zero image.', ...
-                    imgPaths{i}, ME.message);
-            img = zeros(cfg.inputSize, 'single');
-        end
+    % ── Build inference datastore (no augmentation, no labels) ─────────
+    % Same index-based pattern as buildDatastore to avoid the
+    % "more than one observation per row" error from arrayDatastore.
+    idxDS = arrayDatastore((1:N)', 'IterationDimension', 1);
+    predDS = transform(idxDS, ...
+        @(idx) readInferenceSample(idx, imgPaths, dateFeat, cfg.inputSize(1:2)));
 
-        df   = single(dateFeat(i,:));    % 1×4
+    % ── Predict ─────────────────────────────────────────────────────────
+    rawPred = predict(net, predDS, 'MiniBatchSize', cfg.miniBatch);
+    % rawPred is M×2 : [sin(t), cos(t)]
 
-        % predict() with multi-input network:
-        %   pass inputs in the same alphabetical order as the layer names
-        %   'data' (image) then 'data_date' (features)
-        raw  = predict(net, img, df);    % returns scalar
-
-        % Clamp to [0, 24)
-        preds(i) = max(0, min(23.9999, double(raw)));
-    end
+    % ── Decode cyclic output → minutes ──────────────────────────────────
+    angles = atan2(rawPred(:,1), rawPred(:,2));
+    angles(angles < 0) = angles(angles < 0) + 2 * pi;
+    minutesPred = angles * MINUTES_PER_DAY / (2 * pi);
 end
 
-% ─────────────────────────────────────────────────────────────────────────
-function img = readImageForInference(fpath, inputSize)
-    fpath = char(fpath);
-    
-    [~, ~, ext] = fileparts(fpath);
-    if strcmpi(ext, '.heic') || strcmpi(ext, '.heif')
-        try
-            py.pillow_heif.register_heif_opener();
-            img_py = py.PIL.Image.open(fpath).convert('RGB');
-            w = double(img_py.width);
-            h = double(img_py.height);
-            b = py.array.array('B', img_py.tobytes());
-            raw = permute(reshape(uint8(b), [3, w, h]), [3, 2, 1]);
-        catch pyErr
-            error('Python failed to load HEIC "%s". Details: %s', fpath, pyErr.message);
-        end
+function out = readInferenceSample(idxCell, imgPaths, dateFeat, targetHW)
+% Returns {img, feat} — no label needed for inference.
+% feat is D×1 (column vector) to match featureInputLayer expectations.
+    if iscell(idxCell)
+        i = idxCell{1};
     else
-        raw = imread(fpath);
+        i = idxCell;
     end
+    i    = i(1);
+    img  = loadAndNormalize(imgPaths{i}, targetHW);
+    feat = single(dateFeat(i, :)');   % transpose → D×1
+    out  = {img, feat};
+end
 
-    if isa(raw,'uint16')
-        raw = uint8(double(raw)/65535*255);
-    elseif isa(raw,'single') || isa(raw,'double')
-        raw = uint8(min(255, raw * (max(raw(:)) <= 1) * 255 + ...
-                             raw * (max(raw(:))  > 1)));
+function img = loadAndNormalize(path, targetHW)
+    try
+        img = imread(path);
+    catch
+        img = zeros(targetHW(1), targetHW(2), 3, 'uint8');
     end
-    if size(raw,3) == 1,    raw = repmat(raw,[1 1 3]); end
-    if size(raw,3) == 4,    raw = raw(:,:,1:3);         end
-    img = single(imresize(raw, inputSize(1:2))) / 255;
+    if size(img,3) == 1,  img = repmat(img,1,1,3); end
+    if size(img,3) == 4,  img = img(:,:,1:3);      end
+    img = im2single(imresize(img, targetHW));
+    mean_rgb = reshape([0.485,0.456,0.406],1,1,3);
+    std_rgb  = reshape([0.229,0.224,0.225],1,1,3);
+    img = (img - mean_rgb) ./ std_rgb;
 end
