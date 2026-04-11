@@ -1,5 +1,5 @@
 """
-Main.py
+main.py
 =======
 Training and evaluation pipeline for:
 
@@ -22,12 +22,13 @@ decoded from the cyclic representation.
 Usage
 -----
 Adjust settings in config.py, then run:
-python Main.py
+python main.py
 """
 
 import os
 import time
 from typing import Optional, Tuple
+import multiprocessing as mp
 
 import torch
 import torch.nn as nn
@@ -35,7 +36,6 @@ from torch.optim import AdamW
 from torch.optim.lr_scheduler import CosineAnnealingLR
 from torch.utils.data import DataLoader
 
-# Import the new config
 from config import Config as cfg
 
 from TimeOfDayDataLoader import (
@@ -49,7 +49,9 @@ from TimeOfDayDataLoader import (
 )
 
 try:
-    from torchvision.models import resnet50, ResNet50_Weights
+    import torchvision.models as models
+    from torchvision.models import ResNet50_Weights, EfficientNet_B3_Weights, ConvNeXt_Tiny_Weights
+
     _TORCHVISION_AVAILABLE = True
 except ImportError:
     _TORCHVISION_AVAILABLE = False
@@ -103,14 +105,31 @@ class TimeOfDayModel(nn.Module):
                 "torchvision is required. Install with: pip install torchvision"
             )
 
-        weights = ResNet50_Weights.IMAGENET1K_V2 if pretrained else None
-        backbone = resnet50(weights=weights)
+        model_name = cfg.MODEL.lower()
 
-        self.encoder = nn.Sequential(*list(backbone.children())[:-1])  # → (B, 2048, 1, 1)
+        if model_name == "resnet50":
+            weights = ResNet50_Weights.IMAGENET1K_V2 if pretrained else None
+            backbone = models.resnet50(weights=weights)
+            feat_dim = 2048  # ResNet-50 feature dimension
+
+        elif model_name == "efficientnet_b3":
+            weights = EfficientNet_B3_Weights.IMAGENET1K_V1 if pretrained else None
+            backbone = models.efficientnet_b3(weights=weights)
+            feat_dim = 1536  # EfficientNet-B3 feature dimension
+
+        elif model_name == "convnext_tiny":
+            weights = ConvNeXt_Tiny_Weights.IMAGENET1K_V1 if pretrained else None
+            backbone = models.convnext_tiny(weights=weights)
+            feat_dim = 768   # ConvNeXt-Tiny feature dimension
+
+        else:
+            raise ValueError(f"Model {cfg.MODEL} not supported")
+
+        self.encoder = nn.Sequential(*list(backbone.children())[:-1])  
         self._freeze_layers(freeze_until)
 
         self.fusion = MetadataFusionMLP(
-            image_feat_dim=2048,
+            image_feat_dim=feat_dim, 
             metadata_dim=metadata_dim,
             hidden_dim=hidden_dim,
             dropout=dropout,
@@ -145,13 +164,12 @@ class CyclicMSELoss(nn.Module):
         return self.mse(pred, target)
 
 
-def cyclic_mae_minutes(pred: torch.Tensor, target: torch.Tensor) -> float:
+def cyclic_mae_minutes(pred: torch.Tensor, target: torch.Tensor) -> torch.Tensor:
     pred_min   = decode_time_tensor(pred)
     target_min = decode_time_tensor(target)
-
     diff = torch.abs(pred_min - target_min)
     diff = torch.min(diff, MINUTES_PER_DAY - diff)   
-    return diff.mean().item()
+    return diff.mean()
 
 
 # ---------------------------------------------------------------------------
@@ -169,9 +187,16 @@ def train_one_epoch(
     model.train()
     total_loss = 0.0
     total_mae  = 0.0
-    n_batches  = 0
+    n_batches  = len(loader)
 
-    for images, metadata, targets in loader:
+    start_fetch = time.time()
+
+    for i, (images, metadata, targets) in enumerate(loader):
+        fetch_time = time.time() - start_fetch
+
+        # if fetch_time > 1.0 or i % 5 == 0:
+        #    print(f"      [Batch {i}/{n_batches}] Load time: {fetch_time:.2f}s | Device: {device}")
+
         images   = images.to(device,   non_blocking=True)
         metadata = metadata.to(device, non_blocking=True)
         targets  = targets.to(device,  non_blocking=True)
@@ -179,7 +204,7 @@ def train_one_epoch(
         optimizer.zero_grad()
 
         if scaler is not None:
-            with torch.cuda.amp.autocast():
+            with torch.amp.autocast('cuda'):
                 preds = model(images, metadata)
                 loss  = criterion(preds, targets)
             scaler.scale(loss).backward()
@@ -197,7 +222,6 @@ def train_one_epoch(
         mae = cyclic_mae_minutes(preds.detach().cpu(), targets.detach().cpu())
         total_loss += loss.item()
         total_mae  += mae
-        n_batches  += 1
 
     return total_loss / n_batches, total_mae / n_batches
 
@@ -225,7 +249,7 @@ def evaluate(
         mae = cyclic_mae_minutes(preds.cpu(), targets.cpu())
         total_loss += loss.item()
         total_mae  += mae
-        n_batches  += 1
+        n_batches += 1
 
     return total_loss / n_batches, total_mae / n_batches
 
@@ -260,7 +284,7 @@ def predict_single(
 
     transform = get_transforms(augment=False)
     img = PILImage.open(image_path).convert("RGB")
-    img = img.resize((224, 224), PILImage.Resampling.LANCZOS)
+    img = img.resize((cfg.image_size, cfg.image_size), PILImage.Resampling.LANCZOS)
     image_tensor = transform(img).unsqueeze(0).to(device)
 
     doy   = _day_of_year(month, day, year)
@@ -438,4 +462,7 @@ def main() -> None:
     print(f"  Best checkpoint : {best_ckpt}")
 
 if __name__ == "__main__":
+    if mp.get_start_method(allow_none=True) != 'spawn':
+        mp.set_start_method('spawn', force=True)
+
     main()
