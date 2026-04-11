@@ -2,6 +2,6 @@
 /dataset_512
 /__pycache__
 /checkpoints
-checkpoints/
+/backup
 .vscode
 .db
