@@ -1,59 +1,53 @@
 """
 tune.py
 =======
-Optional Optuna hyperparameter optimisation for Time-of-Day Estimation.
+Optuna hyperparameter optimisation for Time-of-Day Estimation.
+
+Changes vs previous version
+----------------------------
+* Per-architecture search spaces via get_search_space().
+  Each backbone family gets LR ranges, freeze strategies, aug levels, and
+  warmup_epochs tuned to its training dynamics.
+* Separate Optuna study per backbone family (study_name = "tod_hpo_<family>").
+  Keeps TPE's internal model clean — mixing architectures confuses the sampler.
+* model name is sampled inside the objective; cfg.MODEL is patched per-trial.
+* OPTUNA_MODELS in config controls which backbones are included in the sweep.
+* get_scheduler() is called with warmup_epochs so ViT / Swin get warmup.
+* _save_best_checkpoint() now passes warmup_epochs and model name through.
+* OPTUNA_N_STARTUP_TRIALS bumped to 8 (more random exploration before TPE).
+* batch_size remains fixed at 24 but is also searchable for large backbones
+  (convnext_base, vit_b_16) that may OOM — set to [16, 24].
 
 Usage
 -----
-Run a fresh study (SQLite backend so it survives crashes / can be resumed):
-
-    python tune.py
-
-Resume an existing study with the same name:
-
-    python tune.py            # Optuna automatically continues where it left off
-
-After tuning, the best trial's parameters are printed and the best checkpoint
-is saved to  checkpoints/optuna_best.pt  so you can drop them straight into
-config.py and run main.py as normal.
-
-Searchable parameters
----------------------
-    lr              log-uniform  [1e-5, 3e-3]
-    weight_decay    log-uniform  [1e-5, 1e-2]
-    hidden_dim      categorical  [128, 256, 512]
-    dropout         uniform      [0.1, 0.5]
-    batch_size      categorical  [16, 32, 64]
-    freeze_until    categorical  ["layer1", "layer2", "layer3", "layer4"]
+    python tune.py                         # runs all families in OPTUNA_MODELS
+    python tune.py --family convnext       # runs only the convnext family
+    python tune.py --family vit            # runs only ViT
 """
 
+import argparse
 import gc
 import os
 import time
-import argparse
 import multiprocessing as mp
-from typing import Optional
+from typing import Dict, Optional
 
+import numpy as np
 import torch
 import torch.nn as nn
 from torch.optim import AdamW
-from torch.optim.lr_scheduler import CosineAnnealingLR
 
 try:
     import optuna
     from optuna.samplers import TPESampler
     from optuna.pruners import MedianPruner
 except ImportError:
-    raise ImportError(
-        "Optuna is required for hyperparameter tuning.\n"
-        "Install it with:  pip install optuna"
-    )
+    raise ImportError("Install optuna:  pip install optuna")
 
 from config import Config as cfg
 from TimeOfDayDataLoader import (
     TimeOfDayDataset,
     create_dataloaders,
-    decode_time_tensor,
     get_transforms,
     MINUTES_PER_DAY,
 )
@@ -64,116 +58,281 @@ from main import (
     train_one_epoch,
     evaluate,
     save_checkpoint,
+    get_scheduler,
 )
+
+
+# ---------------------------------------------------------------------------
+# Architecture families
+# ---------------------------------------------------------------------------
+
+# Maps a short family name to the list of model strings to include in that study.
+# Edit OPTUNA_MODELS in config.py to control which families are run.
+FAMILY_MODELS: Dict[str, list] = {
+    "convnext":     ["convnext_tiny", "convnext_small"],
+    "efficientnet": ["efficientnet_b3"],
+    "swin":         ["swin_t"],
+    "vit":          ["vit_b_16"],
+    "resnet":       ["resnet50"],
+}
+
+# Default warmup epochs per model (used when warmup_epochs is not searchable)
+_DEFAULT_WARMUP: Dict[str, int] = {
+    "resnet50":        0,
+    "efficientnet_b3": 0,
+    "efficientnet_b4": 0,
+    "convnext_tiny":   0,
+    "convnext_small":  0,
+    "convnext_base":   0,
+    "swin_t":          3,
+    "swin_s":          3,
+    "vit_b_16":        5,
+}
+
+
+# ---------------------------------------------------------------------------
+# Per-architecture search spaces
+# ---------------------------------------------------------------------------
+
+def get_search_space(trial: optuna.Trial, model_name: str) -> dict:
+    """
+    Suggest architecture-appropriate hyperparameters.
+
+    Returns a flat dict with all keys needed to build and train a trial model.
+    Keys always present:
+        lr, weight_decay, hidden_dim, dropout, freeze_until,
+        eta_min, mixup_alpha, label_noise, aug_magnitude,
+        warmup_epochs, batch_size
+    """
+    name = model_name.lower()
+
+    # ── Shared knobs (all architectures) ─────────────────────────────────
+    hidden_dim  = trial.suggest_categorical("hidden_dim",  [256, 320, 384])
+    eta_min     = trial.suggest_float("eta_min",    1e-6, 1e-4, log=True)
+    label_noise = trial.suggest_float("label_noise", 0.01, 0.05)
+
+    # ── ConvNeXt (tiny / small / base) ───────────────────────────────────
+    if name in ("convnext_tiny", "convnext_small", "convnext_base"):
+        batch_size = 24 if name != "convnext_base" else trial.suggest_categorical(
+            "batch_size", [16, 24]
+        )
+        return {
+            "lr":           trial.suggest_float("lr",           5e-4, 3e-3, log=True),
+            "weight_decay": trial.suggest_float("weight_decay", 1e-4, 1e-2, log=True), # ⬆ Increased by 1-2 magnitudes
+            "hidden_dim":   hidden_dim, 
+            "dropout":      trial.suggest_float("dropout",      0.3,  0.6),            # ⬆ Shifted up significantly
+            "freeze_until": trial.suggest_categorical("freeze_until", 
+                                ["layer2", "layer3", "layer4"]),                       # ⬆ Added layer4 option
+            "eta_min":      eta_min,
+            "mixup_alpha":  trial.suggest_float("mixup_alpha",  0.1,  0.4),            # ⬆ Raised the floor to force Mixup
+            "label_noise":  label_noise, 
+            "aug_magnitude":trial.suggest_categorical("aug_magnitude", 
+                                ["light", "medium", "heavy"]),                         # ⬆ Removed 'none', added 'heavy'
+            "warmup_epochs":0,
+            "batch_size":   batch_size,
+        }
+
+    # ── EfficientNet (B3 / B4) ───────────────────────────────────────────
+    elif name in ("efficientnet_b3", "efficientnet_b4"):
+        return {
+            "lr":           trial.suggest_float("lr",           1e-3, 5e-3, log=True),
+            "weight_decay": trial.suggest_float("weight_decay", 1e-5, 5e-4, log=True),
+            "hidden_dim":   hidden_dim,
+            "dropout":      trial.suggest_float("dropout",      0.2,  0.4),
+            "freeze_until": trial.suggest_categorical("freeze_until",
+                                ["features.4", "features.5", "features.6"]),
+            "eta_min":      eta_min,
+            "mixup_alpha":  trial.suggest_float("mixup_alpha",  0.0,  0.2),
+            "label_noise":  label_noise,
+            "aug_magnitude":trial.suggest_categorical("aug_magnitude", ["light", "medium"]),
+            "warmup_epochs":0,
+            "batch_size":   24,
+        }
+
+    # ── Swin Transformer (swin_t / swin_s) ───────────────────────────────
+    elif name in ("swin_t", "swin_s"):
+        return {
+            "lr":           trial.suggest_float("lr",           5e-4, 3e-3, log=True),
+            "weight_decay": trial.suggest_float("weight_decay", 1e-4, 5e-3, log=True),
+            "hidden_dim":   trial.suggest_categorical("hidden_dim", [320, 384, 512]),
+            "dropout":      trial.suggest_float("dropout",      0.1,  0.3),
+            # Swin stage names inside backbone.features: 0=patch_embed, 2=stage1,
+            # 4=stage2, 6=stage3  (odd indices are PatchMerging layers)
+            "freeze_until": trial.suggest_categorical("freeze_until",
+                                ["0.", "2.", "4."]),
+            "eta_min":      eta_min,
+            "mixup_alpha":  trial.suggest_float("mixup_alpha",  0.0,  0.3),
+            "label_noise":  label_noise,
+            "aug_magnitude":trial.suggest_categorical("aug_magnitude", ["light", "medium"]),
+            "warmup_epochs":trial.suggest_categorical("warmup_epochs", [0, 3, 5]),
+            "batch_size":   24,
+        }
+
+    # ── Vision Transformer (vit_b_16) ────────────────────────────────────
+    elif name == "vit_b_16":
+        # Freeze first N encoder layers; the freeze_until string selects
+        # by matching a substring of parameter names.
+        # encoder_layer_9 → train layers 9, 10, 11 (last 3 of 12)
+        # encoder_layer_6 → train layers 6–11 (last 6 of 12)
+        return {
+            "lr":           trial.suggest_float("lr",           1e-4, 1e-3, log=True),
+            "weight_decay": trial.suggest_float("weight_decay", 1e-4, 1e-2, log=True),
+            "hidden_dim":   trial.suggest_categorical("hidden_dim", [384, 512]),
+            "dropout":      trial.suggest_float("dropout",      0.1,  0.4),
+            "freeze_until": trial.suggest_categorical("freeze_until",
+                                ["encoder_layer_6", "encoder_layer_9"]),
+            "eta_min":      trial.suggest_float("eta_min",      1e-6, 1e-5, log=True),
+            "mixup_alpha":  trial.suggest_float("mixup_alpha",  0.2,  0.5),
+            "label_noise":  trial.suggest_float("label_noise",  0.01, 0.03),
+            "aug_magnitude":trial.suggest_categorical("aug_magnitude", ["medium", "heavy"]),
+            "warmup_epochs":trial.suggest_categorical("warmup_epochs", [3, 5]),
+            "batch_size":   trial.suggest_categorical("batch_size", [16, 24]),
+        }
+
+    # ── ResNet-50 (baseline) ─────────────────────────────────────────────
+    else:  # resnet50
+        return {
+            "lr":           trial.suggest_float("lr",           1e-3, 8e-3, log=True),
+            "weight_decay": trial.suggest_float("weight_decay", 1e-4, 1e-3, log=True),
+            "hidden_dim":   hidden_dim,
+            "dropout":      trial.suggest_float("dropout",      0.2,  0.4),
+            "freeze_until": trial.suggest_categorical("freeze_until",
+                                ["layer2", "layer3", "layer4"]),
+            "eta_min":      eta_min,
+            "mixup_alpha":  trial.suggest_float("mixup_alpha",  0.0,  0.3),
+            "label_noise":  label_noise,
+            "aug_magnitude":trial.suggest_categorical("aug_magnitude",
+                                ["light", "medium", "heavy"]),
+            "warmup_epochs":0,
+            "batch_size":   24,
+        }
 
 
 # ---------------------------------------------------------------------------
 # Objective
 # ---------------------------------------------------------------------------
 
-def objective(trial: optuna.Trial, device: torch.device, dataset: TimeOfDayDataset) -> float:
+def objective(
+    trial:      optuna.Trial,
+    device:     torch.device,
+    dataset:    TimeOfDayDataset,
+    model_list: list,
+) -> float:
     """
-    One Optuna trial = one full short training run.
-    Uses the pre-loaded dataset passed from run_study.
+    One trial = one short training run averaged over OPTUNA_CV_FOLDS folds.
+    The model architecture is sampled from model_list.
+    Pruning fires after each epoch if the running MAE is too high.
     """
+    # Sample architecture first so the rest of the space is conditioned on it
+    model_name = trial.suggest_categorical("model", model_list)
 
-    # ── Suggest hyperparameters ────────────────────────────────────────────
-    lr           = trial.suggest_float("lr", 2e-3, 5e-3, log=True)   # was 1e-3–5e-3
-    weight_decay = trial.suggest_float("weight_decay", 1e-5, 1e-4, log=True)  # top trials all <1e-4
-    hidden_dim   = trial.suggest_categorical("hidden_dim", [256, 320, 384])    # try wider
-    dropout      = trial.suggest_float("dropout", 0.15, 0.35)          # was 0.2–0.7, high is wasteful
-    batch_size   = 24  # just fix it, categorical search wasted trials here
-    freeze_until = trial.suggest_categorical("freeze_until", ["layer2", "layer3"])  # skip 1 and 4
-    # Scheduler
-    eta_min = trial.suggest_float("eta_min", 1e-6, 1e-4, log=True)
+    # Patch the global config so TimeOfDayModel.__init__ reads the right name
+    cfg.MODEL = model_name
 
-    # Augmentation strength — big lever with small datasets
-    aug_magnitude = trial.suggest_categorical("aug_magnitude", ["light", "medium", "heavy"])
+    params = get_search_space(trial, model_name)
 
-    # Unfreeze schedule — start frozen, unfreeze mid-training
-    unfreeze_epoch = trial.suggest_int("unfreeze_epoch", 5, 20)
+    n_cv_folds = cfg.OPTUNA_CV_FOLDS
+    fold_maes  = []
 
-    # ── Dataloaders ───────────────────────────────────────────────────
-    train_loader, val_loader = create_dataloaders(
-        dataset,
-        fold=cfg.FOLD,
-        n_splits=cfg.N_SPLITS,
-        batch_size=batch_size,
-        num_workers=cfg.NUM_WORKERS,
-        val_ratio=cfg.VAL_RATIO,
-        use_weighted_sampler=cfg.WEIGHTED_SAMPLER,
-    )
+    for fold_idx in range(n_cv_folds):
+        train_tf = get_transforms(augment=True, magnitude=params["aug_magnitude"])
+        dataset.transform = train_tf
 
-    # ── Model ──────────────────────────────────────────────────────────────
-    model = TimeOfDayModel(
-        pretrained=cfg.PRETRAINED,
-        freeze_until=freeze_until,
-        hidden_dim=hidden_dim,
-        dropout=dropout,
-    ).to(device)
+        train_loader, val_loader = create_dataloaders(
+            dataset,
+            fold=fold_idx,
+            n_splits=cfg.N_SPLITS,
+            batch_size=params["batch_size"],
+            num_workers=cfg.NUM_WORKERS,
+            val_ratio=cfg.VAL_RATIO,
+            use_weighted_sampler=cfg.WEIGHTED_SAMPLER,
+        )
 
-    criterion = CyclicMSELoss()
-    optimizer = AdamW(
-        filter(lambda p: p.requires_grad, model.parameters()),
-        lr=lr,
-        weight_decay=weight_decay,
-    )
-    scheduler = CosineAnnealingLR(
-        optimizer, T_max=cfg.OPTUNA_EPOCHS, eta_min=1e-6
-    )
-    scaler = (
-        torch.cuda.amp.GradScaler()
-        if (cfg.USE_AMP and device.type == "cuda")
-        else None
-    )
-
-    # ── Short training run with pruning ───────────────────────────────────
-    best_val_mae = float("inf")
-
-    for epoch in range(cfg.OPTUNA_EPOCHS):
-        train_one_epoch(model, train_loader, optimizer, criterion, device, scaler)
-        val_loss, val_mae = evaluate(model, val_loader, criterion, device)
-        scheduler.step()
-
-        trial.report(val_mae, epoch)
-        if trial.should_prune():
-            # Clean up before pruning to free memory
-            del model, optimizer, train_loader, val_loader
-            gc.collect()
-            torch.cuda.empty_cache()
+        try:
+            model = TimeOfDayModel(
+                pretrained=cfg.PRETRAINED,
+                freeze_until=params["freeze_until"],
+                hidden_dim=params["hidden_dim"],
+                dropout=params["dropout"],
+            ).to(device)
+        except Exception as exc:
+            # If the model fails to build (e.g. bad freeze_until for this arch)
+            # prune the trial gracefully rather than crashing the study.
+            print(f"  Trial {trial.number}: model build failed ({exc}), pruning.")
             raise optuna.exceptions.TrialPruned()
 
-        if val_mae < best_val_mae:
-            best_val_mae = val_mae
+        criterion = CyclicMSELoss()
+        optimizer = AdamW(
+            filter(lambda p: p.requires_grad, model.parameters()),
+            lr=params["lr"],
+            weight_decay=params["weight_decay"],
+        )
+        scheduler = get_scheduler(
+            optimizer,
+            epochs=cfg.OPTUNA_EPOCHS,
+            eta_min=params["eta_min"],
+            warmup_epochs=params["warmup_epochs"],
+        )
+        scaler = (
+            torch.amp.GradScaler('cuda')
+            if (cfg.USE_AMP and device.type == "cuda") else None
+        )
 
-    # 3. Final cleanup for this trial
-    del model, optimizer, train_loader, val_loader
-    gc.collect()
-    torch.cuda.empty_cache()
+        best_fold_mae = float("inf")
 
-    return best_val_mae
+        for epoch in range(cfg.OPTUNA_EPOCHS):
+            train_one_epoch(
+                model, train_loader, optimizer, criterion, device, scaler,
+                mixup_alpha=params["mixup_alpha"],
+                label_noise=params["label_noise"],
+            )
+            _, val_mae = evaluate(
+                model, val_loader, criterion, device,
+                use_tta=cfg.TTA_ENABLED, tta_passes=cfg.TTA_FLIPS,
+            )
+            scheduler.step()
+
+            if val_mae < best_fold_mae:
+                best_fold_mae = val_mae
+
+            step = fold_idx * cfg.OPTUNA_EPOCHS + epoch
+            trial.report(val_mae, step)
+            if trial.should_prune():
+                del model, optimizer, train_loader, val_loader
+                gc.collect()
+                torch.cuda.empty_cache()
+                raise optuna.exceptions.TrialPruned()
+
+        fold_maes.append(best_fold_mae)
+        del model, optimizer, train_loader, val_loader
+        gc.collect()
+        torch.cuda.empty_cache()
+
+    mean_mae = float(np.mean(fold_maes))
+    print(f"  Trial {trial.number} [{model_name}]: folds={[round(float(m),2) for m in fold_maes]}  mean={mean_mae:.2f}")
+    return mean_mae
 
 
 # ---------------------------------------------------------------------------
-# Study runner
+# Per-family study runner
 # ---------------------------------------------------------------------------
 
-def run_study(device: torch.device) -> None:
-    os.makedirs(cfg.OUTPUT_DIR, exist_ok=True)
-
-    print(f"Loading dataset from {cfg.IMAGE_DIR}...")
-    train_tf = get_transforms(augment=True)
-    shared_dataset = TimeOfDayDataset(image_dir=cfg.IMAGE_DIR, transform=train_tf)
-
-    storage_path = os.path.join(cfg.OUTPUT_DIR, "optuna_study.db")
+def run_family_study(
+    family:     str,
+    model_list: list,
+    device:     torch.device,
+    dataset:    TimeOfDayDataset,
+) -> None:
+    study_name   = f"tod_hpo_{family}"
+    storage_path = os.path.join(cfg.OUTPUT_DIR, f"optuna_{family}.db")
     storage_url  = f"sqlite:///{storage_path}"
 
     study = optuna.create_study(
-        study_name=cfg.OPTUNA_STUDY_NAME,
+        study_name=study_name,
         storage=storage_url,
         load_if_exists=True,
         direction="minimize",
-        sampler=TPESampler(seed=cfg.SEED),
+        sampler=TPESampler(seed=cfg.SEED, n_startup_trials=cfg.OPTUNA_N_STARTUP_TRIALS),
         pruner=MedianPruner(
             n_startup_trials=cfg.OPTUNA_N_STARTUP_TRIALS,
             n_warmup_steps=max(1, cfg.OPTUNA_EPOCHS // 4),
@@ -183,54 +342,63 @@ def run_study(device: torch.device) -> None:
     completed = len([t for t in study.trials if t.state.is_finished()])
     remaining = cfg.OPTUNA_N_TRIALS - completed
 
-    remaining = cfg.OPTUNA_N_TRIALS - completed
     print(f"\n{'='*60}")
-    print(f"  Optuna HPO  —  study: '{cfg.OPTUNA_STUDY_NAME}'")
-    print(f"  Storage    : {storage_path}")
-    print(f"  Completed  : {completed} / {cfg.OPTUNA_N_TRIALS} trials")
-    print(f"  Remaining  : {remaining}")
-    print(f"  Epochs/trial: {cfg.OPTUNA_EPOCHS}")
-    print(f"  Device     : {device}")
+    print(f"  Family       : {family}  ({', '.join(model_list)})")
+    print(f"  Study        : '{study_name}'")
+    print(f"  Storage      : {storage_path}")
+    print(f"  Completed    : {completed} / {cfg.OPTUNA_N_TRIALS} trials")
+    print(f"  Remaining    : {remaining}")
+    print(f"  Epochs/trial : {cfg.OPTUNA_EPOCHS}  ×  {cfg.OPTUNA_CV_FOLDS} fold(s)")
+    print(f"  Device       : {device}")
     print(f"{'='*60}\n")
 
     if remaining <= 0:
-        print("All trials already completed. Showing best result.\n")
+        print("All trials already completed for this family.\n")
     else:
         study.optimize(
-            lambda trial: objective(trial, device, shared_dataset),
+            lambda trial: objective(trial, device, dataset, model_list),
             n_trials=remaining,
             timeout=cfg.OPTUNA_TIMEOUT_SECONDS,
             show_progress_bar=True,
             gc_after_trial=True,
         )
 
-    # ── Results ────────────────────────────────────────────────────────────
     best = study.best_trial
     print(f"\n{'='*60}")
-    print(f"  Best trial : #{best.number}")
-    print(f"  Val MAE    : {best.value:.2f} min  ({best.value/60:.2f} h)")
+    print(f"  [{family}] Best trial : #{best.number}")
+    print(f"  [{family}] Val MAE    : {best.value:.2f} min  ({best.value/60:.2f} h)")
     print(f"\n  Suggested config.py overrides:")
     print(f"  {'─'*40}")
     for k, v in best.params.items():
         print(f"    {k:20s} = {v!r}")
     print(f"{'='*60}\n")
 
-    # Retrain best config to save a proper checkpoint
-    _save_best_checkpoint(best.params, device)
+    _save_best_checkpoint(best.params, device, family=family)
 
 
-def _save_best_checkpoint(params: dict, device: torch.device) -> None:
-    """Retrain the best config for cfg.EPOCHS and save a checkpoint."""
-    print("Retraining best configuration for full epochs …")
+# ---------------------------------------------------------------------------
+# Retrain best config
+# ---------------------------------------------------------------------------
 
-    train_tf = get_transforms(augment=True)
-    dataset  = TimeOfDayDataset(image_dir=cfg.IMAGE_DIR, transform=train_tf)
+def _save_best_checkpoint(params: dict, device: torch.device, family: str = "") -> None:
+    model_name = params.get("model", cfg.MODEL)
+    cfg.MODEL  = model_name   # ensure correct arch is built
+
+    print(f"Retraining best [{family}] config ({model_name}) for full epochs …")
+
+    train_tf = get_transforms(
+        augment=True,
+        magnitude=params.get("aug_magnitude", cfg.AUG_MAGNITUDE),
+    )
+    dataset = TimeOfDayDataset(image_dir=cfg.IMAGE_DIR, transform=train_tf)
+
+    batch_size = params.get("batch_size", cfg.BATCH_SIZE)
 
     train_loader, val_loader = create_dataloaders(
         dataset,
         fold=cfg.FOLD,
         n_splits=cfg.N_SPLITS,
-        batch_size=params["batch_size"],
+        batch_size=batch_size,
         num_workers=cfg.NUM_WORKERS,
         val_ratio=cfg.VAL_RATIO,
         use_weighted_sampler=cfg.WEIGHTED_SAMPLER,
@@ -249,29 +417,43 @@ def _save_best_checkpoint(params: dict, device: torch.device) -> None:
         lr=params["lr"],
         weight_decay=params["weight_decay"],
     )
-    scheduler = CosineAnnealingLR(optimizer, T_max=cfg.EPOCHS, eta_min=1e-6)
-    scaler    = (
-        torch.cuda.amp.GradScaler()
-        if (cfg.USE_AMP and device.type == "cuda")
-        else None
+    warmup_epochs = params.get("warmup_epochs", _DEFAULT_WARMUP.get(model_name, 0))
+    scheduler = get_scheduler(
+        optimizer,
+        epochs=cfg.EPOCHS,
+        eta_min=params.get("eta_min", cfg.ETA_MIN),
+        warmup_epochs=warmup_epochs,
+    )
+    scaler = (
+        torch.amp.GradScaler('cuda')
+        if (cfg.USE_AMP and device.type == "cuda") else None
     )
 
-    best_val_mae  = float("inf")
-    best_ckpt     = os.path.join(cfg.OUTPUT_DIR, "optuna_best.pt")
+    best_val_mae = float("inf")
+    suffix       = f"_{family}" if family else ""
+    best_ckpt    = os.path.join(cfg.OUTPUT_DIR, f"optuna_best{suffix}.pt")
+    mixup_alpha  = params.get("mixup_alpha", cfg.MIXUP_ALPHA)
+    label_noise  = params.get("label_noise", cfg.LABEL_NOISE_STD)
 
-    print(f"\n{'Epoch':>6}  {'Train MAE':>10}  {'Val MAE':>10}  {'Time':>7}")
-    print("-" * 40)
+    print(f"\n{'Epoch':>6}  {'Train MAE':>10}  {'Val MAE':>10}  {'LR':>10}  {'Time':>7}")
+    print("-" * 50)
 
     for epoch in range(cfg.EPOCHS):
         t0 = time.time()
-        train_loss, train_mae = train_one_epoch(
-            model, train_loader, optimizer, criterion, device, scaler
+        _, train_mae = train_one_epoch(
+            model, train_loader, optimizer, criterion, device, scaler,
+            mixup_alpha=mixup_alpha, label_noise=label_noise,
         )
-        val_loss, val_mae = evaluate(model, val_loader, criterion, device)
+        _, val_mae = evaluate(
+            model, val_loader, criterion, device,
+            use_tta=cfg.TTA_ENABLED, tta_passes=cfg.TTA_FLIPS,
+        )
         scheduler.step()
-
         elapsed = time.time() - t0
-        print(f"{epoch+1:>6}  {train_mae:>9.2f}m  {val_mae:>9.2f}m  {elapsed:>6.1f}s")
+        lr_now  = scheduler.get_last_lr()[0]
+
+        print(f"{epoch+1:>6}  {train_mae:>9.2f}m  {val_mae:>9.2f}m  "
+              f"{lr_now:>10.2e}  {elapsed:>6.1f}s")
 
         if val_mae < best_val_mae:
             best_val_mae = val_mae
@@ -279,11 +461,82 @@ def _save_best_checkpoint(params: dict, device: torch.device) -> None:
                             val_mae, best_ckpt)
             print(f"  ★ New best: {best_val_mae:.2f} min")
 
-    print(f"\nBest checkpoint saved → {best_ckpt}")
-    print(f"Best val MAE          : {best_val_mae:.2f} min")
+    print(f"\nBest checkpoint → {best_ckpt}")
+    print(f"Best val MAE    : {best_val_mae:.2f} min")
+
+
+# ---------------------------------------------------------------------------
+# Entry point
+# ---------------------------------------------------------------------------
+
+def run_study(device: torch.device, families: Optional[list] = None) -> None:
+    os.makedirs(cfg.OUTPUT_DIR, exist_ok=True)
+
+    # Determine which families to run
+    target_families = families or cfg.OPTUNA_MODELS   # list of family names
+    if not target_families:
+        raise ValueError(
+            "No families specified. Set cfg.OPTUNA_MODELS or pass --family."
+        )
+
+    print(f"Loading dataset from {cfg.IMAGE_DIR} …")
+    shared_dataset = TimeOfDayDataset(
+        image_dir=cfg.IMAGE_DIR,
+        transform=get_transforms(augment=True, magnitude=cfg.AUG_MAGNITUDE),
+    )
+
+    for family in target_families:
+        if family not in FAMILY_MODELS:
+            print(f"  WARNING: Unknown family '{family}', skipping.")
+            continue
+        model_list = FAMILY_MODELS[family]
+        run_family_study(family, model_list, device, shared_dataset)
+
+    # Print cross-family summary
+    print(f"\n{'='*60}")
+    print("  Cross-family summary")
+    print(f"  {'─'*40}")
+    results = []
+    for family in target_families:
+        db_path = os.path.join(cfg.OUTPUT_DIR, f"optuna_{family}.db")
+        if not os.path.exists(db_path):
+            continue
+        try:
+            study = optuna.load_study(
+                study_name=f"tod_hpo_{family}",
+                storage=f"sqlite:///{db_path}",
+            )
+            best = study.best_trial
+            results.append((best.value, family, best.params))
+        except Exception:
+            pass
+
+    results.sort()
+    for val_mae, family, params in results:
+        model = params.get("model", "?")
+        print(f"  {family:15s} ({model:20s}) → {val_mae:.2f} min")
+
+    if results:
+        best_mae, best_family, best_params = results[0]
+        print(f"\n  Overall winner : {best_family}  ({best_params.get('model', '?')})")
+        print(f"  Best Val MAE   : {best_mae:.2f} min  ({best_mae/60:.2f} h)")
+    print(f"{'='*60}\n")
 
 
 if __name__ == "__main__":
+    parser = argparse.ArgumentParser(description="Optuna HPO for Time-of-Day Estimation")
+    parser.add_argument(
+        "--family",
+        nargs="+",
+        default=None,
+        help=(
+            "One or more backbone families to tune. "
+            "Choices: convnext, efficientnet, swin, vit, resnet. "
+            "Defaults to cfg.OPTUNA_MODELS."
+        ),
+    )
+    args = parser.parse_args()
+
     if mp.get_start_method(allow_none=True) != "spawn":
         mp.set_start_method("spawn", force=True)
 
@@ -297,4 +550,4 @@ if __name__ == "__main__":
         "cpu"
     )
 
-    run_study(device)
+    run_study(device, families=args.family)
