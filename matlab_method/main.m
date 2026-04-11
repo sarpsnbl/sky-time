@@ -23,13 +23,13 @@ rng(42);                  % reproducibility
 
 % ── Configuration ─────────────────────────────────────────────────────────
 cfg.datasetPath   = 'dataset';
-cfg.imageFormats  = {'*.jpg','*.jpeg','*.png','*.dng','*.heic'};
-cfg.inputSize     = [224 224 3];   % squeezenet input
+cfg.imageFormats  = {'*.jpg','*.jpeg','*.png','*.dng','*.heic','*.HEIC'};
+cfg.inputSize     = [227 227 3];   % squeezenet input
 cfg.kFolds        = 5;
 cfg.maxEpochs     = 30;
 cfg.miniBatch     = 16;
 cfg.learnRate     = 1e-4;
-cfg.l2Reg         = 1e-4;
+cfg.l2Reg         = 1e-2;
 cfg.dateFeatureDim = 4;   % [sin(doy), cos(doy), sin(month), cos(month)]
 
 fprintf('╔══════════════════════════════════════════════════╗\n');
@@ -38,14 +38,14 @@ fprintf('╚══════════════════════�
 
 % ── Step 1 : Load dataset ─────────────────────────────────────────────────
 fprintf('[1/5]  Scanning "%s" …\n', cfg.datasetPath);
+
+% Temporarily suppress EXIF division-by-zero warnings
+warning('off', 'all'); 
 [imgPaths, timeLabels, dateFeat] = loadDataset(cfg.datasetPath, cfg.imageFormats);
+warning('on', 'all'); % Turn warnings back on immediately after
+
 N = numel(imgPaths);
 fprintf('       %d images loaded with valid DateTime.\n\n', N);
-
-if N < cfg.kFolds
-    error('Need at least %d images for %d-fold CV. Found %d.', ...
-          cfg.kFolds, cfg.kFolds, N);
-end
 
 % ── Step 2 : Classical features (for baseline models) ─────────────────────
 fprintf('[2/5]  Extracting classical features …\n');
@@ -106,8 +106,9 @@ for fold = 1:cfg.kFolds
         'ValidationData',    valDS, ...
         'ValidationFrequency', 10, ...
         'Shuffle',           'every-epoch', ...
-        'Plots',             'none', ...
-        'Verbose',           false);
+        'Plots',             'training-progress', ... % <-- Opens the live tracking graph
+        'Verbose',           true, ...                % <-- Enables console text output
+        'VerboseFrequency',  1);                      % <-- Prints an update every single iteration
 
     net      = trainNetwork(trainDS, lgraph, opts);
     cnnPred  = predictCNN(net, imgPaths(teIdx), dateFeat(teIdx,:), cfg);

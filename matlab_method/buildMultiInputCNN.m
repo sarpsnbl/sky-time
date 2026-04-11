@@ -30,12 +30,11 @@ function lgraph = buildMultiInputCNN(cfg)
     lgraph  = layerGraph(sqz);
 
     % ── Remove original classification head ────────────────────────────
-    lgraph = removeLayers(lgraph, {'ClassificationLayer_predictions', ...
-                                   'prob', 'predictions'});
+    lgraph = removeLayers(lgraph, {'ClassificationLayer_predictions', 'prob'});
 
     % ── Freeze early layers (fire1–fire6) by zeroing their LR factors ──
-    % We keep fire7, fire8, fire9, pool10 trainable.
-    frozenPrefixes = {'conv1','fire2','fire3','fire4','fire5','fire6'};
+    % We keep fire8, fire9, pool10 trainable (freezing more to prevent overfitting).
+    frozenPrefixes = {'conv1','fire2','fire3','fire4','fire5','fire6','fire7'};
     for i = 1:numel(lgraph.Layers)
         lyr = lgraph.Layers(i);
         name = lyr.Name;
@@ -83,7 +82,7 @@ function lgraph = buildMultiInputCNN(cfg)
                             'WeightLearnRateFactor',4,'BiasLearnRateFactor',4)
         batchNormalizationLayer( 'Name','head_bn1')
         reluLayer(               'Name','head_relu1')
-        dropoutLayer(0.4,        'Name','dropout')
+        dropoutLayer(0.6,        'Name','dropout')
         fullyConnectedLayer(64,  'Name','head_fc2', ...
                             'WeightLearnRateFactor',4,'BiasLearnRateFactor',4)
         reluLayer(               'Name','head_relu2')

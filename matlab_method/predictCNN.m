@@ -32,7 +32,24 @@ end
 
 % ─────────────────────────────────────────────────────────────────────────
 function img = readImageForInference(fpath, inputSize)
-    raw = imread(fpath);
+    fpath = char(fpath);
+    
+    [~, ~, ext] = fileparts(fpath);
+    if strcmpi(ext, '.heic') || strcmpi(ext, '.heif')
+        try
+            py.pillow_heif.register_heif_opener();
+            img_py = py.PIL.Image.open(fpath).convert('RGB');
+            w = double(img_py.width);
+            h = double(img_py.height);
+            b = py.array.array('B', img_py.tobytes());
+            raw = permute(reshape(uint8(b), [3, w, h]), [3, 2, 1]);
+        catch pyErr
+            error('Python failed to load HEIC "%s". Details: %s', fpath, pyErr.message);
+        end
+    else
+        raw = imread(fpath);
+    end
+
     if isa(raw,'uint16')
         raw = uint8(double(raw)/65535*255);
     elseif isa(raw,'single') || isa(raw,'double')

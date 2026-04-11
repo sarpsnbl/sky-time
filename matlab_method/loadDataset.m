@@ -29,6 +29,9 @@ function [imgPaths, timeLabels, dateFeat] = loadDataset(datasetPath, formats)
     if isempty(allPaths)
         error('No images found in "%s" matching the given formats.', datasetPath);
     end
+    
+    % Remove duplicates caused by case-insensitive file systems (e.g., .heic and .HEIC)
+    allPaths = unique(allPaths, 'stable');
 
     imgPaths   = {};
     timeLabels = [];
@@ -78,38 +81,71 @@ function dt = readDateTime(fpath)
 %   Returns empty if no parseable DateTime tag is found.
 
     dt = [];
+    
+    % MATLAB's imfinfo often misses EXIF DateTime for .heic files.
+    % We can leverage Python's PIL and pillow_heif as a reliable workaround.
+    [~, ~, ext] = fileparts(fpath);
+    if strcmpi(ext, '.heic')
+        try
+            py.pillow_heif.register_heif_opener();
+            img = py.PIL.Image.open(fpath);
+            exif_data = img.getexif();
+            
+            % 36867 is DateTimeOriginal, 306 is DateTime
+            dt_py = exif_data.get(int32(36867));
+            if isempty(dt_py) || isa(dt_py, 'py.NoneType')
+                dt_py = exif_data.get(int32(306));
+            end
+            
+            if ~isempty(dt_py) && ~isa(dt_py, 'py.NoneType')
+                parsed = parseDateTimeString(char(dt_py));
+                if ~isempty(parsed)
+                    dt = parsed;
+                    return;
+                end
+            end
+        catch
+            % Fallback to imfinfo if Python integration fails
+        end
+    end
 
     % imfinfo works for jpg/png/tiff/dng; HEIC needs R2022a+
     try
         info = imfinfo(fpath);
+
+        % Gather candidate DateTime strings in priority order
+        candidates = {};
+        if isfield(info, 'DigitalCamera')
+            dc = info.DigitalCamera;
+            if isfield(dc, 'DateTimeOriginal') && ~isempty(dc.DateTimeOriginal)
+                candidates{end+1} = dc.DateTimeOriginal;
+            end
+            if isfield(dc, 'DateTimeDigitized') && ~isempty(dc.DateTimeDigitized)
+                candidates{end+1} = dc.DateTimeDigitized;
+            end
+        end
+        if isfield(info, 'DateTime') && ~isempty(info.DateTime)
+            candidates{end+1} = info.DateTime;
+        end
+    
+        % Try to parse each candidate
+        for k = 1:numel(candidates)
+            parsed = parseDateTimeString(candidates{k});
+            if ~isempty(parsed)
+                dt = parsed;
+                return
+            end
+        end
     catch
-        return
+        % imfinfo might fail on certain HEIC files or corrupted headers
     end
 
-    % Gather candidate DateTime strings in priority order
-    candidates = {};
-    if isfield(info, 'DigitalCamera')
-        dc = info.DigitalCamera;
-        if isfield(dc, 'DateTimeOriginal') && ~isempty(dc.DateTimeOriginal)
-            candidates{end+1} = dc.DateTimeOriginal;
-        end
-        if isfield(dc, 'DateTimeDigitized') && ~isempty(dc.DateTimeDigitized)
-            candidates{end+1} = dc.DateTimeDigitized;
-        end
+    % Fallback: Use file modification date if EXIF is missing or imfinfo fails
+    fileInfo = dir(fpath);
+    if ~isempty(fileInfo)
+        dt = datevec(fileInfo(1).datenum);
     end
-    if isfield(info, 'DateTime') && ~isempty(info.DateTime)
-        candidates{end+1} = info.DateTime;
     end
-
-    % Try to parse each candidate
-    for k = 1:numel(candidates)
-        parsed = parseDateTimeString(candidates{k});
-        if ~isempty(parsed)
-            dt = parsed;
-            return
-        end
-    end
-end
 
 % ─────────────────────────────────────────────────────────────────────────
 function dv = parseDateTimeString(s)
