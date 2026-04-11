@@ -132,7 +132,22 @@ function img = loadAndResize(fpath, inputSize)
 % LOADANDRESIZE  Read an image file, convert to RGB, resize.
 %   Handles jpg/png/dng/heic; converts grayscale to RGB.
 
-    img = imread(fpath);
+    fpath = char(fpath);
+    [~, ~, ext] = fileparts(fpath);
+    if strcmpi(ext, '.heic') || strcmpi(ext, '.heif')
+        try
+            py.pillow_heif.register_heif_opener();
+            img_py = py.PIL.Image.open(fpath).convert('RGB');
+            w = double(img_py.width);
+            h = double(img_py.height);
+            b = py.array.array('B', img_py.tobytes());
+            img = permute(reshape(uint8(b), [3, w, h]), [3, 2, 1]);
+        catch pyErr
+            error('Python failed to load HEIC "%s". Details: %s', fpath, pyErr.message);
+        end
+    else
+        img = imread(fpath);
+    end
 
     % DNG / RAW: imread may return uint16 – normalise to uint8
     if isa(img, 'uint16')
