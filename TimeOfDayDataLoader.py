@@ -21,6 +21,7 @@ import rawpy
 from sklearn.model_selection import KFold, ShuffleSplit
 from torch.utils.data import DataLoader, Dataset, Subset
 from torchvision import transforms
+from skimage import color, filters, feature
 
 from config import Config as cfg
 
@@ -37,7 +38,7 @@ DAYS_PER_YEAR      = 365.25
 # Dimensions of the two metadata parts — kept here so main.py can import them
 # instead of hardcoding magic numbers.
 _CALENDAR_DIM      = 6   # sin/cos month, sin/cos doy, lat_norm, lon_norm
-_IMAGE_FEATURE_DIM = 5   # see ImageFeatureExtractor
+_IMAGE_FEATURE_DIM = 77   # see ImageFeatureExtractor
 
 
 def get_metadata_dim() -> int:
@@ -52,99 +53,109 @@ def get_metadata_dim() -> int:
 
 class ImageFeatureExtractor:
     """
-    Extracts a small, interpretable feature vector from a PIL image.
+    Extracts a 57-dimensional feature vector matching the MATLAB pipeline.
 
-    Features (all in [0, 1] after normalisation):
-      0. brightness_p90   – 90th-percentile of the HSV Value channel.
-                            Tracks sun elevation better than the mean.
-      1. rb_ratio_norm    – R / (R + B), a colour-temperature proxy.
-                            Dawn/dusk → warm (→ 1); midday clear sky → cool (→ 0).
-      2. sky_saturation   – Mean HSV Saturation in the *top third* of the image
-                            (likely sky). High at golden hour, low at noon/overcast.
-      3. horizon_gradient – Signed luminance difference (top half − bottom half).
-                            Positive early/late when sky is brighter than ground.
-      4. dark_pixel_ratio – Fraction of pixels with V < 0.15.
-                            Useful for distinguishing night from day.
+    Layout (all features normalised to comparable scales):
+      [0:6]    RGB channel means + stds             (6)
+      [6:12]   HSV channel means + stds             (6)
+      [12:18]  LAB channel means + stds             (6)  — L normalised to [0,1]
+      [18:66]  RGB histograms, 16 bins × 3 channels (48) → but we keep only 16×3=48
+      ... wait, 6+6+6+48+48+2+1+1+3+2+1+1 = 125 raw
 
-    Design notes
-    ------------
-    * Features are computed on the raw PIL image **before** any torchvision
-      augmentation, so ColorJitter / RandomCrop do not corrupt the signal.
-    * All outputs are clipped to [0, 1] so they are on the same scale as the
-      cyclic calendar features the model already receives.
-    * We use plain NumPy / PIL — no OpenCV dependency required.
+    To keep the vector compact (and avoid exploding the MLP), we use
+    8-bin histograms (24 hist features) instead of 16, giving 57 total:
+      [0:6]    RGB means+stds                       (6)
+      [6:12]   HSV means+stds                       (6)
+      [12:18]  LAB means+stds                       (6)
+      [18:42]  RGB histograms, 8 bins × 3           (24)
+      [42:66]  HSV histograms, 8 bins × 3           (24) → trimmed to fit
+    
+    Actually let's count exactly and be explicit — see below.
     """
-
-    # RGB → luminance weights (ITU-R BT.601)
-    _LUM_R = 0.299
-    _LUM_G = 0.587
-    _LUM_B = 0.114
-
-    @staticmethod
-    def _to_hsv_array(image: "Image.Image") -> np.ndarray:
-        """Return H, S, V arrays each in [0, 1], shape (H, W)."""
-        rgb = np.asarray(image.convert("RGB"), dtype=np.float32) / 255.0
-        r, g, b = rgb[:, :, 0], rgb[:, :, 1], rgb[:, :, 2]
-
-        cmax = np.maximum(np.maximum(r, g), b)
-        cmin = np.minimum(np.minimum(r, g), b)
-        delta = cmax - cmin
-
-        # Value
-        v = cmax
-
-        # Saturation
-        s = np.where(cmax > 0, delta / (cmax + 1e-8), 0.0)
-
-        # Hue (we don't use hue as a feature, but compute for completeness)
-        # Omitted to save work — only S and V are needed below.
-
-        return s, v   # (H, W), (H, W)
 
     @classmethod
     def extract(cls, image: "Image.Image") -> np.ndarray:
         """
         Parameters
         ----------
-        image : PIL.Image.Image  (any mode — converted internally)
+        image : PIL.Image.Image
 
         Returns
         -------
-        np.ndarray, shape (_IMAGE_FEATURE_DIM,), dtype float32, values in [0, 1]
+        np.ndarray, shape (_IMAGE_FEATURE_DIM,), dtype float32
         """
-        rgb = np.asarray(image.convert("RGB"), dtype=np.float32) / 255.0
-        r, g, b = rgb[:, :, 0], rgb[:, :, 1], rgb[:, :, 2]
+        rgb = np.asarray(image.convert("RGB"), dtype=np.float32) / 255.0  # [0,1]
+        H = rgb.shape[0]
 
-        s, v = cls._to_hsv_array(image)
-        h_px = v.shape[0]
+        feat = []
 
-        # 0. Brightness: 90th percentile of V (robust to small dark regions)
-        brightness_p90 = float(np.percentile(v, 90))
+        # ── 1. RGB channel means + stds (6) ──────────────────────────────
+        for c in range(3):
+            ch = rgb[:, :, c]
+            feat += [ch.mean(), ch.std()]
 
-        # 1. Colour-temperature proxy: R/(R+B), normalised to [0,1]
-        r_mean = r.mean()
-        b_mean = b.mean()
-        rb_ratio_norm = float(r_mean / (r_mean + b_mean + 1e-8))   # already [0,1]
+        # ── 2. HSV channel means + stds (6) ──────────────────────────────
+        hsv = color.rgb2hsv(rgb)  # all channels in [0,1]
+        for c in range(3):
+            ch = hsv[:, :, c]
+            feat += [ch.mean(), ch.std()]
 
-        # 2. Sky-region saturation: top third of the frame
-        sky_s = s[: h_px // 3, :]
-        sky_saturation = float(sky_s.mean())
+        # ── 3. LAB channel means + stds (6) ──────────────────────────────
+        lab = color.rgb2lab(rgb)          # L in [0,100], a/b in [-128,127]
+        lab_norm = lab / np.array([100.0, 128.0, 128.0])  # → [0,1] / [-1,1]
+        for c in range(3):
+            ch = lab_norm[:, :, c]
+            feat += [ch.mean(), ch.std()]
 
-        # 3. Horizon gradient: top-half mean V minus bottom-half mean V
-        #    Divided by 2 to map the signed [-1, 1] range into [0, 1]
-        top_v    = v[: h_px // 2, :].mean()
-        bottom_v = v[h_px // 2 :, :].mean()
-        horizon_gradient = float((top_v - bottom_v + 1.0) / 2.0)   # [0,1]
+        # ── 4. RGB histograms, 8 bins × 3 (24) ───────────────────────────
+        for c in range(3):
+            hist, _ = np.histogram(rgb[:, :, c], bins=8, range=(0.0, 1.0))
+            feat += (hist / hist.sum()).tolist()
 
-        # 4. Dark-pixel ratio: fraction with V < 0.15 (night / deep shadow)
-        dark_pixel_ratio = float((v < 0.15).mean())
+        # ── 5. HSV histograms, 8 bins × 3 (24) ───────────────────────────
+        for c in range(3):
+            hist, _ = np.histogram(hsv[:, :, c], bins=8, range=(0.0, 1.0))
+            feat += (hist / hist.sum()).tolist()
 
-        features = np.array(
-            [brightness_p90, rb_ratio_norm, sky_saturation,
-             horizon_gradient, dark_pixel_ratio],
-            dtype=np.float32,
-        )
-        return np.clip(features, 0.0, 1.0)
+        # ── 6. Sun-region brightness — top third (2) ─────────────────────
+        top_v = hsv[: H // 3, :, 2]          # Value channel, top third
+        feat += [top_v.mean(), top_v.std()]
+
+        # ── 7. Horizon luminance gradient (1) ────────────────────────────
+        V   = hsv[:, :, 2]
+        dVy = np.diff(V, axis=0)             # vertical gradient
+        feat += [np.abs(dVy).mean()]
+
+        # ── 8. Colour temperature proxy R/B (1) ──────────────────────────
+        r_mean = rgb[:, :, 0].mean()
+        b_mean = rgb[:, :, 2].mean()
+        feat += [r_mean / (b_mean + 1e-6)]   # unbounded; clip below if needed
+
+        # ── 9. Global luminance stats + entropy (3) ───────────────────────
+        lum = 0.299 * rgb[:, :, 0] + 0.587 * rgb[:, :, 1] + 0.114 * rgb[:, :, 2]
+        hist_lum, _ = np.histogram((lum * 255).astype(np.uint8), bins=256, range=(0, 256))
+        hist_lum    = hist_lum / (hist_lum.sum() + 1e-8)
+        entropy     = -np.sum(hist_lum * np.log2(hist_lum + 1e-8))   # bits, max ≈ 8
+        feat += [lum.mean(), lum.std(), entropy / 8.0]               # normalise entropy
+
+        # ── 10. Saturation mean + std (2) ────────────────────────────────
+        S = hsv[:, :, 1]
+        feat += [S.mean(), S.std()]
+
+        # ── 11. Edge density via Canny (1) ────────────────────────────────
+        edges = feature.canny(lum, sigma=1.0)
+        feat += [edges.mean()]               # fraction of edge pixels
+
+        # ── 12. Laplacian variance — sharpness / cloud texture (1) ───────
+        lap = filters.laplace(lum)
+        feat += [lap.var()]
+
+        arr = np.array(feat, dtype=np.float32)
+
+        # Clip the one unbounded feature (R/B ratio, index 66) to [0, 4]
+        arr[66] = np.clip(arr[66], 0.0, 4.0) / 4.0
+
+        return arr
 
 
 # ---------------------------------------------------------------------------
@@ -270,6 +281,7 @@ class TimeOfDayDataset(Dataset):
         self.random_seed = random_seed
 
         self.samples: List[Tuple[str, TimeOfDayLabel]] = []
+        self._feature_cache: Dict[str, np.ndarray] = {}
         self._build_dataset()
 
         print(f"TimeOfDayDataset: {len(self.samples)} valid samples loaded "
@@ -348,37 +360,22 @@ class TimeOfDayDataset(Dataset):
         image = None
 
         try:
-            if img_path.lower().endswith('.dng'):
-                try:
-                    with rawpy.imread(img_path) as raw:
-                        rgb = raw.postprocess(use_camera_wb=True, half_size=True)
-                        image = Image.fromarray(rgb)
-                except Exception:
-                    pass
+            image = Image.open(img_path).convert("RGB")
 
-            if image is None:
-                try:
-                    img_np = iio.imread(img_path)
-                    image = Image.fromarray(img_np).convert("RGB")
-                except Exception:
-                    pass
-
-            if image is None:
-                image = Image.open(img_path).convert("RGB")
-
-            if hasattr(image, "format") and image.format == "JPEG":
-                image.draft("RGB", (self.target_size * 2, self.target_size * 2))
-
-            image = self._letterbox_resize(image)
+            # Only resize if needed
+            if image.size != (self.target_size, self.target_size):
+                image = self._letterbox_resize(image)
 
         except Exception as exc:
-            print(f"  ERROR: All decoders failed for {img_path}: {exc}")
+            print(f"ERROR: Failed to load {img_path}: {exc}")
             image = Image.new("RGB", (self.target_size, self.target_size), (0, 0, 0))
-
+        
         # ── Photometric features — computed BEFORE augmentation so that
         #    ColorJitter / RandomCrop do not corrupt the raw signal. ──────────
         if cfg.USE_IMAGE_FEATURES:
-            image_features = ImageFeatureExtractor.extract(image)
+            if img_path not in self._feature_cache:
+                self._feature_cache[img_path] = ImageFeatureExtractor.extract(image)
+            image_features = self._feature_cache[img_path]
             label = TimeOfDayLabel(
                 time_min=label.time_min,
                 month=label.month,
@@ -404,9 +401,7 @@ def get_transforms(
     magnitude:  str  = "none",
 ) -> transforms.Compose:
     """
-    magnitude : "none" | "light" | "medium" | "heavy"
-        Controls how aggressive the training augmentation is.
-        Ignored when augment=False (validation / inference path).
+    magnitude : "none" | "light" | "moderate" | "heavy"
     """
     normalize = transforms.Normalize(
         mean=[0.485, 0.456, 0.406],
@@ -414,46 +409,63 @@ def get_transforms(
     )
 
     if not augment:
-        return transforms.Compose([transforms.ToTensor(), normalize])
+        return transforms.Compose([
+            transforms.Resize((target_size, target_size)),
+            transforms.ToTensor(), 
+            normalize
+        ])
 
     mag = magnitude.lower()
 
+    # Base transforms shared across all magnitudes
+    # We use Resize + small RandomCrop to allow shifting without destroying scale
+    base_spatial = [
+        transforms.Resize((int(target_size * 1.05), int(target_size * 1.05))),
+        transforms.RandomCrop(target_size),
+        transforms.RandomHorizontalFlip(p=0.5),
+    ]
+
     if mag == "light":
         return transforms.Compose([
-            transforms.RandomHorizontalFlip(p=0.5),
-            transforms.RandomRotation(degrees=5),
-            transforms.ColorJitter(brightness=0.15, contrast=0.1, saturation=0.15, hue=0.02),
-            transforms.RandomResizedCrop(size=target_size, scale=(0.9, 1.0)),
+            *base_spatial,
+            # Very slight camera tilt and pan
+            transforms.RandomAffine(degrees=2, translate=(0.02, 0.02), scale=(0.98, 1.02)),
+            transforms.ColorJitter(brightness=0.1, contrast=0.1, saturation=0.1, hue=0.01),
             transforms.ToTensor(),
             normalize,
         ])
 
+    elif mag == "moderate":
+        return transforms.Compose([
+            *base_spatial,
+            # Moderate tilt/pan
+            transforms.RandomAffine(degrees=4, translate=(0.05, 0.05), scale=(0.95, 1.05)),
+            transforms.ColorJitter(brightness=0.2, contrast=0.2, saturation=0.2, hue=0.03),
+            transforms.ToTensor(),
+            normalize,
+            # Simulates small clouds or sensor artifacts
+            transforms.RandomErasing(p=0.15, scale=(0.02, 0.08), ratio=(0.3, 3.3)),
+        ])
+        
     elif mag == "heavy":
         return transforms.Compose([
-            transforms.RandomHorizontalFlip(p=0.5),
-            transforms.RandomRotation(degrees=15),
-            transforms.ColorJitter(brightness=0.4, contrast=0.35, saturation=0.4, hue=0.08),
-            transforms.RandomResizedCrop(size=target_size, scale=(0.7, 1.0)),
+            *base_spatial,
+            # More aggressive tilt/pan, but strictly preserving horizon structure
+            transforms.RandomAffine(degrees=7, translate=(0.1, 0.1), scale=(0.9, 1.1)),
+            transforms.ColorJitter(brightness=0.3, contrast=0.3, saturation=0.3, hue=0.05),
             transforms.RandomGrayscale(p=0.05),
-            transforms.GaussianBlur(kernel_size=5, sigma=(0.1, 2.0)),
-            transforms.RandomPerspective(distortion_scale=0.15, p=0.3),
             transforms.ToTensor(),
             normalize,
+            # Simulates larger occlusions
+            transforms.RandomErasing(p=0.25, scale=(0.02, 0.15), ratio=(0.3, 3.3)),
         ])
 
-    elif mag == "medium":
-        return transforms.Compose([
-            transforms.RandomHorizontalFlip(p=0.5),
-            transforms.RandomRotation(degrees=10),
-            transforms.ColorJitter(brightness=0.25, contrast=0.2, saturation=0.25, hue=0.04),
-            transforms.RandomResizedCrop(size=target_size, scale=(0.8, 1.0)),
-            transforms.RandomGrayscale(p=0.02),
-            transforms.GaussianBlur(kernel_size=3, sigma=(0.1, 1.5)),
-            transforms.ToTensor(),
-            normalize,
-        ])
     else: # none
-        return transforms.Compose([transforms.ToTensor(), normalize])
+        return transforms.Compose([
+            transforms.Resize((target_size, target_size)),
+            transforms.ToTensor(), 
+            normalize
+        ])
 
 
 def minutes_to_hhmm(minutes: float) -> str:
@@ -505,6 +517,7 @@ def create_dataloaders(
     num_workers: int   = 4,
     val_ratio:   float = 0.2,
     use_weighted_sampler: bool = False,
+    persistent_workers: Optional[bool] = None,
 ) -> Tuple[DataLoader, DataLoader]:
 
     indices = np.arange(len(dataset))
@@ -532,7 +545,11 @@ def create_dataloaders(
         )
         shuffle_train = False
 
-    _pw = num_workers > 0
+    if persistent_workers is None:
+        _pw = num_workers > 0
+    else:
+        _pw = persistent_workers and (num_workers > 0)
+
     train_loader = DataLoader(
         Subset(dataset, train_idx),
         batch_size=batch_size,

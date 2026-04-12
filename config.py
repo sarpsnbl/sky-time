@@ -57,26 +57,26 @@ class Config:
     #   "swin_t", "swin_s", "vit_b_16"
     MODEL        = "convnext_tiny"
     PRETRAINED   = True
-    FREEZE_UNTIL = "layer2"     # Freeze backbone up to this layer name (see main.py docstring)
-    HIDDEN_DIM   = 320          # Hidden layer width for the fusion MLP
-    DROPOUT      = 0.296        # Dropout probability in the fusion MLP
+    FREEZE_UNTIL = "features.4"     # Freeze backbone up to this layer name (see main.py docstring)
+    HIDDEN_DIM   = 384          # Hidden layer width for the fusion MLP
+    DROPOUT      = 0.167786        # Dropout probability in the fusion MLP
 
     # --- Training -------------------------------------------------------------
-    EPOCHS         = 50         # Number of training epochs
+    EPOCHS         = 80         # Number of training epochs
     WARMUP_EPOCHS  = 0          # Linear LR warmup epochs (0 = disabled; use 3–5 for Swin/ViT)
-    UNFREEZE_EPOCH = None       # Epoch to unfreeze full backbone (None = never)
-    BATCH_SIZE     = 24
-    LR             = 0.00406    # AdamW learning rate (best from HPO study)
-    ETA_MIN        = 5.2e-06    # Cosine scheduler minimum LR
-    WEIGHT_DECAY   = 1.58e-05   # AdamW weight decay
-    NUM_WORKERS    = 8
+    UNFREEZE_EPOCH = 30         # Epoch to unfreeze full backbone (None = never)
+    BATCH_SIZE     = 16
+    LR             = 0.001896    # AdamW learning rate
+    ETA_MIN        = 2.781919e-07    # Cosine scheduler minimum LR
+    WEIGHT_DECAY   = 0.000241   # AdamW weight decay
+    NUM_WORKERS    = 8         # DataLoader workers (adjust based on your CPU cores and memory)
     USE_AMP        = True       # Automatic mixed precision (CUDA only)
     WEIGHTED_SAMPLER = False    # Oversample underrepresented hours
 
     # --- Augmentation ---------------------------------------------------------
-    AUG_MAGNITUDE   = "light"   # "none" | "light" | "medium" | "heavy"
-    MIXUP_ALPHA     = 0.046     # Mixup alpha; 0.0 = disabled
-    LABEL_NOISE_STD = 0.043     # Gaussian noise std on (sin_t, cos_t) targets; 0 = off
+    AUG_MAGNITUDE   = "none"   # "none" | "light" | "medium" | "heavy"
+    MIXUP_ALPHA     = 0.184888     # Mixup alpha; 0.0 = disabled
+    LABEL_NOISE_STD = 0.042620     # Gaussian noise std on (sin_t, cos_t) targets; 0 = off
 
     # --- Test-Time Augmentation -----------------------------------------------
     TTA_ENABLED = True          # Average predictions over augmented copies at eval/inference
@@ -94,7 +94,7 @@ class Config:
     OPTUNA_MODELS = [
         "convnext",
         #"swin",
-        "efficientnet",
+        #"efficientnet",
     ]
 
     OPTUNA_N_TRIALS          = 20    # Trials per family study

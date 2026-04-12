@@ -763,6 +763,7 @@ def main() -> None:
     print(f"  Time-of-Day Estimation")
     print(f"  Device     : {device}")
     print(f"  Model      : {cfg.MODEL}")
+    print(f"  Image size  : {cfg.IMAGE_SIZE}")
     print(f"  Metadata   : {get_metadata_dim()}d  "
           f"(image features: {'on' if cfg.USE_IMAGE_FEATURES else 'off'})")
     print(f"  Augment    : {cfg.AUG_MAGNITUDE}")

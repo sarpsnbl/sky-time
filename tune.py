@@ -106,30 +106,23 @@ def get_search_space(trial: optuna.Trial, model_name: str) -> dict:
     """
     name = model_name.lower()
 
-    # ── Shared knobs (all architectures) ─────────────────────────────────
-    hidden_dim  = trial.suggest_categorical("hidden_dim",  [256, 320, 384])
-    eta_min     = trial.suggest_float("eta_min",    1e-6, 1e-4, log=True)
-    label_noise = trial.suggest_float("label_noise", 0.01, 0.05)
-
     # ── ConvNeXt (tiny / small / base) ───────────────────────────────────
     if name in ("convnext_tiny", "convnext_small", "convnext_base"):
         batch_size = 24 if name != "convnext_base" else trial.suggest_categorical(
             "batch_size", [16, 24]
         )
         return {
-            "lr":           trial.suggest_float("lr",           5e-4, 3e-3, log=True),
-            "weight_decay": trial.suggest_float("weight_decay", 1e-4, 1e-2, log=True), # ⬆ Increased by 1-2 magnitudes
-            "hidden_dim":   hidden_dim, 
-            "dropout":      trial.suggest_float("dropout",      0.3,  0.6),            # ⬆ Shifted up significantly
-            "freeze_until": trial.suggest_categorical("freeze_until", 
-                                ["layer2", "layer3", "layer4"]),                       # ⬆ Added layer4 option
-            "eta_min":      eta_min,
-            "mixup_alpha":  trial.suggest_float("mixup_alpha",  0.1,  0.4),            # ⬆ Raised the floor to force Mixup
-            "label_noise":  label_noise, 
-            "aug_magnitude":trial.suggest_categorical("aug_magnitude", 
-                                ["light", "medium", "heavy"]),                         # ⬆ Removed 'none', added 'heavy'
-            "warmup_epochs":0,
-            "batch_size":   batch_size,
+            "lr": trial.suggest_float("lr", 2e-3, 3.5e-3, log=True),
+            "weight_decay": trial.suggest_float("weight_decay", 2e-4, 5e-4, log=True),
+            "hidden_dim": 320,
+            "dropout": trial.suggest_float("dropout", 0.14, 0.18),
+            "freeze_until": "features.0",
+            "eta_min": trial.suggest_float("eta_min", 1e-7, 8e-7, log=True),
+            "aug_magnitude": "none",
+            "mixup_alpha": trial.suggest_float("mixup_alpha", 0.12, 0.20),
+            "label_noise": trial.suggest_float("label_noise", 0.03, 0.05),
+            "warmup_epochs": 0,
+            "batch_size": 24,
         }
 
     # ── EfficientNet (B3 / B4) ───────────────────────────────────────────
@@ -154,15 +147,15 @@ def get_search_space(trial: optuna.Trial, model_name: str) -> dict:
         return {
             "lr":           trial.suggest_float("lr",           5e-4, 3e-3, log=True),
             "weight_decay": trial.suggest_float("weight_decay", 1e-4, 5e-3, log=True),
-            "hidden_dim":   trial.suggest_categorical("hidden_dim", [320, 384, 512]),
+            "hidden_dim":   trial.suggest_categorical("hidden_dim_swin", [320, 384, 512]),
             "dropout":      trial.suggest_float("dropout",      0.1,  0.3),
             # Swin stage names inside backbone.features: 0=patch_embed, 2=stage1,
             # 4=stage2, 6=stage3  (odd indices are PatchMerging layers)
             "freeze_until": trial.suggest_categorical("freeze_until",
                                 ["0.", "2.", "4."]),
-            "eta_min":      eta_min,
+            "eta_min":      trial.suggest_float("eta_min",      1e-6, 1e-5, log=True),
             "mixup_alpha":  trial.suggest_float("mixup_alpha",  0.0,  0.3),
-            "label_noise":  label_noise,
+            "label_noise":  trial.suggest_float("label_noise",  0.01, 0.05),
             "aug_magnitude":trial.suggest_categorical("aug_magnitude", ["light", "medium"]),
             "warmup_epochs":trial.suggest_categorical("warmup_epochs", [0, 3, 5]),
             "batch_size":   24,
@@ -177,7 +170,7 @@ def get_search_space(trial: optuna.Trial, model_name: str) -> dict:
         return {
             "lr":           trial.suggest_float("lr",           1e-4, 1e-3, log=True),
             "weight_decay": trial.suggest_float("weight_decay", 1e-4, 1e-2, log=True),
-            "hidden_dim":   trial.suggest_categorical("hidden_dim", [384, 512]),
+            "hidden_dim":   trial.suggest_categorical("hidden_dim_vit", [384, 512]),
             "dropout":      trial.suggest_float("dropout",      0.1,  0.4),
             "freeze_until": trial.suggest_categorical("freeze_until",
                                 ["encoder_layer_6", "encoder_layer_9"]),
@@ -212,6 +205,10 @@ def get_search_space(trial: optuna.Trial, model_name: str) -> dict:
 # Objective
 # ---------------------------------------------------------------------------
 
+# ---------------------------------------------------------------------------
+# Objective
+# ---------------------------------------------------------------------------
+
 def objective(
     trial:      optuna.Trial,
     device:     torch.device,
@@ -232,7 +229,7 @@ def objective(
     params = get_search_space(trial, model_name)
 
     n_cv_folds = cfg.OPTUNA_CV_FOLDS
-    fold_maes  = []
+    fold_results = []
 
     for fold_idx in range(n_cv_folds):
         train_tf = get_transforms(augment=True, magnitude=params["aug_magnitude"])
@@ -246,6 +243,7 @@ def objective(
             num_workers=cfg.NUM_WORKERS,
             val_ratio=cfg.VAL_RATIO,
             use_weighted_sampler=cfg.WEIGHTED_SAMPLER,
+            persistent_workers=True,
         )
 
         try:
@@ -278,22 +276,29 @@ def objective(
             if (cfg.USE_AMP and device.type == "cuda") else None
         )
 
-        best_fold_mae = float("inf")
+        # Track the best metrics for this specific fold
+        best_fold_val_mae = float("inf")
+        best_fold_train_mae = float("inf")
+        best_fold_epoch = -1
 
         for epoch in range(cfg.OPTUNA_EPOCHS):
-            train_one_epoch(
+            # Capture train_mae from the training loop
+            _, train_mae = train_one_epoch(
                 model, train_loader, optimizer, criterion, device, scaler,
                 mixup_alpha=params["mixup_alpha"],
                 label_noise=params["label_noise"],
             )
             _, val_mae = evaluate(
                 model, val_loader, criterion, device,
-                use_tta=cfg.TTA_ENABLED, tta_passes=cfg.TTA_FLIPS,
+                use_tta=False, tta_passes=1,
             )
             scheduler.step()
 
-            if val_mae < best_fold_mae:
-                best_fold_mae = val_mae
+            # Update best metrics if validation improves
+            if val_mae < best_fold_val_mae:
+                best_fold_val_mae = val_mae
+                best_fold_train_mae = train_mae
+                best_fold_epoch = epoch + 1
 
             step = fold_idx * cfg.OPTUNA_EPOCHS + epoch
             trial.report(val_mae, step)
@@ -303,13 +308,25 @@ def objective(
                 torch.cuda.empty_cache()
                 raise optuna.exceptions.TrialPruned()
 
-        fold_maes.append(best_fold_mae)
+        # Save the detailed results for this fold
+        fold_results.append({
+            "val_mae": best_fold_val_mae,
+            "train_mae": best_fold_train_mae,
+            "epoch": best_fold_epoch
+        })
+        
         del model, optimizer, train_loader, val_loader
         gc.collect()
         torch.cuda.empty_cache()
 
-    mean_mae = float(np.mean(fold_maes))
-    print(f"  Trial {trial.number} [{model_name}]: folds={[round(float(m),2) for m in fold_maes]}  mean={mean_mae:.2f}")
+    mean_mae = float(np.mean([res["val_mae"] for res in fold_results]))
+    
+    # Print out the detailed summary for the trial
+    print(f"\n  Trial {trial.number} [{model_name}] Completed:")
+    for i, res in enumerate(fold_results):
+        print(f"    Fold {i} | Best Epoch: {res['epoch']:>2} | Train MAE: {res['train_mae']:.2f} | Val MAE: {res['val_mae']:.2f}")
+    print(f"  → Trial Mean Val MAE: {mean_mae:.2f}\n")
+    
     return mean_mae
 
 
@@ -402,6 +419,7 @@ def _save_best_checkpoint(params: dict, device: torch.device, family: str = "") 
         num_workers=cfg.NUM_WORKERS,
         val_ratio=cfg.VAL_RATIO,
         use_weighted_sampler=cfg.WEIGHTED_SAMPLER,
+        persistent_workers=True,
     )
 
     model = TimeOfDayModel(
