@@ -1,129 +1,178 @@
-function ds = buildDatastore(imgPaths, dateFeat, timeLabels, cfg, augment)
-% BUILDDATASTORE  Create a combined datastore for multi-input trainNetwork.
+function ds = buildDatastore(imgPaths, dateFeat, labels, cfg, isTraining)
+% BUILDDATASTORE  Build a combined datastore for multi-input CNN training.
 %
-%   The combined datastore returns one observation at a time as:
-%       {image [H×W×3 uint8], dateFeat [1×4 single], timeLabel [1×1 single]}
+%   For the training set (isTraining=true) a data-augmentation pipeline is
+%   applied that matches the Python transforms:
+%     • Random horizontal flip          (p = 0.5)
+%     • Random rotation                 (±5°)
+%     • Colour jitter                   (brightness 0.25, contrast 0.2,
+%                                        saturation 0.25, hue 0.04)
+%     • Random resized crop             (scale 0.85–1.0)
+%     • ImageNet mean/std normalisation
 %
-%   Input layer order in the network (alphabetical by layer Name):
-%       'data'      ← image  (SqueezeNet default name)
-%       'data_date' ← date features
-%   So combine() order must be:  imds, featureDS, labelDS
+%   For the validation set only resize + normalise are applied.
 %
 %   Inputs
-%     imgPaths   – Nx1 cell of file paths
-%     dateFeat   – N×4 date feature matrix
-%     timeLabels – Nx1 time in fractional hours
-%     cfg        – configuration struct
-%     augment    – logical; if true, apply data augmentation
+%     imgPaths   – cell array of image file paths
+%     dateFeat   – M×D numeric array of date/metadata features
+%     labels     – M×2 numeric array of [sin(t), cos(t)] targets
+%     cfg        – configuration struct (needs cfg.inputSize)
+%     isTraining – logical flag
+%
+%   Output
+%     ds – combined datastore ready for trainNetwork
 
-    % Capture the main thread's Python path (background workers often lose this)
-    try
-        pyPathList = cellfun(@char, cell(py.sys.path), 'UniformOutput', false);
-    catch
-        pyPathList = {};
-    end
+    targetHW = cfg.inputSize(1:2);   % [H W]
+    N        = numel(imgPaths);
 
-    % ── Image datastore ───────────────────────────────────────────────
-    imds = imageDatastore(imgPaths, ...
-        'ReadFcn', @(p) readAndPreprocess(p, cfg.inputSize, augment, pyPathList));
+    % ── Index-based datastore ───────────────────────────────────────────
+    % Using a single arrayDatastore over row indices is the most reliable
+    % way to feed multi-input networks in MATLAB.  The transform reads the
+    % image AND assembles the feature/label cells in one step, so
+    % trainNetwork always receives exactly one {img, feat, label} triple
+    % per sample — no ambiguity about "observations per row".
+    idxDS = arrayDatastore((1:N)', 'IterationDimension', 1);
 
-    % ── Feature datastore (date) ──────────────────────────────────────
-    % ── Feature datastore (date) ──────────────────────────────────────
-    % Transpose the Nx4 matrix to 4xN and iterate along columns (Dim 2)
-    % so it outputs 4x1 column vectors instead of 1x4 row vectors.
-    featDS = arrayDatastore(single(dateFeat)', 'IterationDimension', 2, ...
-                            'OutputType','cell');
-
-    % ── Label datastore ───────────────────────────────────────────────
-    labelDS = arrayDatastore(single(timeLabels), 'IterationDimension', 1, ...
-                             'OutputType','cell');
-
-    % ── Combine: order must match alphabetical input-layer names ──────
-    ds = combine(imds, featDS, labelDS);
+    ds = transform(idxDS, ...
+        @(idx) readOneSample(idx, imgPaths, dateFeat, labels, targetHW, isTraining));
 end
 
-% ─────────────────────────────────────────────────────────────────────────
-function img = readAndPreprocess(fpath, inputSize, augment, pyPathList)
-% READANDPREPROCESS  Load an image, convert to float [0,1], optionally augment.
+function out = readOneSample(idxCell, imgPaths, dateFeat, labels, targetHW, isTraining)
+% Called by the transform for every sample.  Returns a 1×3 cell:
+%   {H×W×3 single image,  D×1 single feat col,  1×2 single label row}
+%
+%   IMPORTANT: featureInputLayer expects features as a column vector (D×1).
+%   Returning a row (1×D) causes trainNetwork to see N columns as N separate
+%   observations when it stacks the mini-batch — hence the error.
 
-    if nargin < 4
-        pyPathList = {};
-    end
-
-    fpath = char(fpath);
-
-    % Bypass imread entirely for HEIC to prevent missing-addon crashes
-    [~, ~, ext] = fileparts(fpath);
-    if strcmpi(ext, '.heic') || strcmpi(ext, '.heif')
-        try
-            % Inject the main thread's Python path into this worker's environment
-            if ~isempty(pyPathList)
-                sys = py.importlib.import_module('sys');
-                currPaths = cellfun(@char, cell(sys.path), 'UniformOutput', false);
-                for k = 1:numel(pyPathList)
-                    if ~any(strcmp(currPaths, pyPathList{k}))
-                        sys.path.append(pyPathList{k});
-                    end
-                end
-            end
-
-            py.pillow_heif.register_heif_opener();
-            img_py = py.PIL.Image.open(fpath).convert('RGB');
-            w = double(img_py.width);
-            h = double(img_py.height);
-            % Convert Python bytes -> py.array -> MATLAB uint8
-            b = py.array.array('B', img_py.tobytes());
-            raw = permute(reshape(uint8(b), [3, w, h]), [3, 2, 1]);
-        catch pyErr
-            error('Python failed to load HEIC "%s". Details: %s', fpath, pyErr.message);
-        end
+    % arrayDatastore may wrap the value in a cell or pass it directly
+    if iscell(idxCell)
+        i = idxCell{1};
     else
-        raw = imread(fpath);
+        i = idxCell;
+    end
+    i = i(1);   % guarantee scalar
+
+    % ── Load image ──────────────────────────────────────────────────────
+    img = loadAndResize(imgPaths{i}, targetHW);
+
+    % ── Augment / normalise ─────────────────────────────────────────────
+    if isTraining
+        img = augmentImage(img, targetHW);
+    else
+        img = imnormalize(img);
     end
 
-    % Normalise non-uint8 formats (DNG / RAW)
-    if isa(raw,'uint16')
-        raw = uint8(double(raw)/65535*255);
-    elseif isa(raw,'single') || isa(raw,'double')
-        raw = uint8(raw * (max(raw(:)) <= 1) * 255 + ...
-                    raw * (max(raw(:))  > 1));
+    % ── Features: D×1 column vector ─────────────────────────────────────
+    feat = single(dateFeat(i, :)');   % transpose → D×1
+
+    % ── Label: 1×2 row ──────────────────────────────────────────────────
+    lbl  = single(labels(i, :));      % 1×2  [sin(t), cos(t)]
+
+    out = {img, feat, lbl};
+end
+
+
+% ── Private helpers ────────────────────────────────────────────────────────
+
+function img = loadAndResize(path, targetHW)
+% Read any supported format and resize to target dimensions.
+    try
+        img = imread(path);
+    catch
+        img = zeros(targetHW(1), targetHW(2), 3, 'uint8');
+    end
+    if size(img, 3) == 1
+        img = repmat(img, 1, 1, 3);      % greyscale → RGB
+    elseif size(img, 3) == 4
+        img = img(:,:,1:3);              % drop alpha
+    end
+    img = imresize(img, targetHW);
+    img = im2single(img);                % [0,1] float32
+end
+
+function img = augmentImage(img, targetHW)
+% Full augmentation pipeline for training images.
+
+    % 1. Random horizontal flip
+    if rand() > 0.5
+        img = fliplr(img);
     end
 
-    % Force RGB
-    if size(raw,3) == 1
-        raw = repmat(raw,[1 1 3]);
-    elseif size(raw,3) == 4
-        raw = raw(:,:,1:3);
-    end
+    % 2. Random rotation ±5°
+    angle = (rand() * 10) - 5;
+    img   = imrotate(img, angle, 'bilinear', 'crop');
 
-    % Resize
-    img = imresize(raw, inputSize(1:2));
+    % 3. Colour jitter (brightness, contrast, saturation, hue)
+    img = colorJitter(img, 0.25, 0.2, 0.25, 0.04);
 
-    % ── Augmentation (training only) ──────────────────────────────────
-    if augment
-        % Random horizontal flip
-        if rand > 0.5
-            img = fliplr(img);
+    % 4. Random resized crop (scale 0.85–1.0)
+    img = randomResizedCrop(img, targetHW, 0.85, 1.0);
+
+    % 5. ImageNet normalisation
+    img = imnormalize(img);
+end
+
+function img = valTransform(img)
+% Validation: only normalise (resize already done in loadAndResize).
+    img = imnormalize(img);
+end
+
+function img = imnormalize(img)
+% Subtract ImageNet mean and divide by std (channel-wise).
+    mean_rgb = reshape([0.485, 0.456, 0.406], 1, 1, 3);
+    std_rgb  = reshape([0.229, 0.224, 0.225], 1, 1, 3);
+    img = (img - mean_rgb) ./ std_rgb;
+end
+
+function img = colorJitter(img, brightness, contrast, saturation, hue)
+% Apply random colour jitter similar to torchvision ColorJitter.
+%   All factors are applied in a random order with random magnitudes.
+
+    ops = randperm(4);
+    for k = 1:4
+        switch ops(k)
+            case 1  % Brightness
+                f   = 1 + (rand() * 2 - 1) * brightness;
+                img = img * f;
+            case 2  % Contrast
+                f   = 1 + (rand() * 2 - 1) * contrast;
+                mu  = mean(img(:));
+                img = (img - mu) * f + mu;
+            case 3  % Saturation
+                hsv = rgb2hsv(img);
+                f   = 1 + (rand() * 2 - 1) * saturation;
+                hsv(:,:,2) = hsv(:,:,2) * f;
+                img = hsv2rgb(hsv);
+            case 4  % Hue shift
+                hsv = rgb2hsv(img);
+                delta = (rand() * 2 - 1) * hue;
+                hsv(:,:,1) = mod(hsv(:,:,1) + delta, 1);
+                img = hsv2rgb(hsv);
         end
-        
-        % Random rotation [-10, 10] degrees
-        if rand > 0.5
-            angle = (rand * 20) - 10;
-            img = imrotate(img, angle, 'bilinear', 'crop');
-        end
-        
-        % Random brightness jitter ±10 %
-        jitter = 1 + (rand*0.2 - 0.1);
-        img    = uint8(min(255, double(img)*jitter));
-        % Random colour temperature shift (slight R↔B balance change)
-        rShift = 1 + (rand*0.1 - 0.05);
-        bShift = 1 + (rand*0.1 - 0.05);
-        imgD   = double(img);
-        imgD(:,:,1) = min(255, imgD(:,:,1)*rShift);
-        imgD(:,:,3) = min(255, imgD(:,:,3)*bShift);
-        img = uint8(imgD);
     end
+    img = single(max(0, min(1, img)));   % clamp to [0, 1]
+end
 
-    % Convert to single [0,1] – required by regressionLayer
-    img = single(img) / 255;
+function img = randomResizedCrop(img, targetHW, scaleMin, scaleMax)
+% Crop a random sub-rectangle (area fraction in [scaleMin, scaleMax])
+% then resize to targetHW. Mirrors torchvision RandomResizedCrop.
+
+    [H, W, ~] = size(img);
+    totalArea  = H * W;
+    scale      = scaleMin + rand() * (scaleMax - scaleMin);
+    cropArea   = totalArea * scale;
+
+    % Keep aspect ratio within [3/4, 4/3]
+    ratio      = 0.75 + rand() * (4/3 - 0.75);
+    cropW      = min(W, round(sqrt(cropArea * ratio)));
+    cropH      = min(H, round(sqrt(cropArea / ratio)));
+    cropW      = max(1, cropW);
+    cropH      = max(1, cropH);
+
+    x0 = randi(max(1, W - cropW + 1));
+    y0 = randi(max(1, H - cropH + 1));
+
+    img = img(y0:y0+cropH-1, x0:x0+cropW-1, :);
+    img = imresize(img, targetHW);
 end
