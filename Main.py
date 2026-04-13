@@ -29,6 +29,7 @@ Adjust settings in config.py, then:
 """
 
 import json as _json
+import logging
 import os
 import time
 from typing import List, Optional, Tuple
@@ -39,6 +40,7 @@ import torch.nn as nn
 from torch.optim import AdamW
 from torch.optim.lr_scheduler import CosineAnnealingLR
 from torch.utils.data import DataLoader
+from tqdm import tqdm
 
 from config import Config as cfg
 from TimeOfDayDataLoader import (
@@ -61,6 +63,42 @@ try:
     _TORCHVISION_AVAILABLE = True
 except ImportError:
     _TORCHVISION_AVAILABLE = False
+
+
+# ---------------------------------------------------------------------------
+# Logging setup
+# ---------------------------------------------------------------------------
+
+def setup_logging(log_dir: str) -> logging.Logger:
+    os.makedirs(log_dir, exist_ok=True)
+    logger = logging.getLogger("tod")
+    logger.setLevel(logging.DEBUG)
+    logger.handlers.clear()
+
+    fmt = logging.Formatter(
+        fmt="%(asctime)s  %(levelname)-5s  %(message)s",
+        datefmt="%H:%M:%S",
+    )
+
+    # Console — INFO and above
+    ch = logging.StreamHandler()
+    ch.setLevel(logging.INFO)
+    ch.setFormatter(fmt)
+    logger.addHandler(ch)
+
+    # File — DEBUG and above (full detail)
+    fh = logging.FileHandler(os.path.join(log_dir, "train.log"), mode="a")
+    fh.setLevel(logging.DEBUG)
+    fh.setFormatter(logging.Formatter(
+        fmt="%(asctime)s  %(levelname)-5s  %(message)s",
+        datefmt="%Y-%m-%d %H:%M:%S",
+    ))
+    logger.addHandler(fh)
+
+    return logger
+
+
+log = logging.getLogger("tod")
 
 
 # ---------------------------------------------------------------------------
@@ -98,7 +136,7 @@ class MetadataFusionMLP(nn.Module):
             nn.BatchNorm1d(hidden_dim // 2),
             nn.GELU(),
             nn.Dropout(dropout),
-            nn.Linear(hidden_dim // 2, 2),   # → (sin_t, cos_t)
+            nn.Linear(hidden_dim // 2, 2),   # -> (sin_t, cos_t)
         )
 
     def forward(self, image_feats: torch.Tensor, metadata: torch.Tensor) -> torch.Tensor:
@@ -113,7 +151,7 @@ class TimeOfDayModel(nn.Module):
     call unfreeze_all() at UNFREEZE_EPOCH to open the whole network.
 
     Encoder: Sequential(*backbone.children()[:-1])
-    Forward:  encoder(x).flatten(1) → (B, 768)
+    Forward:  encoder(x).flatten(1) -> (B, 768)
     """
 
     _FEAT_DIM = 768   # both convnext_tiny and convnext_small output 768-d
@@ -241,6 +279,7 @@ def train_one_epoch(
     scaler:      Optional[torch.cuda.amp.GradScaler] = None,
     mixup_alpha: float = 0.0,
     label_noise: float = 0.0,
+    pbar:        Optional[tqdm] = None,
 ) -> Tuple[float, float]:
     model.train()
     total_loss = total_mae = 0.0
@@ -271,8 +310,14 @@ def train_one_epoch(
             torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=1.0)
             optimizer.step()
 
-        total_loss += loss.item()
-        total_mae  += cyclic_mae_minutes(preds.detach().cpu(), targets.detach().cpu())
+        batch_loss = loss.item()
+        batch_mae  = cyclic_mae_minutes(preds.detach().cpu(), targets.detach().cpu()).item()
+        total_loss += batch_loss
+        total_mae  += batch_mae
+
+        if pbar is not None:
+            pbar.set_postfix(loss=f"{batch_loss:.4f}", mae=f"{batch_mae:.1f}m", refresh=False)
+            pbar.update(1)
 
     n = len(loader)
     return total_loss / n, total_mae / n
@@ -286,6 +331,7 @@ def evaluate(
     device:     torch.device,
     use_tta:    bool = False,
     tta_passes: int  = 4,
+    pbar:       Optional[tqdm] = None,
 ) -> Tuple[float, float]:
     model.eval()
     total_loss = total_mae = 0.0
@@ -301,7 +347,10 @@ def evaluate(
             model(images, metadata)
         )
         total_loss += criterion(preds, targets).item()
-        total_mae  += cyclic_mae_minutes(preds.cpu(), targets.cpu())
+        total_mae  += cyclic_mae_minutes(preds.cpu(), targets.cpu()).item()
+
+        if pbar is not None:
+            pbar.update(1)
 
     n = len(loader)
     return total_loss / n, total_mae / n
@@ -342,7 +391,7 @@ def evaluate_with_log(
             model(images, metadata)
         )
         total_loss += criterion(preds, targets).item()
-        total_mae  += cyclic_mae_minutes(preds.cpu(), targets.cpu())
+        total_mae  += cyclic_mae_minutes(preds.cpu(), targets.cpu()).item()
 
         all_preds.extend(decode_time_tensor(preds.cpu()).tolist())
         all_actuals.extend(decode_time_tensor(targets.cpu()).tolist())
@@ -453,7 +502,7 @@ def save_checkpoint(model, optimizer, scheduler, epoch, val_mae, path):
         "optimizer": optimizer.state_dict(),
         "scheduler": scheduler.state_dict(),
     }, path)
-    print(f"  ✓ checkpoint saved → {path}")
+    log.info(f"Checkpoint saved -> {path}")
 
 
 def load_checkpoint(path, model, optimizer=None, scheduler=None,
@@ -464,13 +513,13 @@ def load_checkpoint(path, model, optimizer=None, scheduler=None,
         optimizer.load_state_dict(ckpt["optimizer"])
     if scheduler and "scheduler" in ckpt:
         scheduler.load_state_dict(ckpt["scheduler"])
-    print(f"Loaded checkpoint '{path}'  (epoch {ckpt['epoch']}, "
-          f"val MAE {ckpt['val_mae']:.2f} min)")
+    log.info(f"Loaded checkpoint '{path}'  (epoch {ckpt['epoch']}, "
+             f"val MAE {ckpt['val_mae']:.2f} min)")
     return ckpt["epoch"]
 
 
 # ---------------------------------------------------------------------------
-# Training log helpers
+# Training log helpers  (JSONL — unchanged)
 # ---------------------------------------------------------------------------
 
 def _log_epoch(
@@ -511,13 +560,13 @@ def _log_images(
 # ---------------------------------------------------------------------------
 
 def train_fold(fold: int, device: torch.device) -> float:
-    log_path = os.path.join(cfg.OUTPUT_DIR, "train_log.jsonl")
+    jsonl_path = os.path.join(cfg.OUTPUT_DIR, "train_log.jsonl")
 
     train_dataset = TimeOfDayDataset(
         image_dir=cfg.IMAGE_DIR,
         transform=get_transforms(augment=True, magnitude=cfg.AUG_MAGNITUDE),
     )
-    val_dataset   = TimeOfDayDataset(
+    val_dataset = TimeOfDayDataset(
         image_dir=cfg.IMAGE_DIR,
         transform=get_transforms(augment=False),
     )
@@ -539,7 +588,7 @@ def train_fold(fold: int, device: torch.device) -> float:
         hidden_dim=cfg.HIDDEN_DIM,
         dropout=cfg.DROPOUT,
     ).to(device)
-    print(f"\n  Trainable parameters (fold {fold}): {model.count_trainable_params():,}")
+    log.info(f"Fold {fold} | trainable params: {model.count_trainable_params():,}")
 
     criterion = CyclicMSELoss()
     optimizer = AdamW(
@@ -559,9 +608,9 @@ def train_fold(fold: int, device: torch.device) -> float:
     best_val_mae = float("inf")
     best_ckpt    = os.path.join(cfg.OUTPUT_DIR, f"best_fold{fold}.pt")
 
-    print(f"\n{'Epoch':>6}  {'Train Loss':>10}  {'Train MAE':>10}  "
-          f"{'Val Loss':>10}  {'Val MAE':>10}  {'LR':>10}  {'Time':>7}")
-    print("-" * 72)
+    n_train_batches = len(train_loader)
+    n_val_batches   = len(val_loader)
+    total_batches   = n_train_batches + n_val_batches
 
     for epoch in range(start_epoch, cfg.EPOCHS):
         t0 = time.time()
@@ -574,46 +623,64 @@ def train_fold(fold: int, device: torch.device) -> float:
             scheduler = get_scheduler(
                 optimizer, epochs=cfg.EPOCHS - epoch, eta_min=cfg.ETA_MIN,
             )
-            print(f"  ↑ Backbone unfrozen at epoch {epoch + 1} (LR×0.1)")
+            log.info(f"Backbone unfrozen at epoch {epoch + 1} (LR x 0.1)")
 
-        train_loss, train_mae = train_one_epoch(
-            model, train_loader, optimizer, criterion, device, scaler,
-            mixup_alpha=cfg.MIXUP_ALPHA,
-            label_noise=cfg.LABEL_NOISE_STD,
-        )
-        val_loss, val_mae = evaluate(
-            model, val_loader, criterion, device,
-            use_tta=cfg.TTA_ENABLED, tta_passes=cfg.TTA_FLIPS,
-        )
+        desc = f"Fold {fold}  Ep {epoch+1:>3}/{cfg.EPOCHS}"
+        with tqdm(
+            total=total_batches,
+            desc=desc,
+            unit="batch",
+            leave=False,
+            dynamic_ncols=True,
+            colour="cyan",
+        ) as pbar:
+            pbar.set_description(f"{desc} [train]")
+            train_loss, train_mae = train_one_epoch(
+                model, train_loader, optimizer, criterion, device, scaler,
+                mixup_alpha=cfg.MIXUP_ALPHA,
+                label_noise=cfg.LABEL_NOISE_STD,
+                pbar=pbar,
+            )
+            pbar.set_description(f"{desc} [val]  ")
+            val_loss, val_mae = evaluate(
+                model, val_loader, criterion, device,
+                use_tta=cfg.TTA_ENABLED, tta_passes=cfg.TTA_FLIPS,
+                pbar=pbar,
+            )
+
         scheduler.step()
 
         elapsed = time.time() - t0
         lr_now  = scheduler.get_last_lr()[0]
+        is_best = val_mae < best_val_mae
 
-        print(f"{epoch+1:>6}  {train_loss:>10.6f}  {train_mae:>9.2f}m  "
-              f"{val_loss:>10.6f}  {val_mae:>9.2f}m  {lr_now:>10.2e}  "
-              f"{elapsed:>6.1f}s")
+        log.info(
+            f"Fold {fold}  Ep {epoch+1:>3}/{cfg.EPOCHS}  "
+            f"loss {train_loss:.5f}/{val_loss:.5f}  "
+            f"MAE {train_mae:6.1f}/{val_mae:6.1f}m  "
+            f"lr {lr_now:.2e}  {elapsed:.1f}s"
+            + ("  * best" if is_best else "")
+        )
 
-        _log_epoch(log_path, fold, epoch + 1, train_loss, train_mae, val_loss, val_mae)
+        _log_epoch(jsonl_path, fold, epoch + 1, train_loss, train_mae, val_loss, val_mae)
 
-        if val_mae < best_val_mae:
+        if is_best:
             best_val_mae = val_mae
             save_checkpoint(model, optimizer, scheduler, epoch + 1, val_mae, best_ckpt)
-            print(f"  ★ New best val MAE: {best_val_mae:.2f} min "
-                  f"({minutes_to_hhmm(best_val_mae)} error)")
 
     load_checkpoint(best_ckpt, model, device=device)
     _, _, img_paths, pred_mins, actual_mins = evaluate_with_log(
         model, val_loader, criterion, device,
         use_tta=cfg.TTA_ENABLED, tta_passes=cfg.TTA_FLIPS,
     )
-    _log_images(log_path, img_paths, pred_mins, actual_mins)
-    print(f"  Per-image diagnostics logged → {log_path}")
+    _log_images(jsonl_path, img_paths, pred_mins, actual_mins)
+    log.info(f"Per-image diagnostics logged -> {jsonl_path}")
 
     save_checkpoint(model, optimizer, scheduler, cfg.EPOCHS, val_mae,
                     os.path.join(cfg.OUTPUT_DIR, f"last_fold{fold}.pt"))
 
-    print(f"\n  [Fold {fold}] Best val MAE : {best_val_mae:.2f} min")
+    log.info(f"Fold {fold} complete -- best val MAE: {best_val_mae:.2f} min "
+             f"({minutes_to_hhmm(best_val_mae)} error)")
     return best_val_mae
 
 
@@ -622,6 +689,8 @@ def train_fold(fold: int, device: torch.device) -> float:
 # ---------------------------------------------------------------------------
 
 def main() -> None:
+    setup_logging(cfg.OUTPUT_DIR)
+
     torch.manual_seed(cfg.SEED)
     if torch.cuda.is_available():
         torch.cuda.manual_seed_all(cfg.SEED)
@@ -632,20 +701,20 @@ def main() -> None:
         "cpu"
     )
 
-    print(f"\n{'='*60}")
-    print(f"  Time-of-Day Estimation  —  ConvNeXt")
-    print(f"  Device     : {device}")
-    print(f"  Model      : {cfg.MODEL}")
-    print(f"  Image size : {cfg.IMAGE_SIZE}")
-    print(f"  Metadata   : {get_metadata_dim()}d  "
-          f"(image features: {'on' if cfg.USE_IMAGE_FEATURES else 'off'})")
-    print(f"  Augment    : {cfg.AUG_MAGNITUDE}")
-    print(f"  Mixup α    : {cfg.MIXUP_ALPHA}")
-    print(f"  Label noise: {cfg.LABEL_NOISE_STD}")
-    print(f"  TTA        : {'on' if cfg.TTA_ENABLED else 'off'}  "
-          f"(passes={cfg.TTA_FLIPS})")
-    print(f"  All folds  : {cfg.TRAIN_ALL_FOLDS}")
-    print(f"{'='*60}\n")
+    log.info("=" * 60)
+    log.info("Time-of-Day Estimation  --  ConvNeXt")
+    log.info(f"Device      : {device}")
+    log.info(f"Model       : {cfg.MODEL}")
+    log.info(f"Image size  : {cfg.IMAGE_SIZE}")
+    log.info(f"Metadata    : {get_metadata_dim()}d  "
+             f"(image features: {'on' if cfg.USE_IMAGE_FEATURES else 'off'})")
+    log.info(f"Augment     : {cfg.AUG_MAGNITUDE}")
+    log.info(f"Mixup a     : {cfg.MIXUP_ALPHA}")
+    log.info(f"Label noise : {cfg.LABEL_NOISE_STD}")
+    log.info(f"TTA         : {'on' if cfg.TTA_ENABLED else 'off'}  "
+             f"(passes={cfg.TTA_FLIPS})")
+    log.info(f"All folds   : {cfg.TRAIN_ALL_FOLDS}")
+    log.info("=" * 60)
 
     os.makedirs(cfg.OUTPUT_DIR, exist_ok=True)
 
@@ -655,7 +724,7 @@ def main() -> None:
             image_dir=cfg.IMAGE_DIR, transform=get_transforms(augment=False)
         )
         _, val_loader = create_dataloaders(
-            dataset, fold=cfg.FOLD, n_splits=cfg.N_SPLITS,
+            dataset, dataset, fold=cfg.FOLD, n_splits=cfg.N_SPLITS,
             batch_size=cfg.BATCH_SIZE, num_workers=cfg.NUM_WORKERS,
         )
         model = TimeOfDayModel(
@@ -668,22 +737,23 @@ def main() -> None:
             model, val_loader, criterion, device,
             use_tta=cfg.TTA_ENABLED, tta_passes=cfg.TTA_FLIPS,
         )
-        print(f"\nEval — loss: {val_loss:.6f}  |  MAE: {val_mae:.2f} min ({val_mae/60:.2f} h)")
+        log.info(f"Eval -- loss: {val_loss:.6f}  |  MAE: {val_mae:.2f} min ({val_mae/60:.2f} h)")
         return
 
     if cfg.TRAIN_ALL_FOLDS:
         fold_maes = []
         for fold in range(cfg.N_SPLITS):
-            print(f"\n{'='*60}  FOLD {fold + 1} / {cfg.N_SPLITS}  {'='*60}")
+            log.info(f"{'='*20}  FOLD {fold + 1}/{cfg.N_SPLITS}  {'='*20}")
             fold_maes.append(train_fold(fold, device))
-        print(f"\n{'='*60}")
-        print(f"  Cross-validation results")
+
+        log.info("=" * 60)
+        log.info("Cross-validation results")
         for i, m in enumerate(fold_maes):
-            print(f"    Fold {i}: {m:.2f} min")
-        print(f"  Mean MAE : {sum(fold_maes)/len(fold_maes):.2f} min")
-        print(f"{'='*60}\n")
+            log.info(f"  Fold {i}: {m:.2f} min")
+        log.info(f"  Mean MAE: {sum(fold_maes)/len(fold_maes):.2f} min")
+        log.info("=" * 60)
     else:
-        print(f"  Fold : {cfg.FOLD} / {cfg.N_SPLITS}")
+        log.info(f"Fold: {cfg.FOLD} / {cfg.N_SPLITS}")
         train_fold(cfg.FOLD, device)
 
 

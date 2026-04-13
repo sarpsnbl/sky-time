@@ -333,13 +333,24 @@ class TimeOfDayDataset(Dataset):
     def raw_times(self) -> np.ndarray:
         return np.array([lbl.time_min for _, lbl in self.samples])
 
-    def get_sample_weight(self) -> torch.Tensor:
+    def get_sample_weight(self, max_ratio: float = 10.0) -> torch.Tensor:
+        """
+        Calculates sample weights for the dataset, capping extreme outliers 
+        to prevent sparse hour bins from dominating the sampler.
+        """
         times   = self.raw_times
         hours   = (times / 60).astype(int) % 24
         counts  = np.bincount(hours, minlength=24).astype(float)
+        
         counts  = np.where(counts == 0, 1.0, counts)
+        
         weights = 1.0 / counts[hours]
+        
+        median_weight = np.median(weights)
+        weights = np.clip(weights, a_min=None, a_max=median_weight * max_ratio)
+        
         weights /= weights.sum()
+        
         return torch.from_numpy(weights.astype(np.float32))
 
     def __len__(self) -> int:
