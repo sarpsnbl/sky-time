@@ -35,15 +35,11 @@ except ImportError:
 MINUTES_PER_DAY    = 1440.0
 DAYS_PER_YEAR      = 365.25
 
-# Dimensions of the two metadata parts — kept here so main.py can import them
-# instead of hardcoding magic numbers.
-_CALENDAR_DIM      = 6   # sin/cos month, sin/cos doy, lat_norm, lon_norm
-_IMAGE_FEATURE_DIM = 77   # see ImageFeatureExtractor
-
+_CALENDAR_DIM      = 6   
+_IMAGE_FEATURE_DIM = 77   
 
 def get_metadata_dim() -> int:
-    """Return the full metadata vector length based on current config."""
-    from config import Config as _cfg   # late import avoids circular dependency
+    from config import Config as _cfg   
     return _CALENDAR_DIM + (_IMAGE_FEATURE_DIM if _cfg.USE_IMAGE_FEATURES else 0)
 
 
@@ -52,111 +48,66 @@ def get_metadata_dim() -> int:
 # ---------------------------------------------------------------------------
 
 class ImageFeatureExtractor:
-    """
-    Extracts a 57-dimensional feature vector matching the MATLAB pipeline.
-
-    Layout (all features normalised to comparable scales):
-      [0:6]    RGB channel means + stds             (6)
-      [6:12]   HSV channel means + stds             (6)
-      [12:18]  LAB channel means + stds             (6)  — L normalised to [0,1]
-      [18:66]  RGB histograms, 16 bins × 3 channels (48) → but we keep only 16×3=48
-      ... wait, 6+6+6+48+48+2+1+1+3+2+1+1 = 125 raw
-
-    To keep the vector compact (and avoid exploding the MLP), we use
-    8-bin histograms (24 hist features) instead of 16, giving 57 total:
-      [0:6]    RGB means+stds                       (6)
-      [6:12]   HSV means+stds                       (6)
-      [12:18]  LAB means+stds                       (6)
-      [18:42]  RGB histograms, 8 bins × 3           (24)
-      [42:66]  HSV histograms, 8 bins × 3           (24) → trimmed to fit
-    
-    Actually let's count exactly and be explicit — see below.
-    """
-
     @classmethod
     def extract(cls, image: "Image.Image") -> np.ndarray:
-        """
-        Parameters
-        ----------
-        image : PIL.Image.Image
-
-        Returns
-        -------
-        np.ndarray, shape (_IMAGE_FEATURE_DIM,), dtype float32
-        """
-        rgb = np.asarray(image.convert("RGB"), dtype=np.float32) / 255.0  # [0,1]
+        rgb = np.asarray(image.convert("RGB"), dtype=np.float32) / 255.0  
         H = rgb.shape[0]
 
         feat = []
 
-        # ── 1. RGB channel means + stds (6) ──────────────────────────────
         for c in range(3):
             ch = rgb[:, :, c]
             feat += [ch.mean(), ch.std()]
 
-        # ── 2. HSV channel means + stds (6) ──────────────────────────────
-        hsv = color.rgb2hsv(rgb)  # all channels in [0,1]
+        hsv = color.rgb2hsv(rgb)  
         for c in range(3):
             ch = hsv[:, :, c]
             feat += [ch.mean(), ch.std()]
 
-        # ── 3. LAB channel means + stds (6) ──────────────────────────────
-        lab = color.rgb2lab(rgb)          # L in [0,100], a/b in [-128,127]
-        lab_norm = lab / np.array([100.0, 128.0, 128.0])  # → [0,1] / [-1,1]
+        lab = color.rgb2lab(rgb)          
+        lab_norm = lab / np.array([100.0, 128.0, 128.0])  
         for c in range(3):
             ch = lab_norm[:, :, c]
             feat += [ch.mean(), ch.std()]
 
-        # ── 4. RGB histograms, 8 bins × 3 (24) ───────────────────────────
         for c in range(3):
             hist, _ = np.histogram(rgb[:, :, c], bins=8, range=(0.0, 1.0))
             feat += (hist / hist.sum()).tolist()
 
-        # ── 5. HSV histograms, 8 bins × 3 (24) ───────────────────────────
         for c in range(3):
             hist, _ = np.histogram(hsv[:, :, c], bins=8, range=(0.0, 1.0))
             feat += (hist / hist.sum()).tolist()
 
-        # ── 6. Sun-region brightness — top third (2) ─────────────────────
-        top_v = hsv[: H // 3, :, 2]          # Value channel, top third
+        top_v = hsv[: H // 3, :, 2]          
         feat += [top_v.mean(), top_v.std()]
 
-        # ── 7. Horizon luminance gradient (1) ────────────────────────────
         V   = hsv[:, :, 2]
-        dVy = np.diff(V, axis=0)             # vertical gradient
+        dVy = np.diff(V, axis=0)             
         feat += [np.abs(dVy).mean()]
 
-        # ── 8. Colour temperature proxy R/B (1) ──────────────────────────
         r_mean = rgb[:, :, 0].mean()
         b_mean = rgb[:, :, 2].mean()
-        feat += [r_mean / (b_mean + 1e-6)]   # unbounded; clip below if needed
+        feat += [r_mean / (b_mean + 1e-6)]   
 
-        # ── 9. Global luminance stats + entropy (3) ───────────────────────
         lum = 0.299 * rgb[:, :, 0] + 0.587 * rgb[:, :, 1] + 0.114 * rgb[:, :, 2]
         hist_lum, _ = np.histogram((lum * 255).astype(np.uint8), bins=256, range=(0, 256))
         hist_lum    = hist_lum / (hist_lum.sum() + 1e-8)
-        entropy     = -np.sum(hist_lum * np.log2(hist_lum + 1e-8))   # bits, max ≈ 8
-        feat += [lum.mean(), lum.std(), entropy / 8.0]               # normalise entropy
+        entropy     = -np.sum(hist_lum * np.log2(hist_lum + 1e-8))   
+        feat += [lum.mean(), lum.std(), entropy / 8.0]               
 
-        # ── 10. Saturation mean + std (2) ────────────────────────────────
         S = hsv[:, :, 1]
         feat += [S.mean(), S.std()]
 
-        # ── 11. Edge density via Canny (1) ────────────────────────────────
         edges = feature.canny(lum, sigma=1.0)
-        feat += [edges.mean()]               # fraction of edge pixels
+        feat += [edges.mean()]               
 
-        # ── 12. Laplacian variance — sharpness / cloud texture (1) ───────
         lap = filters.laplace(lum)
         feat += [lap.var()]
 
         arr = np.array(feat, dtype=np.float32)
-
-        # Clip the one unbounded feature (R/B ratio, index 66) to [0, 4]
         arr[66] = np.clip(arr[66], 0.0, 4.0) / 4.0
 
         return arr
-
 
 # ---------------------------------------------------------------------------
 # Cyclic encoding helpers
@@ -177,7 +128,6 @@ def decode_time_tensor(pred: torch.Tensor) -> torch.Tensor:
     angles = torch.where(angles < 0, angles + 2 * math.pi, angles)
     return angles * MINUTES_PER_DAY / (2 * math.pi)
 
-
 # ---------------------------------------------------------------------------
 # EXIF Parsing
 # ---------------------------------------------------------------------------
@@ -187,10 +137,27 @@ def _day_of_year(month: int, day: int, year: int = 2024) -> int:
     leap_offset = 1 if (month > 2 and year % 4 == 0) else 0
     return days_before[month - 1] + day + leap_offset
 
-def extract_exif_datetime(image_path: str):
+def _convert_gps_to_degrees(value):
+    """Helper to convert EXIF GPS rationals to decimal degrees."""
+    try:
+        d = float(value.values[0].num) / float(value.values[0].den)
+        m = float(value.values[1].num) / float(value.values[1].den)
+        s = float(value.values[2].num) / float(value.values[2].den)
+        return d + (m / 60.0) + (s / 3600.0)
+    except Exception:
+        return None
+
+def extract_exif_data(image_path: str):
+    """
+    Extracts DateTime and GPS coordinates.
+    Returns: (time_min, month, day, year, latitude, longitude) or None if no valid time found.
+    """
+    time_min, month, day, year = None, None, None, None
+    lat, lon = None, None
+
     try:
         with open(image_path, 'rb') as f:
-            tags = exifread.process_file(f, stop_tag='DateTimeOriginal', details=False)
+            tags = exifread.process_file(f, details=False)
 
         ts_str = None
         for tag in ['EXIF DateTimeOriginal', 'Image DateTime', 'EXIF DateTimeDigitized']:
@@ -201,26 +168,42 @@ def extract_exif_datetime(image_path: str):
         if ts_str:
             try:
                 dt = datetime.strptime(ts_str, '%Y:%m:%d %H:%M:%S')
-                return dt.hour * 60 + dt.minute, dt.month, dt.day, dt.year
+                time_min = dt.hour * 60 + dt.minute
+                month, day, year = dt.month, dt.day, dt.year
             except ValueError:
                 pass
 
-        with Image.open(image_path) as img:
-            exif = img.getexif()
-            for tag_id in [36867, 306, 36868]:
-                if tag_id in exif:
-                    dt = datetime.strptime(exif[tag_id], '%Y:%m:%d %H:%M:%S')
-                    return dt.hour * 60 + dt.minute, dt.month, dt.day, dt.year
+        if 'GPS GPSLatitude' in tags and 'GPS GPSLongitude' in tags:
+            lat_val = _convert_gps_to_degrees(tags['GPS GPSLatitude'])
+            lon_val = _convert_gps_to_degrees(tags['GPS GPSLongitude'])
+            
+            lat_ref = str(tags.get('GPS GPSLatitudeRef', 'N'))
+            lon_ref = str(tags.get('GPS GPSLongitudeRef', 'E'))
+
+            if lat_val is not None and lon_val is not None:
+                lat = lat_val if lat_ref == 'N' else -lat_val
+                lon = lon_val if lon_ref == 'E' else -lon_val
 
     except Exception as e:
         print(f"Metadata error for {image_path}: {e}")
 
-    try:
-        mtime = os.path.getmtime(image_path)
-        dt = datetime.fromtimestamp(mtime)
-        return dt.hour * 60 + dt.minute, dt.month, dt.day, dt.year
-    except Exception:
+    if time_min is None:
+        try:
+            with Image.open(image_path) as img:
+                exif = img.getexif()
+                for tag_id in [36867, 306, 36868]:
+                    if tag_id in exif:
+                        dt = datetime.strptime(exif[tag_id], '%Y:%m:%d %H:%M:%S')
+                        time_min = dt.hour * 60 + dt.minute
+                        month, day, year = dt.month, dt.day, dt.year
+                        break
+        except Exception:
+            pass
+
+    if time_min is None:
         return None
+
+    return time_min, month, day, year, lat, lon
 
 
 # ---------------------------------------------------------------------------
@@ -238,7 +221,7 @@ class TimeOfDayLabel:
         self.day_of_year    = int(day_of_year)
         self.latitude       = latitude
         self.longitude      = longitude
-        self.image_features = image_features   # ndarray (5,) or None
+        self.image_features = image_features   
 
     def to_metadata_tensor(self) -> torch.Tensor:
         sin_m, cos_m = cyclic_encode(self.month,       12.0)
@@ -296,15 +279,22 @@ class TimeOfDayDataset(Dataset):
 
         for fname in sorted(filenames):
             path = os.path.join(self.image_dir, fname)
-            exif_data = extract_exif_datetime(path)
+            exif_data = extract_exif_data(path)
+            
             if exif_data is None:
                 skipped += 1
                 continue
-            time_min, month, day, year = exif_data
+                
+            time_min, month, day, year, lat, lon = exif_data
             doy = _day_of_year(month, day, year)
-            # Image features are extracted lazily in __getitem__ so that the
-            # dataset constructor stays fast even for large collections.
-            label = TimeOfDayLabel(time_min=time_min, month=month, day_of_year=doy)
+            
+            label = TimeOfDayLabel(
+                time_min=time_min, 
+                month=month, 
+                day_of_year=doy,
+                latitude=lat,
+                longitude=lon
+            )
             self.samples.append((path, label))
 
         if skipped > 0:
@@ -361,21 +351,15 @@ class TimeOfDayDataset(Dataset):
 
         try:
             image = Image.open(img_path).convert("RGB")
-
-            # Only resize if needed
-            if image.size != (self.target_size, self.target_size):
-                image = self._letterbox_resize(image)
-
         except Exception as exc:
             print(f"ERROR: Failed to load {img_path}: {exc}")
             image = Image.new("RGB", (self.target_size, self.target_size), (0, 0, 0))
         
-        # ── Photometric features — computed BEFORE augmentation so that
-        #    ColorJitter / RandomCrop do not corrupt the raw signal. ──────────
         if cfg.USE_IMAGE_FEATURES:
             if img_path not in self._feature_cache:
                 self._feature_cache[img_path] = ImageFeatureExtractor.extract(image)
             image_features = self._feature_cache[img_path]
+            
             label = TimeOfDayLabel(
                 time_min=label.time_min,
                 month=label.month,
@@ -385,11 +369,13 @@ class TimeOfDayDataset(Dataset):
                 image_features=image_features,
             )
 
+        if image.size != (self.target_size, self.target_size):
+            image = self._letterbox_resize(image)
+
         if self.transform:
             image = self.transform(image)
 
         return image, label.to_metadata_tensor(), label.to_target_tensor()
-
 
 # ---------------------------------------------------------------------------
 # Transforms  (light / medium / heavy)
@@ -400,9 +386,6 @@ def get_transforms(
     target_size: int = cfg.IMAGE_SIZE,
     magnitude:  str  = "none",
 ) -> transforms.Compose:
-    """
-    magnitude : "none" | "light" | "moderate" | "heavy"
-    """
     normalize = transforms.Normalize(
         mean=[0.485, 0.456, 0.406],
         std =[0.229, 0.224, 0.225],
@@ -417,8 +400,6 @@ def get_transforms(
 
     mag = magnitude.lower()
 
-    # Base transforms shared across all magnitudes
-    # We use Resize + small RandomCrop to allow shifting without destroying scale
     base_spatial = [
         transforms.Resize((int(target_size * 1.05), int(target_size * 1.05))),
         transforms.RandomCrop(target_size),
@@ -428,7 +409,6 @@ def get_transforms(
     if mag == "light":
         return transforms.Compose([
             *base_spatial,
-            # Very slight camera tilt and pan
             transforms.RandomAffine(degrees=2, translate=(0.02, 0.02), scale=(0.98, 1.02)),
             transforms.ColorJitter(brightness=0.1, contrast=0.1, saturation=0.1, hue=0.01),
             transforms.ToTensor(),
@@ -438,29 +418,25 @@ def get_transforms(
     elif mag == "moderate":
         return transforms.Compose([
             *base_spatial,
-            # Moderate tilt/pan
             transforms.RandomAffine(degrees=4, translate=(0.05, 0.05), scale=(0.95, 1.05)),
             transforms.ColorJitter(brightness=0.2, contrast=0.2, saturation=0.2, hue=0.03),
             transforms.ToTensor(),
             normalize,
-            # Simulates small clouds or sensor artifacts
             transforms.RandomErasing(p=0.15, scale=(0.02, 0.08), ratio=(0.3, 3.3)),
         ])
         
     elif mag == "heavy":
         return transforms.Compose([
             *base_spatial,
-            # More aggressive tilt/pan, but strictly preserving horizon structure
             transforms.RandomAffine(degrees=7, translate=(0.1, 0.1), scale=(0.9, 1.1)),
             transforms.ColorJitter(brightness=0.3, contrast=0.3, saturation=0.3, hue=0.05),
             transforms.RandomGrayscale(p=0.05),
             transforms.ToTensor(),
             normalize,
-            # Simulates larger occlusions
             transforms.RandomErasing(p=0.25, scale=(0.02, 0.15), ratio=(0.3, 3.3)),
         ])
 
-    else: # none
+    else: 
         return transforms.Compose([
             transforms.Resize((target_size, target_size)),
             transforms.ToTensor(), 
@@ -486,23 +462,14 @@ def tta_predict(
     metadata:   torch.Tensor,
     n_passes:   int = 4,
 ) -> torch.Tensor:
-    """
-    Test-time augmentation: average predictions over n_passes random horizontal
-    flips (and the original).  Works with any batch size.
-
-    Returns averaged (sin_t, cos_t) predictions — shape (B, 2).
-    """
     preds = []
-    # Always include original orientation
     preds.append(model(images, metadata))
-    # Additional flipped passes
     for _ in range(n_passes - 1):
-        flipped = torch.flip(images, dims=[3])   # horizontal flip
+        flipped = torch.flip(images, dims=[3])   
         preds.append(model(flipped, metadata))
 
-    # Average in (sin, cos) space — unit circle mean is a valid cyclic average
-    stacked = torch.stack(preds, dim=0)          # (passes, B, 2)
-    return stacked.mean(dim=0)                   # (B, 2)
+    stacked = torch.stack(preds, dim=0)          
+    return stacked.mean(dim=0)                   
 
 
 # ---------------------------------------------------------------------------
@@ -510,35 +477,33 @@ def tta_predict(
 # ---------------------------------------------------------------------------
 
 def create_dataloaders(
-    dataset:     TimeOfDayDataset,
-    fold:        int   = 0,
-    n_splits:    int   = 5,
-    batch_size:  int   = 32,
-    num_workers: int   = 4,
-    val_ratio:   float = 0.2,
+    train_dataset: TimeOfDayDataset,
+    val_dataset:   TimeOfDayDataset,
+    fold:          int   = 0,
+    n_splits:      int   = 5,
+    batch_size:    int   = 32,
+    num_workers:   int   = 4,
+    val_ratio:     float = 0.2,
     use_weighted_sampler: bool = False,
     persistent_workers: Optional[bool] = None,
 ) -> Tuple[DataLoader, DataLoader]:
 
-    indices = np.arange(len(dataset))
+    if len(train_dataset) != len(val_dataset):
+        raise ValueError("train_dataset and val_dataset must have the same length.")
 
-    if n_splits == 1:
-        splitter = ShuffleSplit(n_splits=1, test_size=val_ratio, random_state=42)
-        train_idx, val_idx = next(splitter.split(indices))
-    else:
-        kf = KFold(n_splits=n_splits, shuffle=True, random_state=42)
-        for fold_num, (tr, va) in enumerate(kf.split(indices)):
-            if fold_num == fold:
-                train_idx, val_idx = tr, va
-                break
-        else:
-            raise ValueError(f"Fold {fold} not found; must be 0–{n_splits - 1}.")
+    indices = np.arange(len(train_dataset))
+
+    splitter = ShuffleSplit(n_splits=n_splits, test_size=val_ratio, random_state=42)
+    splits = list(splitter.split(indices))
+    if fold >= len(splits):
+        raise ValueError(f"Fold {fold} not found; must be 0–{n_splits - 1}.")
+    train_idx, val_idx = splits[fold]
 
     sampler       = None
     shuffle_train = True
     if use_weighted_sampler:
         from torch.utils.data import WeightedRandomSampler
-        all_weights   = dataset.get_sample_weight()
+        all_weights   = train_dataset.get_sample_weight()
         train_weights = all_weights[train_idx]
         sampler = WeightedRandomSampler(
             weights=train_weights, num_samples=len(train_idx), replacement=True
@@ -551,7 +516,7 @@ def create_dataloaders(
         _pw = persistent_workers and (num_workers > 0)
 
     train_loader = DataLoader(
-        Subset(dataset, train_idx),
+        Subset(train_dataset, train_idx),
         batch_size=batch_size,
         shuffle=shuffle_train,
         sampler=sampler,
@@ -560,8 +525,9 @@ def create_dataloaders(
         persistent_workers=_pw,
         prefetch_factor=1 if _pw else None,
     )
+    
     val_loader = DataLoader(
-        Subset(dataset, val_idx),
+        Subset(val_dataset, val_idx),
         batch_size=batch_size * 2,
         shuffle=False,
         num_workers=num_workers,
