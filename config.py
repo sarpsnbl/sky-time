@@ -29,7 +29,7 @@ class Config:
     DROPOUT      = 0.167786
 
     # --- Training -------------------------------------------------------------
-    EPOCHS         = 75
+    EPOCHS         = 80
     UNFREEZE_EPOCH = 25         # Epoch to unfreeze full backbone (None = never)
     BATCH_SIZE     = 16
     LR             = 0.001896
@@ -57,7 +57,7 @@ class Config:
 
     # --- Optuna Hyperparameter Optimisation -----------------------------------
     OPTUNA_N_TRIALS         = 30
-    OPTUNA_EPOCHS           = 40
+    OPTUNA_EPOCHS           = 60
     OPTUNA_TIMEOUT_SECONDS  = None
     OPTUNA_N_STARTUP_TRIALS = 8
     OPTUNA_CV_FOLDS         = 1

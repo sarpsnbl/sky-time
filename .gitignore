@@ -1,5 +1,6 @@
 /dataset
 /dataset_512
+/dataset_224
 /__pycache__
 /checkpoints
 /backup
