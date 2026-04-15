@@ -93,15 +93,21 @@ def get_search_space(trial: optuna.Trial, model_name: str) -> dict:
     Optuna search space tailored for N=2500 with ConvNeXt backbones.
     Relaxed regularization to allow deeper feature learning.
     """
-    freeze_until = "features.6"
-    mixup_alpha  = 0.0
-    hidden_dim   = trial.suggest_categorical("hidden_dim", [256, 384])
-    lr           = trial.suggest_float("lr",           2e-4, 6e-4,  log=True)
-    weight_decay = trial.suggest_float("weight_decay", 5e-3, 5e-2,  log=True)
-    eta_min      = trial.suggest_float("eta_min",      2e-6, 8e-6,  log=True)
-    dropout      = trial.suggest_float("dropout",      0.10, 0.25)
-    label_noise  = trial.suggest_float("label_noise",  0.0,  0.008)
-    aug_magnitude = trial.suggest_categorical("aug_magnitude", ["moderate", "heavy"])
+    hidden_dim   = 384  
+    freeze_until = trial.suggest_categorical("freeze_until", ["features.2", "features.4"]) 
+    
+    lr           = trial.suggest_float("lr",           8e-4, 2e-3, log=True)
+    dropout      = trial.suggest_float("dropout",      0.05, 0.15)
+    label_noise  = trial.suggest_float("label_noise",  0.0,  1.5e-3)
+    
+    weight_decay = trial.suggest_float("weight_decay", 1e-2, 5e-2, log=True)
+    mixup_alpha  = trial.suggest_float("mixup_alpha",  0.1,  0.3)
+    
+    eta_min      = trial.suggest_float("eta_min",      2e-6, 8e-6, log=True)
+    unfreeze_epoch = trial.suggest_categorical("unfreeze_epoch", [15, None])
+
+    aug_magnitude = "moderate"
+    batch_size   = 16
 
     return {
         "lr":            lr,
@@ -113,7 +119,8 @@ def get_search_space(trial: optuna.Trial, model_name: str) -> dict:
         "aug_magnitude": aug_magnitude,
         "mixup_alpha":   mixup_alpha,
         "label_noise":   label_noise,
-        "batch_size":    16,
+        "unfreeze_epoch": unfreeze_epoch,
+        "batch_size":    batch_size,
     }
 
 
@@ -151,9 +158,7 @@ def objective(
     fold_maes = []
 
     for fold_idx in range(cfg.OPTUNA_CV_FOLDS):
-        # Capture create_dataloaders' print() output via tqdm.write so it
-        # doesn't corrupt the outer trial bar.
-        n_train = sum(1 for _ in range(len(train_dataset)))  # just a size ref
+        n_train = sum(1 for _ in range(len(train_dataset)))
         tqdm.write(f"  Fold {fold_idx}  |  building dataloaders …")
         train_loader, val_loader = create_dataloaders(
             train_dataset,
@@ -196,9 +201,7 @@ def objective(
         best_fold_train_mae = float("inf")
         best_fold_epoch     = -1
 
-        # No inner tqdm bar — print one compact line per epoch via tqdm.write
-        # so the outer trial_pbar is the only live bar on screen.
-        log_every = max(1, cfg.OPTUNA_EPOCHS // 10)   # ~10 lines per trial
+        log_every = max(1, cfg.OPTUNA_EPOCHS // 10)
 
         for epoch in range(cfg.OPTUNA_EPOCHS):
             _, train_mae = train_one_epoch(
@@ -215,7 +218,6 @@ def objective(
                 best_fold_train_mae = train_mae
                 best_fold_epoch     = epoch + 1
 
-            # Print a status line at regular intervals and on best epochs
             if is_best_epoch or (epoch + 1) % log_every == 0:
                 marker = " ★" if is_best_epoch else ""
                 tqdm.write(
@@ -225,8 +227,6 @@ def objective(
                     f"best {best_fold_val_mae:>6.1f}m{marker}"
                 )
 
-            # Update the outer trial bar postfix so the operator can glance
-            # at overall progress without any nested bar noise.
             if trial_pbar is not None:
                 trial_pbar.set_postfix(
                     T=trial.number,

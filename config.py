@@ -13,7 +13,7 @@ class Config:
 
     # --- Cross-Validation -----------------------------------------------------
     FOLD            = 0     # Which CV fold to use (0-indexed); ignored when TRAIN_ALL_FOLDS=True
-    N_SPLITS        = 5
+    N_SPLITS        = 2
     VAL_RATIO       = 0.2
     TRAIN_ALL_FOLDS = True
 
@@ -22,27 +22,27 @@ class Config:
 
     # --- Model ----------------------------------------------------------------
     # Supported: "convnext_tiny" | "convnext_small"
-    MODEL        = "convnext_small"
+    MODEL        = "convnext_tiny"
     PRETRAINED   = True
     FREEZE_UNTIL = "features.4"
     HIDDEN_DIM   = 384
-    DROPOUT      = 0.167786
+    DROPOUT      = 0.10542
 
     # --- Training -------------------------------------------------------------
     EPOCHS         = 80
-    UNFREEZE_EPOCH = 25         # Epoch to unfreeze full backbone (None = never)
+    UNFREEZE_EPOCH = None         # Epoch to unfreeze full backbone (None = never)
     BATCH_SIZE     = 16
-    LR             = 0.001896
-    ETA_MIN        = 2.781919e-07
-    WEIGHT_DECAY   = 0.000241
+    LR             = 1.09e-03
+    ETA_MIN        = 7.77e-06
+    WEIGHT_DECAY   = 0.0111286
     NUM_WORKERS    = 8
     USE_AMP        = True
     WEIGHTED_SAMPLER = True
 
     # --- Augmentation ---------------------------------------------------------
     # ConvNeXt works best without augmentation; kept for experimentation.
-    AUG_MAGNITUDE   = "light"    # "none" | "light" | "medium" | "heavy"
-    MIXUP_ALPHA     = 0.184888
+    AUG_MAGNITUDE   = "moderate"    # "none" | "light" | "moderate" | "heavy"
+    MIXUP_ALPHA     = 0.0
     LABEL_NOISE_STD = 0.042620
 
     # --- Test-Time Augmentation -----------------------------------------------

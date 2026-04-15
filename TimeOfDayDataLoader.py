@@ -389,7 +389,7 @@ class TimeOfDayDataset(Dataset):
         return image, label.to_metadata_tensor(), label.to_target_tensor()
 
 # ---------------------------------------------------------------------------
-# Transforms  (light / medium / heavy)
+# Transforms  (light / moderate / heavy)
 # ---------------------------------------------------------------------------
 
 def get_transforms(
