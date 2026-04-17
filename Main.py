@@ -2,42 +2,21 @@
 main.py
 =======
 Training and evaluation pipeline for:
-
     Deep Learning-Based Time-of-Day Estimation
     from Sky Images and EXIF Calendar Dates
-
-Architecture
-------------
-A ConvNeXt backbone extracts visual features. A small MLP fuses the image
-embedding with calendar metadata (from EXIF). The combined representation is
-projected to 2 outputs: (sin_t, cos_t), encoding time-of-day cyclically so
-23:59 and 00:01 are nearby.
-
-Supported backbones
--------------------
-  convnext_tiny, convnext_small
-
-Loss
-----
-Mean squared error on the (sin_t, cos_t) pair.
-Primary metric: Mean Absolute Error in *minutes* (cyclic-aware).
-
-Usage
------
-Adjust settings in config.py, then:
-    python main.py
 """
-
+import os
+os.environ["MKL_THREADING_LAYER"] = "GNU"
 import json as _json
 import logging
-import os
 import time
 from typing import List, Optional, Tuple
 import multiprocessing as mp
 
 import torch
+import torch._dynamo
+torch._dynamo.config.cache_size_limit = 32
 import torch.nn as nn
-from torch.optim import AdamW
 from torch.optim.lr_scheduler import CosineAnnealingLR
 from torch.utils.data import DataLoader
 from tqdm import tqdm
@@ -64,11 +43,16 @@ try:
 except ImportError:
     _TORCHVISION_AVAILABLE = False
 
+try:
+    import bitsandbytes as bnb
+    _BNB_AVAILABLE = True
+except ImportError:
+    _BNB_AVAILABLE = False
+
 
 # ---------------------------------------------------------------------------
 # Logging setup
 # ---------------------------------------------------------------------------
-
 def setup_logging(log_dir: str) -> logging.Logger:
     os.makedirs(log_dir, exist_ok=True)
     logger = logging.getLogger("tod")
@@ -80,13 +64,11 @@ def setup_logging(log_dir: str) -> logging.Logger:
         datefmt="%H:%M:%S",
     )
 
-    # Console — INFO and above
     ch = logging.StreamHandler()
     ch.setLevel(logging.INFO)
     ch.setFormatter(fmt)
     logger.addHandler(ch)
 
-    # File — DEBUG and above (full detail)
     fh = logging.FileHandler(os.path.join(log_dir, "train.log"), mode="a")
     fh.setLevel(logging.DEBUG)
     fh.setFormatter(logging.Formatter(
@@ -97,14 +79,12 @@ def setup_logging(log_dir: str) -> logging.Logger:
 
     return logger
 
-
 log = logging.getLogger("tod")
 
 
 # ---------------------------------------------------------------------------
-# Scheduler factory
+# Scheduler factory & Optimizers
 # ---------------------------------------------------------------------------
-
 def get_scheduler(
     optimizer: torch.optim.Optimizer,
     epochs:    int,
@@ -112,11 +92,19 @@ def get_scheduler(
 ) -> CosineAnnealingLR:
     return CosineAnnealingLR(optimizer, T_max=epochs, eta_min=eta_min)
 
+def get_optimizer(model: nn.Module, lr: float, weight_decay: float) -> torch.optim.Optimizer:
+    params = filter(lambda p: p.requires_grad, model.parameters())
+    if cfg.USE_8BIT_OPTIM and _BNB_AVAILABLE:
+        log.info("Using bitsandbytes 8-bit AdamW")
+        return bnb.optim.AdamW8bit(params, lr=lr, weight_decay=weight_decay)
+    else:
+        if cfg.USE_8BIT_OPTIM and not _BNB_AVAILABLE:
+            log.warning("8-bit AdamW requested but bitsandbytes not installed. Falling back to standard AdamW.")
+        return torch.optim.AdamW(params, lr=lr, weight_decay=weight_decay)
 
 # ---------------------------------------------------------------------------
 # Model
 # ---------------------------------------------------------------------------
-
 class MetadataFusionMLP(nn.Module):
     def __init__(
         self,
@@ -129,32 +117,21 @@ class MetadataFusionMLP(nn.Module):
         in_dim = image_feat_dim + metadata_dim
         self.net = nn.Sequential(
             nn.Linear(in_dim, hidden_dim),
-            nn.BatchNorm1d(hidden_dim),
+            nn.LayerNorm(hidden_dim),
             nn.GELU(),
             nn.Dropout(dropout),
             nn.Linear(hidden_dim, hidden_dim // 2),
-            nn.BatchNorm1d(hidden_dim // 2),
+            nn.LayerNorm(hidden_dim // 2),
             nn.GELU(),
             nn.Dropout(dropout),
-            nn.Linear(hidden_dim // 2, 2),   # -> (sin_t, cos_t)
+            nn.Linear(hidden_dim // 2, 2),   
         )
 
     def forward(self, image_feats: torch.Tensor, metadata: torch.Tensor) -> torch.Tensor:
         return self.net(torch.cat([image_feats, metadata], dim=1))
 
-
 class TimeOfDayModel(nn.Module):
-    """
-    ConvNeXt backbone + fusion MLP for cyclic time-of-day regression.
-
-    The backbone is frozen up to `freeze_until` during early training;
-    call unfreeze_all() at UNFREEZE_EPOCH to open the whole network.
-
-    Encoder: Sequential(*backbone.children()[:-1])
-    Forward:  encoder(x).flatten(1) -> (B, 768)
-    """
-
-    _FEAT_DIM = 768   # both convnext_tiny and convnext_small output 768-d
+    _FEAT_DIM = 768   
 
     def __init__(
         self,
@@ -190,17 +167,10 @@ class TimeOfDayModel(nn.Module):
             weights  = ConvNeXt_Small_Weights.IMAGENET1K_V1 if pretrained else None
             backbone = models.convnext_small(weights=weights)
         else:
-            raise ValueError(
-                f"Unsupported model '{cfg.MODEL}'. Choose 'convnext_tiny' or 'convnext_small'."
-            )
+            raise ValueError(f"Unsupported model '{cfg.MODEL}'")
         self.encoder = nn.Sequential(*list(backbone.children())[:-1])
 
     def _freeze_layers(self, freeze_until: str) -> None:
-        """
-        Freeze all encoder parameters up to (but not including) the first
-        parameter whose name contains `freeze_until`.
-        Use ConvNeXt stage names, e.g. "features.4" to train from stage 4 onward.
-        """
         freeze = True
         for name, param in self.encoder.named_parameters():
             if freeze_until in name:
@@ -218,11 +188,9 @@ class TimeOfDayModel(nn.Module):
     def count_trainable_params(self) -> int:
         return sum(p.numel() for p in self.parameters() if p.requires_grad)
 
-
 # ---------------------------------------------------------------------------
 # Loss & metrics
 # ---------------------------------------------------------------------------
-
 class CyclicMSELoss(nn.Module):
     def __init__(self):
         super().__init__()
@@ -231,18 +199,15 @@ class CyclicMSELoss(nn.Module):
     def forward(self, pred: torch.Tensor, target: torch.Tensor) -> torch.Tensor:
         return self.mse(pred, target)
 
-
 def cyclic_mae_minutes(pred: torch.Tensor, target: torch.Tensor) -> torch.Tensor:
     pred_min   = decode_time_tensor(pred)
     target_min = decode_time_tensor(target)
     diff = torch.abs(pred_min - target_min)
     return torch.min(diff, MINUTES_PER_DAY - diff).mean()
 
-
 # ---------------------------------------------------------------------------
 # Mixup & label noise
 # ---------------------------------------------------------------------------
-
 def mixup_batch(
     images:   torch.Tensor,
     metadata: torch.Tensor,
@@ -259,17 +224,14 @@ def mixup_batch(
         lam * targets  + (1 - lam) * targets[idx],
     )
 
-
 def add_label_noise(targets: torch.Tensor, std: float = 0.02) -> torch.Tensor:
     if std <= 0.0:
         return targets
     return targets + torch.randn_like(targets) * std
 
-
 # ---------------------------------------------------------------------------
 # Training & evaluation
 # ---------------------------------------------------------------------------
-
 def train_one_epoch(
     model:       TimeOfDayModel,
     loader:      DataLoader,
@@ -280,38 +242,49 @@ def train_one_epoch(
     mixup_alpha: float = 0.0,
     label_noise: float = 0.0,
     pbar:        Optional[tqdm] = None,
+    accum_steps: int = 1,
 ) -> Tuple[float, float]:
     model.train()
     total_loss = total_mae = 0.0
 
-    for images, metadata, targets in loader:
-        images   = images.to(device,   non_blocking=True)
+    optimizer.zero_grad()
+
+    for idx, (images, metadata, targets) in enumerate(loader):
+        # Channels last optimization
+        mem_fmt = torch.channels_last if cfg.USE_CHANNELS_LAST else torch.contiguous_format
+        images = images.to(device, non_blocking=True, memory_format=mem_fmt)
         metadata = metadata.to(device, non_blocking=True)
-        targets  = targets.to(device,  non_blocking=True)
+        targets  = targets.to(device, non_blocking=True)
 
         images, metadata, targets = mixup_batch(images, metadata, targets, alpha=mixup_alpha)
         targets = add_label_noise(targets, std=label_noise)
 
-        optimizer.zero_grad()
-
         if scaler is not None:
             with torch.amp.autocast('cuda'):
                 preds = model(images, metadata)
-                loss  = criterion(preds, targets)
+                loss  = criterion(preds, targets) / accum_steps
             scaler.scale(loss).backward()
-            scaler.unscale_(optimizer)
-            torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=1.0)
-            scaler.step(optimizer)
-            scaler.update()
+            
+            if (idx + 1) % accum_steps == 0 or (idx + 1) == len(loader):
+                scaler.unscale_(optimizer)
+                torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=1.0)
+                scaler.step(optimizer)
+                scaler.update()
+                optimizer.zero_grad()
         else:
             preds = model(images, metadata)
-            loss  = criterion(preds, targets)
+            loss  = criterion(preds, targets) / accum_steps
             loss.backward()
-            torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=1.0)
-            optimizer.step()
+            
+            if (idx + 1) % accum_steps == 0 or (idx + 1) == len(loader):
+                torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=1.0)
+                optimizer.step()
+                optimizer.zero_grad()
 
-        batch_loss = loss.item()
+        # Re-multiply by accum_steps so logging reflects actual batch loss
+        batch_loss = loss.item() * accum_steps
         batch_mae  = cyclic_mae_minutes(preds.detach().cpu(), targets.detach().cpu()).item()
+        
         total_loss += batch_loss
         total_mae  += batch_mae
 
@@ -321,7 +294,6 @@ def train_one_epoch(
 
     n = len(loader)
     return total_loss / n, total_mae / n
-
 
 @torch.no_grad()
 def evaluate(
@@ -335,18 +307,30 @@ def evaluate(
 ) -> Tuple[float, float]:
     model.eval()
     total_loss = total_mae = 0.0
+    mem_fmt = torch.channels_last if cfg.USE_CHANNELS_LAST else torch.contiguous_format
 
     for images, metadata, targets in loader:
-        images   = images.to(device,   non_blocking=True)
+        images   = images.to(device, non_blocking=True, memory_format=mem_fmt)
         metadata = metadata.to(device, non_blocking=True)
-        targets  = targets.to(device,  non_blocking=True)
+        targets  = targets.to(device, non_blocking=True)
 
-        preds = (
-            tta_predict(model, images, metadata, n_passes=tta_passes)
-            if (use_tta and tta_passes > 1) else
-            model(images, metadata)
-        )
-        total_loss += criterion(preds, targets).item()
+        if cfg.USE_AMP and device.type == 'cuda':
+            with torch.amp.autocast('cuda'):
+                preds = (
+                    tta_predict(model, images, metadata, n_passes=tta_passes)
+                    if (use_tta and tta_passes > 1) else
+                    model(images, metadata)
+                )
+                loss = criterion(preds, targets)
+        else:
+            preds = (
+                tta_predict(model, images, metadata, n_passes=tta_passes)
+                if (use_tta and tta_passes > 1) else
+                model(images, metadata)
+            )
+            loss = criterion(preds, targets)
+
+        total_loss += loss.item()
         total_mae  += cyclic_mae_minutes(preds.cpu(), targets.cpu()).item()
 
         if pbar is not None:
@@ -354,7 +338,6 @@ def evaluate(
 
     n = len(loader)
     return total_loss / n, total_mae / n
-
 
 @torch.no_grad()
 def evaluate_with_log(
@@ -365,12 +348,9 @@ def evaluate_with_log(
     use_tta:    bool = False,
     tta_passes: int  = 4,
 ) -> Tuple[float, float, List[str], List[float], List[float]]:
-    """
-    Like evaluate(), but also returns per-image paths and minute predictions
-    for visualize_training.py.
-    """
     model.eval()
     total_loss = total_mae = 0.0
+    mem_fmt = torch.channels_last if cfg.USE_CHANNELS_LAST else torch.contiguous_format
 
     all_paths:   List[str]   = []
     all_preds:   List[float] = []
@@ -381,16 +361,27 @@ def evaluate_with_log(
     path_iter = iter(dataset.samples[i][0] for i in subset.indices)
 
     for images, metadata, targets in loader:
-        images   = images.to(device,   non_blocking=True)
+        images   = images.to(device, non_blocking=True, memory_format=mem_fmt)
         metadata = metadata.to(device, non_blocking=True)
-        targets  = targets.to(device,  non_blocking=True)
+        targets  = targets.to(device, non_blocking=True)
 
-        preds = (
-            tta_predict(model, images, metadata, n_passes=tta_passes)
-            if (use_tta and tta_passes > 1) else
-            model(images, metadata)
-        )
-        total_loss += criterion(preds, targets).item()
+        if cfg.USE_AMP and device.type == 'cuda':
+            with torch.amp.autocast('cuda'):
+                preds = (
+                    tta_predict(model, images, metadata, n_passes=tta_passes)
+                    if (use_tta and tta_passes > 1) else
+                    model(images, metadata)
+                )
+                loss = criterion(preds, targets)
+        else:
+            preds = (
+                tta_predict(model, images, metadata, n_passes=tta_passes)
+                if (use_tta and tta_passes > 1) else
+                model(images, metadata)
+            )
+            loss = criterion(preds, targets)
+
+        total_loss += loss.item()
         total_mae  += cyclic_mae_minutes(preds.cpu(), targets.cpu()).item()
 
         all_preds.extend(decode_time_tensor(preds.cpu()).tolist())
@@ -400,100 +391,9 @@ def evaluate_with_log(
     n = len(loader)
     return total_loss / n, total_mae / n, all_paths, all_preds, all_actuals
 
-
-# ---------------------------------------------------------------------------
-# Inference helpers
-# ---------------------------------------------------------------------------
-
-@torch.no_grad()
-def predict_single(
-    model:      TimeOfDayModel,
-    image_path: str,
-    device:     torch.device,
-    month:      Optional[int]   = None,
-    day:        Optional[int]   = None,
-    year:       int             = 2024,
-    latitude:   Optional[float] = None,
-    longitude:  Optional[float] = None,
-    use_tta:    bool            = True,
-    tta_passes: int             = 4,
-) -> str:
-    from PIL import Image as PILImage
-    from TimeOfDayDataLoader import TimeOfDayLabel, ImageFeatureExtractor, _day_of_year
-
-    transform = get_transforms(augment=False)
-    img = PILImage.open(image_path).convert("RGB")
-    img = img.resize((cfg.IMAGE_SIZE, cfg.IMAGE_SIZE), PILImage.Resampling.LANCZOS)
-
-    image_features = ImageFeatureExtractor.extract(img) if cfg.USE_IMAGE_FEATURES else None
-    image_tensor   = transform(img).unsqueeze(0).to(device)
-
-    label = TimeOfDayLabel(
-        time_min=0, month=month,
-        day_of_year=_day_of_year(month, day, year),
-        latitude=latitude, longitude=longitude,
-        image_features=image_features,
-    )
-    meta_tensor = label.to_metadata_tensor().unsqueeze(0).to(device)
-
-    model.eval()
-    pred = (
-        tta_predict(model, image_tensor, meta_tensor, n_passes=tta_passes)
-        if (use_tta and tta_passes > 1) else
-        model(image_tensor, meta_tensor)
-    )
-    return minutes_to_hhmm(decode_time_tensor(pred.cpu())[0].item())
-
-
-@torch.no_grad()
-def predict_ensemble(
-    models:     List[TimeOfDayModel],
-    image_path: str,
-    device:     torch.device,
-    month:      Optional[int]   = None,
-    day:        Optional[int]   = None,
-    year:       int             = 2024,
-    latitude:   Optional[float] = None,
-    longitude:  Optional[float] = None,
-    use_tta:    bool            = True,
-    tta_passes: int             = 4,
-) -> str:
-    from PIL import Image as PILImage
-    from TimeOfDayDataLoader import TimeOfDayLabel, ImageFeatureExtractor, _day_of_year
-
-    transform = get_transforms(augment=False)
-    img = PILImage.open(image_path).convert("RGB")
-    img = img.resize((cfg.IMAGE_SIZE, cfg.IMAGE_SIZE), PILImage.Resampling.LANCZOS)
-
-    image_features = ImageFeatureExtractor.extract(img) if cfg.USE_IMAGE_FEATURES else None
-    image_tensor   = transform(img).unsqueeze(0).to(device)
-
-    label = TimeOfDayLabel(
-        time_min=0, month=month,
-        day_of_year=_day_of_year(month, day, year),
-        latitude=latitude, longitude=longitude,
-        image_features=image_features,
-    )
-    meta_tensor = label.to_metadata_tensor().unsqueeze(0).to(device)
-
-    all_preds = []
-    for m in models:
-        m.eval()
-        p = (
-            tta_predict(m, image_tensor, meta_tensor, n_passes=tta_passes)
-            if (use_tta and tta_passes > 1) else
-            m(image_tensor, meta_tensor)
-        )
-        all_preds.append(p.cpu())
-
-    avg_pred = torch.stack(all_preds, dim=0).mean(dim=0)
-    return minutes_to_hhmm(decode_time_tensor(avg_pred)[0].item())
-
-
 # ---------------------------------------------------------------------------
 # Checkpoint helpers
 # ---------------------------------------------------------------------------
-
 def save_checkpoint(model, optimizer, scheduler, epoch, val_mae, path):
     torch.save({
         "epoch":     epoch,
@@ -503,7 +403,6 @@ def save_checkpoint(model, optimizer, scheduler, epoch, val_mae, path):
         "scheduler": scheduler.state_dict(),
     }, path)
     log.info(f"Checkpoint saved -> {path}")
-
 
 def load_checkpoint(path, model, optimizer=None, scheduler=None,
                     device=torch.device("cpu")) -> int:
@@ -517,48 +416,51 @@ def load_checkpoint(path, model, optimizer=None, scheduler=None,
              f"val MAE {ckpt['val_mae']:.2f} min)")
     return ckpt["epoch"]
 
-
 # ---------------------------------------------------------------------------
-# Training log helpers  (JSONL — unchanged)
+# Training log helpers
 # ---------------------------------------------------------------------------
-
-def _log_epoch(
-    log_path: str, fold: int, epoch: int,
-    train_loss: float, train_mae: float,
-    val_loss: float, val_mae: float,
-) -> None:
+def _log_epoch(log_path, fold, epoch, train_loss, train_mae, val_loss, val_mae):
     os.makedirs(os.path.dirname(log_path) or ".", exist_ok=True)
     record = {
-        "type": "epoch",
-        "fold": fold, "epoch": epoch,
+        "type": "epoch", "fold": fold, "epoch": epoch,
         "train_loss": train_loss, "train_mae": float(train_mae),
-        "val_loss":   val_loss,   "val_mae":   float(val_mae),
+        "val_loss": val_loss, "val_mae": float(val_mae),
     }
     with open(log_path, "a") as f:
         f.write(_json.dumps(record) + "\n")
 
-
-def _log_images(
-    log_path: str,
-    image_paths: List[str],
-    pred_mins:   List[float],
-    actual_mins: List[float],
-) -> None:
+def _log_images(log_path, image_paths, pred_mins, actual_mins):
     os.makedirs(os.path.dirname(log_path) or ".", exist_ok=True)
     with open(log_path, "a") as f:
         for path, pred, actual in zip(image_paths, pred_mins, actual_mins):
             f.write(_json.dumps({
-                "type": "image",
-                "path": path,
-                "pred_min": float(pred),
-                "actual_min": float(actual),
+                "type": "image", "path": path,
+                "pred_min": float(pred), "actual_min": float(actual),
             }) + "\n")
 
+# ---------------------------------------------------------------------------
+# Model Setup Helper
+# ---------------------------------------------------------------------------
+def build_and_compile_model(device: torch.device, params: dict = None) -> TimeOfDayModel:
+    model = TimeOfDayModel(
+        pretrained=cfg.PRETRAINED,
+        freeze_until=params["freeze_until"] if params else cfg.FREEZE_UNTIL,
+        hidden_dim=params["hidden_dim"] if params else cfg.HIDDEN_DIM,
+        dropout=params["dropout"] if params else cfg.DROPOUT,
+    ).to(device)
+    
+    if cfg.USE_CHANNELS_LAST:
+        model = model.to(memory_format=torch.channels_last)
+        
+    if cfg.USE_COMPILE and int(torch.__version__.split('.')[0]) >= 2:
+        log.info("Compiling model with torch.compile() ...")
+        model = torch.compile(model)
+        
+    return model
 
 # ---------------------------------------------------------------------------
 # Single-fold training
 # ---------------------------------------------------------------------------
-
 def train_fold(fold: int, device: torch.device) -> float:
     jsonl_path = os.path.join(cfg.OUTPUT_DIR, "train_log.jsonl")
 
@@ -572,34 +474,18 @@ def train_fold(fold: int, device: torch.device) -> float:
     )
 
     train_loader, val_loader = create_dataloaders(
-        train_dataset,
-        val_dataset,
-        fold=fold,
-        n_splits=cfg.N_SPLITS,
-        batch_size=cfg.BATCH_SIZE,
-        num_workers=cfg.NUM_WORKERS,
-        val_ratio=cfg.VAL_RATIO,
-        use_weighted_sampler=cfg.WEIGHTED_SAMPLER,
+        train_dataset, val_dataset, fold=fold, n_splits=cfg.N_SPLITS,
+        batch_size=cfg.BATCH_SIZE, num_workers=cfg.NUM_WORKERS,
+        val_ratio=cfg.VAL_RATIO, use_weighted_sampler=cfg.WEIGHTED_SAMPLER,
     )
 
-    model = TimeOfDayModel(
-        pretrained=cfg.PRETRAINED,
-        freeze_until=cfg.FREEZE_UNTIL,
-        hidden_dim=cfg.HIDDEN_DIM,
-        dropout=cfg.DROPOUT,
-    ).to(device)
+    model = build_and_compile_model(device)
     log.info(f"Fold {fold} | trainable params: {model.count_trainable_params():,}")
 
     criterion = CyclicMSELoss()
-    optimizer = AdamW(
-        filter(lambda p: p.requires_grad, model.parameters()),
-        lr=cfg.LR, weight_decay=cfg.WEIGHT_DECAY,
-    )
+    optimizer = get_optimizer(model, cfg.LR, cfg.WEIGHT_DECAY)
     scheduler = get_scheduler(optimizer, epochs=cfg.EPOCHS, eta_min=cfg.ETA_MIN)
-    scaler = (
-        torch.amp.GradScaler('cuda')
-        if (cfg.USE_AMP and device.type == "cuda") else None
-    )
+    scaler = torch.amp.GradScaler('cuda') if (cfg.USE_AMP and device.type == "cuda") else None
 
     start_epoch = 0
     if cfg.CHECKPOINT:
@@ -616,36 +502,24 @@ def train_fold(fold: int, device: torch.device) -> float:
         t0 = time.time()
 
         if cfg.UNFREEZE_EPOCH is not None and epoch == cfg.UNFREEZE_EPOCH:
-            model.unfreeze_all()
-            optimizer = AdamW(
-                model.parameters(), lr=cfg.LR * 0.1, weight_decay=cfg.WEIGHT_DECAY,
-            )
-            scheduler = get_scheduler(
-                optimizer, epochs=cfg.EPOCHS - epoch, eta_min=cfg.ETA_MIN,
-            )
+            # We must access the original uncompiled model's method if it was compiled
+            raw_model = model._orig_mod if hasattr(model, '_orig_mod') else model
+            raw_model.unfreeze_all()
+            optimizer = get_optimizer(model, cfg.LR * 0.1, cfg.WEIGHT_DECAY)
+            scheduler = get_scheduler(optimizer, epochs=cfg.EPOCHS - epoch, eta_min=cfg.ETA_MIN)
             log.info(f"Backbone unfrozen at epoch {epoch + 1} (LR x 0.1)")
 
         desc = f"Fold {fold}  Ep {epoch+1:>3}/{cfg.EPOCHS}"
-        with tqdm(
-            total=total_batches,
-            desc=desc,
-            unit="batch",
-            leave=False,
-            dynamic_ncols=True,
-            colour="cyan",
-        ) as pbar:
+        with tqdm(total=total_batches, desc=desc, unit="batch", leave=False, dynamic_ncols=True, colour="cyan") as pbar:
             pbar.set_description(f"{desc} [train]")
             train_loss, train_mae = train_one_epoch(
                 model, train_loader, optimizer, criterion, device, scaler,
-                mixup_alpha=cfg.MIXUP_ALPHA,
-                label_noise=cfg.LABEL_NOISE_STD,
-                pbar=pbar,
+                mixup_alpha=cfg.MIXUP_ALPHA, label_noise=cfg.LABEL_NOISE_STD, pbar=pbar, accum_steps=cfg.ACCUM_STEPS
             )
             pbar.set_description(f"{desc} [val]  ")
             val_loss, val_mae = evaluate(
                 model, val_loader, criterion, device,
-                use_tta=cfg.TTA_ENABLED, tta_passes=cfg.TTA_FLIPS,
-                pbar=pbar,
+                use_tta=cfg.TTA_ENABLED, tta_passes=cfg.TTA_FLIPS, pbar=pbar,
             )
 
         scheduler.step()
@@ -679,15 +553,12 @@ def train_fold(fold: int, device: torch.device) -> float:
     save_checkpoint(model, optimizer, scheduler, cfg.EPOCHS, val_mae,
                     os.path.join(cfg.OUTPUT_DIR, f"last_fold{fold}.pt"))
 
-    log.info(f"Fold {fold} complete -- best val MAE: {best_val_mae:.2f} min "
-             f"({minutes_to_hhmm(best_val_mae)} error)")
+    log.info(f"Fold {fold} complete -- best val MAE: {best_val_mae:.2f} min ")
     return best_val_mae
-
 
 # ---------------------------------------------------------------------------
 # Main entry point
 # ---------------------------------------------------------------------------
-
 def main() -> None:
     setup_logging(cfg.OUTPUT_DIR)
 
@@ -706,38 +577,27 @@ def main() -> None:
     log.info(f"Device      : {device}")
     log.info(f"Model       : {cfg.MODEL}")
     log.info(f"Image size  : {cfg.IMAGE_SIZE}")
-    log.info(f"Metadata    : {get_metadata_dim()}d  "
-             f"(image features: {'on' if cfg.USE_IMAGE_FEATURES else 'off'})")
-    log.info(f"Augment     : {cfg.AUG_MAGNITUDE}")
-    log.info(f"Mixup a     : {cfg.MIXUP_ALPHA}")
-    log.info(f"Label noise : {cfg.LABEL_NOISE_STD}")
-    log.info(f"TTA         : {'on' if cfg.TTA_ENABLED else 'off'}  "
-             f"(passes={cfg.TTA_FLIPS})")
-    log.info(f"All folds   : {cfg.TRAIN_ALL_FOLDS}")
+    log.info(f"Batch Size  : Physical {cfg.BATCH_SIZE} | Effective {cfg.BATCH_SIZE * cfg.ACCUM_STEPS}")
+    log.info(f"Optimizers  : Compile={cfg.USE_COMPILE}, AMP={cfg.USE_AMP}, 8-bit={cfg.USE_8BIT_OPTIM}, NHWC={cfg.USE_CHANNELS_LAST}")
     log.info("=" * 60)
 
     os.makedirs(cfg.OUTPUT_DIR, exist_ok=True)
 
     if cfg.EVAL_ONLY:
         assert cfg.CHECKPOINT, "EVAL_ONLY requires a CHECKPOINT path."
-        dataset = TimeOfDayDataset(
-            image_dir=cfg.IMAGE_DIR, transform=get_transforms(augment=False)
-        )
+        dataset = TimeOfDayDataset(image_dir=cfg.IMAGE_DIR, transform=get_transforms(augment=False))
         _, val_loader = create_dataloaders(
             dataset, dataset, fold=cfg.FOLD, n_splits=cfg.N_SPLITS,
             batch_size=cfg.BATCH_SIZE, num_workers=cfg.NUM_WORKERS,
         )
-        model = TimeOfDayModel(
-            pretrained=False, freeze_until=cfg.FREEZE_UNTIL,
-            hidden_dim=cfg.HIDDEN_DIM, dropout=cfg.DROPOUT,
-        ).to(device)
+        model = build_and_compile_model(device)
         load_checkpoint(cfg.CHECKPOINT, model, device=device)
         criterion = CyclicMSELoss()
         val_loss, val_mae = evaluate(
             model, val_loader, criterion, device,
             use_tta=cfg.TTA_ENABLED, tta_passes=cfg.TTA_FLIPS,
         )
-        log.info(f"Eval -- loss: {val_loss:.6f}  |  MAE: {val_mae:.2f} min ({val_mae/60:.2f} h)")
+        log.info(f"Eval -- loss: {val_loss:.6f}  |  MAE: {val_mae:.2f} min")
         return
 
     if cfg.TRAIN_ALL_FOLDS:
@@ -755,7 +615,6 @@ def main() -> None:
     else:
         log.info(f"Fold: {cfg.FOLD} / {cfg.N_SPLITS}")
         train_fold(cfg.FOLD, device)
-
 
 if __name__ == "__main__":
     if mp.get_start_method(allow_none=True) != 'spawn':

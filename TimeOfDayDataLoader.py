@@ -22,6 +22,7 @@ from sklearn.model_selection import KFold, ShuffleSplit
 from torch.utils.data import DataLoader, Dataset, Subset
 from torchvision import transforms
 from skimage import color, filters, feature
+from torchvision.transforms import v2
 
 from config import Config as cfg
 
@@ -396,63 +397,56 @@ def get_transforms(
     augment:    bool = True,
     target_size: int = cfg.IMAGE_SIZE,
     magnitude:  str  = "none",
-) -> transforms.Compose:
-    normalize = transforms.Normalize(
+) -> v2.Compose:
+    
+    normalize = v2.Normalize(
         mean=[0.485, 0.456, 0.406],
         std =[0.229, 0.224, 0.225],
     )
 
+    base_resize = [
+        v2.ToImage(),
+        v2.ToDtype(torch.float32, scale=True),
+        v2.Resize((target_size, target_size), antialias=True),
+    ]
+
     if not augment:
-        return transforms.Compose([
-            transforms.Resize((target_size, target_size)),
-            transforms.ToTensor(), 
-            normalize
-        ])
+        return v2.Compose([*base_resize, normalize])
 
     mag = magnitude.lower()
 
-    base_spatial = [
-        transforms.Resize((int(target_size * 1.05), int(target_size * 1.05))),
-        transforms.RandomCrop(target_size),
-        transforms.RandomHorizontalFlip(p=0.5),
+    spatial = [
+        v2.RandomResizedCrop(target_size, scale=(0.8, 1.0), antialias=True),
+        v2.RandomHorizontalFlip(p=0.5),
     ]
 
     if mag == "light":
-        return transforms.Compose([
-            *base_spatial,
-            transforms.RandomAffine(degrees=2, translate=(0.02, 0.02), scale=(0.98, 1.02)),
-            transforms.ColorJitter(brightness=0.1, contrast=0.1, saturation=0.1, hue=0.01),
-            transforms.ToTensor(),
+        return v2.Compose([
+            *base_resize,
+            *spatial,
+            v2.RandAugment(num_ops=2, magnitude=5),
             normalize,
         ])
 
     elif mag == "moderate":
-        return transforms.Compose([
-            *base_spatial,
-            transforms.RandomAffine(degrees=4, translate=(0.05, 0.05), scale=(0.95, 1.05)),
-            transforms.ColorJitter(brightness=0.2, contrast=0.2, saturation=0.2, hue=0.03),
-            transforms.ToTensor(),
+        return v2.Compose([
+            *base_resize,
+            *spatial,
+            v2.RandAugment(num_ops=2, magnitude=9),
             normalize,
-            transforms.RandomErasing(p=0.15, scale=(0.02, 0.08), ratio=(0.3, 3.3)),
+            v2.RandomErasing(p=0.15, scale=(0.02, 0.08)),
         ])
         
     elif mag == "heavy":
-        return transforms.Compose([
-            *base_spatial,
-            transforms.RandomAffine(degrees=7, translate=(0.1, 0.1), scale=(0.9, 1.1)),
-            transforms.ColorJitter(brightness=0.3, contrast=0.3, saturation=0.3, hue=0.05),
-            transforms.RandomGrayscale(p=0.05),
-            transforms.ToTensor(),
+        return v2.Compose([
+            *base_resize,
+            *spatial,
+            v2.RandAugment(num_ops=3, magnitude=12),
             normalize,
-            transforms.RandomErasing(p=0.25, scale=(0.02, 0.15), ratio=(0.3, 3.3)),
+            v2.RandomErasing(p=0.25, scale=(0.02, 0.15)),
         ])
 
-    else: 
-        return transforms.Compose([
-            transforms.Resize((target_size, target_size)),
-            transforms.ToTensor(), 
-            normalize
-        ])
+    return v2.Compose([*base_resize, normalize])
 
 
 def minutes_to_hhmm(minutes: float) -> str:

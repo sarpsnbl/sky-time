@@ -15,8 +15,8 @@ except ImportError:
     print("pillow-heif not found. HEIC files may fail.")
 
 SOURCE_DIR = "dataset"
-TARGET_DIR = "dataset_224"
-TARGET_SIZE = 224
+TARGET_DIR = "dataset_512"
+TARGET_SIZE = 512
 
 
 def _exif_bytes_from_source(src_path: str) -> bytes | None:
