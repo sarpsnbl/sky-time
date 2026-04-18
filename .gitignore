@@ -4,7 +4,9 @@
 /__pycache__
 /checkpoints
 /backup
+/hard_images
 .vscode
 .db
 .log
 *.zip
+*.csv

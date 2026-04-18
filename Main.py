@@ -406,8 +406,13 @@ def save_checkpoint(model, optimizer, scheduler, epoch, val_mae, path):
 
 def load_checkpoint(path, model, optimizer=None, scheduler=None,
                     device=torch.device("cpu")) -> int:
-    ckpt = torch.load(path, map_location=device)
-    model.load_state_dict(ckpt["model"])
+    ckpt = torch.load(path, map_location=device, weights_only=False)
+    
+    state_dict = ckpt["model"]
+    if any(k.startswith("_orig_mod.") for k in state_dict):
+        state_dict = {k.replace("_orig_mod.", "", 1): v for k, v in state_dict.items()}
+    
+    model.load_state_dict(state_dict)
     if optimizer and "optimizer" in ckpt:
         optimizer.load_state_dict(ckpt["optimizer"])
     if scheduler and "scheduler" in ckpt:
@@ -541,17 +546,6 @@ def train_fold(fold: int, device: torch.device) -> float:
         if is_best:
             best_val_mae = val_mae
             save_checkpoint(model, optimizer, scheduler, epoch + 1, val_mae, best_ckpt)
-
-    load_checkpoint(best_ckpt, model, device=device)
-    _, _, img_paths, pred_mins, actual_mins = evaluate_with_log(
-        model, val_loader, criterion, device,
-        use_tta=cfg.TTA_ENABLED, tta_passes=cfg.TTA_FLIPS,
-    )
-    _log_images(jsonl_path, img_paths, pred_mins, actual_mins)
-    log.info(f"Per-image diagnostics logged -> {jsonl_path}")
-
-    save_checkpoint(model, optimizer, scheduler, cfg.EPOCHS, val_mae,
-                    os.path.join(cfg.OUTPUT_DIR, f"last_fold{fold}.pt"))
 
     log.info(f"Fold {fold} complete -- best val MAE: {best_val_mae:.2f} min ")
     return best_val_mae

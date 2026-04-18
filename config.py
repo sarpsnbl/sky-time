@@ -29,8 +29,8 @@ class Config:
     # --- Training & Hardware Optimizations ------------------------------------
     EPOCHS           = 80
     UNFREEZE_EPOCH   = None         
-    BATCH_SIZE       = 4
-    ACCUM_STEPS      = 2       # Effective batch size = BATCH_SIZE * ACCUM_STEPS = 8
+    BATCH_SIZE       = 8
+    ACCUM_STEPS      = 1      # Effective batch size = BATCH_SIZE * ACCUM_STEPS
     
     # The "Free Lunches"
     USE_AMP           = True   # Mixed Precision
