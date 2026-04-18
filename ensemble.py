@@ -10,14 +10,13 @@ Loads multiple fold checkpoints and produces a final ensemble for:
                               all loaded models and averages their (sin,cos)
                               outputs before decoding.
 
-  3. Model soup — merges all model weights into one averaged checkpoint
-                  (weight averaging). Single model at inference time.
+  3. Per-image audit — runs the ensemble over the FULL dataset (train + val)
+                       and reports per-image cyclic error, sorted worst-first.
 
 Usage
 -----
   python ensemble.py --mode eval
   python ensemble.py --mode predict --image path/to/photo.jpg
-  python ensemble.py --mode soup --out checkpoints/soup.pt
   python ensemble.py --mode eval --checkpoints checkpoints/best_fold0.pt checkpoints/best_fold2.pt
 """
 
@@ -184,78 +183,8 @@ def run_predict(args, device):
     print(f"\nImage     : {args.image}")
     print(f"Predicted : {result}")
 
-
 # ---------------------------------------------------------------------------
-# Mode 3: Model soup (weight averaging)
-# ---------------------------------------------------------------------------
-
-def run_soup(args, device):
-    """
-    Averages all checkpoint weights into a single 'soup' model.
-    Nearly as accurate as the full ensemble but only one model at inference time.
-    """
-    checkpoint_paths = args.checkpoints or discover_checkpoints(cfg.OUTPUT_DIR)
-    print(f"\nModel soup from {len(checkpoint_paths)} checkpoint(s):")
-    for p in checkpoint_paths:
-        print(f"  {p}")
-
-    state_dicts = [
-        torch.load(p, map_location=device)["model"]
-        for p in checkpoint_paths
-    ]
-
-    soup_state = {
-        key: torch.stack([sd[key].float() for sd in state_dicts], dim=0).mean(dim=0)
-        for key in state_dicts[0]
-    }
-
-    soup_model = TimeOfDayModel(
-        pretrained=False,
-        freeze_until=cfg.FREEZE_UNTIL,
-        hidden_dim=cfg.HIDDEN_DIM,
-        dropout=cfg.DROPOUT,
-    ).to(device)
-    soup_model.load_state_dict(soup_state)
-    soup_model.eval()
-    print("  Weight averaging complete.")
-
-    # Quick eval
-    dataset = TimeOfDayDataset(
-        image_dir=cfg.IMAGE_DIR,
-        transform=get_transforms(augment=False),
-    )
-    _, val_loader = create_dataloaders(
-        dataset, dataset,
-        fold=cfg.FOLD,
-        n_splits=cfg.N_SPLITS,
-        batch_size=cfg.BATCH_SIZE,
-        num_workers=cfg.NUM_WORKERS,
-        val_ratio=cfg.VAL_RATIO,
-    )
-    criterion = CyclicMSELoss()
-    total_loss = total_mae = 0.0
-
-    with torch.no_grad():
-        for images, metadata, targets in val_loader:
-            images   = images.to(device)
-            metadata = metadata.to(device)
-            targets  = targets.to(device)
-            preds    = soup_model(images, metadata)
-            total_loss += criterion(preds, targets).item()
-            total_mae  += cyclic_mae_minutes(preds.cpu(), targets.cpu())
-
-    n   = len(val_loader)
-    mae = float(total_mae / n)
-    print(f"\nSoup Evaluation")
-    print(f"  Val loss : {total_loss/n:.6f}")
-    print(f"  Val MAE  : {mae:.2f} min  ({mae/60:.2f} h)")
-
-    out_path = args.out or os.path.join(cfg.OUTPUT_DIR, "soup.pt")
-    torch.save({"model": soup_state, "epoch": 0, "val_mae": mae}, out_path)
-    print(f"\n  Saved → {out_path}")
-
-# ---------------------------------------------------------------------------
-# Mode 4: Per-image audit (full dataset scan for cleaning)
+# Mode 3: Per-image audit (full dataset scan for cleaning)
 # ---------------------------------------------------------------------------
 
 @torch.no_grad()
@@ -325,12 +254,11 @@ def run_audit(args, device):
 # ---------------------------------------------------------------------------
 
 def main():
-    parser = argparse.ArgumentParser(description="Ensemble inference and model soup.")
-    parser.add_argument("--mode", choices=["eval", "predict", "soup", "audit"], required=True)
+    parser = argparse.ArgumentParser(description="Ensemble inference")
+    parser.add_argument("--mode", choices=["eval", "predict", "audit"], required=True)
     parser.add_argument("--checkpoints", nargs="+", default=None,
                         help="Explicit checkpoint paths (default: auto-discover from config OUTPUT_DIR).")
     parser.add_argument("--image", default=None, help="Image path for predict mode.")
-    parser.add_argument("--out",   default=None, help="Output path for soup checkpoint.")
     args = parser.parse_args()
 
     device = torch.device(
@@ -346,8 +274,6 @@ def main():
         if not args.image:
             parser.error("--image is required for predict mode.")
         run_predict(args, device)
-    elif args.mode == "soup":
-        run_soup(args, device)
     elif args.mode == "audit":
         run_audit(args, device)
 
