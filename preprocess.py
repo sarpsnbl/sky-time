@@ -23,18 +23,44 @@ def _exif_bytes_from_source(src_path: str) -> bytes | None:
     """
     Extract EXIF from any source format and return piexif-compatible bytes
     suitable for embedding in a JPEG, or None if extraction fails.
-
-    piexif.load() only understands JPEG/TIFF — it silently produces garbage
-    or raises for HEIC/PNG/etc.  We therefore always read with exifread first
-    (which handles HEIC correctly via pillow-heif), pull the datetime fields
-    we need, and reconstruct a minimal EXIF dict that piexif can serialise.
     """
-    # ── Step 1: read raw tags with exifread (works for HEIC, JPEG, TIFF…) ──
+    raw_exif = None
+
+    # ── Step 1: Extract raw EXIF bytes via Pillow ──
+    # pillow-heif patches Pillow, NOT exifread. We must use Pillow to parse
+    # the HEIC container and extract the raw EXIF payload.
     try:
-        with open(src_path, "rb") as f:
-            tags = exifread.process_file(f, details=False)
+        with Image.open(src_path) as tmp_img:
+            raw_exif = tmp_img.info.get("exif")
     except Exception:
-        tags = {}
+        pass
+
+    # ── Step 2: Try to carry over the full original EXIF ──
+    # piexif.load() works with file paths (JPEG/TIFF) OR raw EXIF bytes (HEIC/PNG).
+    try:
+        if raw_exif:
+            exif_dict = piexif.load(raw_exif)
+        else:
+            exif_dict = piexif.load(src_path)
+            
+        return piexif.dump(exif_dict)
+    except Exception:
+        pass  # Fall through to manual/minimal extraction if piexif chokes
+
+    # ── Step 3: Fallback minimal EXIF dict using exifread ──
+    # For DNGs or malformed EXIFs, we fall back to exifread.
+    tags = {}
+    try:
+        if raw_exif:
+            # exifread expects a TIFF header. Pillow's raw EXIF often starts with "Exif\x00\x00"
+            exif_data = raw_exif[6:] if raw_exif.startswith(b"Exif\x00\x00") else raw_exif
+            tags = exifread.process_file(io.BytesIO(exif_data), details=False)
+        else:
+            # Read directly from the file (works natively for DNG/TIFF/JPEG)
+            with open(src_path, "rb") as f:
+                tags = exifread.process_file(f, details=False)
+    except Exception:
+        pass
 
     dt_str = None
     for tag in ("EXIF DateTimeOriginal", "Image DateTime", "EXIF DateTimeDigitized"):
@@ -43,51 +69,25 @@ def _exif_bytes_from_source(src_path: str) -> bytes | None:
             break
 
     if dt_str is None:
-        # No datetime tag found at all — nothing useful to embed.
         return None
 
-    # Validate the datetime string is parseable before we embed it.
     try:
         datetime.strptime(dt_str, "%Y:%m:%d %H:%M:%S")
     except ValueError:
         return None
 
-    dt_bytes = dt_str.encode("ascii") + b"\x00"   # null-terminated ASCII
+    dt_bytes = dt_str.encode("ascii") + b"\x00"
 
-    # Pull camera make/model from the exifread tags we already have.
-    # These are preserved by piexif.load() for JPEGs (Step 2), but would
-    # otherwise be silently dropped in the fallback path (Step 3).
     def _tag_bytes(key: str) -> bytes | None:
         val = tags.get(key)
-        if val is None:
-            return None
-        return str(val).strip().encode("utf-8") + b"\x00"
+        return str(val).strip().encode("utf-8") + b"\x00" if val else None
 
-    make_bytes  = _tag_bytes("Image Make")
+    ifd0: dict = {piexif.ImageIFD.DateTime: dt_bytes}
+    make_bytes = _tag_bytes("Image Make")
     model_bytes = _tag_bytes("Image Model")
 
-    # ── Step 2: try to carry over the full original EXIF for JPEG/TIFF ──
-    # piexif.load() works fine for JPEG/TIFF sources; use it when we can
-    # so we preserve GPS, camera model, etc.  For HEIC and other formats
-    # it will raise — we catch that and fall back to the minimal dict below.
-    ext = os.path.splitext(src_path.lower())[1]
-    if ext in (".jpg", ".jpeg", ".tiff", ".tif"):
-        try:
-            exif_dict = piexif.load(src_path)
-            # Ensure the datetime field is consistent with what exifread found.
-            exif_dict.setdefault("Exif", {})[piexif.ExifIFD.DateTimeOriginal] = dt_bytes
-            exif_dict.setdefault("0th",  {})[piexif.ImageIFD.DateTime]        = dt_bytes
-            return piexif.dump(exif_dict)
-        except Exception:
-            pass   # fall through to minimal dict
-
-    # ── Step 3: build a minimal EXIF dict that piexif can always serialise ──
-    # This is the path taken for HEIC, PNG, DNG, and any JPEG whose EXIF
-    # piexif couldn't parse cleanly.  We carry over make/model from the
-    # exifread tags grabbed in Step 1 so camera info isn't lost.
-    ifd0: dict = {piexif.ImageIFD.DateTime: dt_bytes}
     if make_bytes:
-        ifd0[piexif.ImageIFD.Make]  = make_bytes
+        ifd0[piexif.ImageIFD.Make] = make_bytes
     if model_bytes:
         ifd0[piexif.ImageIFD.Model] = model_bytes
 
