@@ -76,26 +76,19 @@ end
 % ── Private helpers ────────────────────────────────────────────────────────
 
 function img = loadAndResize(path, targetHW)
-% Read image and enforce channel count (Resizing removed for speed)
+% Read any supported format and resize to target dimensions.
     try
         img = imread(path);
     catch
         img = zeros(targetHW(1), targetHW(2), 3, 'uint8');
     end
-    
     if size(img, 3) == 1
         img = repmat(img, 1, 1, 3);      % greyscale → RGB
     elseif size(img, 3) == 4
         img = img(:,:,1:3);              % drop alpha
     end
-    
-    % imresize is intentionally omitted here: main.m re-routes imgPaths to
-    % the pre-resized dataset_224x224 folder, so all images are already the
-    % correct spatial size.  randomResizedCrop (training only) still calls
-    % imresize internally after cropping.
-    img = imresize(img, targetHW);   % 224→112 (or whatever cfg.inputSize is)
-    
-    img = im2single(img);                % convert to [0,1] float32
+    img = imresize(img, targetHW);
+    img = im2single(img);                % [0,1] float32
 end
 
 function img = augmentImage(img, targetHW)
@@ -120,6 +113,10 @@ function img = augmentImage(img, targetHW)
     img = imnormalize(img);
 end
 
+function img = valTransform(img)
+% Validation: only normalise (resize already done in loadAndResize).
+    img = imnormalize(img);
+end
 
 function img = imnormalize(img)
 % Subtract ImageNet mean and divide by std (channel-wise).
