@@ -23,7 +23,9 @@ function F = extractClassicalFeatures(imgPaths, inputSize)
 %     F – N × D double feature matrix (D = 145 features)
 
     N = numel(imgPaths);
-    D = 145;
+    D = 125;   % Actual count: 6 RGB + 6 HSV + 6 LAB stats, 48 RGB hist,
+               %               48 HSV hist, 2 sun, 1 horizon, 1 colourtemp,
+               %               3 luminance, 2 sat, 1 edge, 1 laplacian = 125
     F = zeros(N, D);
 
     fprintf('       ');

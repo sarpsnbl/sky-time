@@ -54,7 +54,6 @@ function [imgPaths, timeLabels, dateFeat] = loadDataset(datasetPath, formats)
             end
 
             % ── Date features (circular encoding) ─────────────────────────
-            dv    = datevec(datenum(dt(1),dt(2),dt(3)));
             doy   = day(datetime(dt(1),dt(2),dt(3)), 'dayofyear');  % 1–366
             doyN  = (doy - 1) / 365;
             monN  = (dt(2) - 1) / 11;
@@ -140,13 +139,9 @@ function dt = readDateTime(fpath)
         % imfinfo might fail on certain HEIC files or corrupted headers
     end
 
-    % Fallback: Use file modification date if EXIF is missing or imfinfo fails
-    fileInfo = dir(fpath);
-    if ~isempty(fileInfo)
-        dt = datevec(fileInfo(1).datenum);
-    end
-    end
-
+    % If we reach this point, no valid EXIF date was found. 
+    % We return empty, which signals the main loop to drop the image.
+end
 % ─────────────────────────────────────────────────────────────────────────
 function dv = parseDateTimeString(s)
 % PARSEDATETIMESTRING  Parse EXIF DateTime string 'YYYY:MM:DD HH:MM:SS'.
