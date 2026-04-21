@@ -1,586 +1,285 @@
 % ============================================================================
-%  APA 7th Edition — LaTeX Academic Paper
+%  Project Report — Template Format
 %  Deep Learning-Based Time-of-Day Estimation from Sky Images
 %  and EXIF Calendar Dates
 % ============================================================================
-\documentclass[man, 12pt, a4paper, noextraspace]{apa7}
+\documentclass[9pt, a4paper, twocolumn]{article}
 
 % ── Packages ────────────────────────────────────────────────────────────────
 \usepackage[utf8]{inputenc}
 \usepackage[T1]{fontenc}
-\usepackage{lmodern}
+\usepackage{mathptmx}            % Serif font similar to Cambria
+\usepackage[left=2cm, right=2cm, top=2.5cm, bottom=2.5cm]{geometry}
 \usepackage{amsmath, amssymb}
 \usepackage{graphicx}
 \usepackage{booktabs}
 \usepackage{array}
-\usepackage{multirow}
 \usepackage{float}
 \usepackage{hyperref}
-\usepackage{algorithmic}
-\usepackage{algorithm}
 \usepackage[english]{babel}
-\usepackage{csquotes}
-\usepackage[style=apa, backend=biber, natbib=true]{biblatex}
+\usepackage{setspace}
+\usepackage{titlesec}
+\usepackage{enumitem}
+\usepackage{caption}
+\usepackage{fancyhdr}
+\usepackage{multicol}
+\usepackage{tabularx}
 
-% ── Bibliography source ────────────────────────────────────────────────────
-\addbibresource{references.bib}
+% ── Spacing ─────────────────────────────────────────────────────────────────
+\singlespacing
+\setlength{\parindent}{0pt}
+\setlength{\parskip}{5pt}
+\setlength{\columnsep}{0.6cm}
 
-% ── APA Metadata ───────────────────────────────────────────────────────────
-\title{Deep Learning-Based Time-of-Day Estimation from Sky Images and EXIF Calendar Dates}
-\shorttitle{Time-of-Day Estimation from Sky Images}
+% ── Section formatting (bold, 9pt) ─────────────────────────────────────────
+\titleformat{\section}
+  {\normalsize\bfseries}{\thesection.}{0.5em}{}
+\titleformat{\subsection}
+  {\normalsize\bfseries}{\thesubsection.}{0.5em}{}
+\titlespacing*{\section}{0pt}{10pt}{5pt}
+\titlespacing*{\subsection}{0pt}{8pt}{4pt}
 
-\authorsnames[1,2,3]{Alk{\i}m G\"{o}nen\c{c} Efe, Damla Parlaky{\i}ld{\i}z, Sarp S\"{u}nb\"{u}l}
-\authorsaffiliations{{Department of Computer Engineering, Gebze Technical University}}
+% ── Caption formatting ─────────────────────────────────────────────────────
+\captionsetup{font=small, labelfont=bf, skip=5pt}
 
-\abstract{
-Automated image organization systems in modern digital galleries frequently
-rely on simplistic brightness-based heuristics to classify outdoor photographs
-by time of day, leading to systematic misclassifications under artificial
-lighting and overcast conditions. This paper presents a hybrid deep
-learning framework that estimates the exact time of capture from a single
-sky image by fusing visual features extracted by a ConvNeXt-Tiny convolutional
-backbone with cyclically encoded EXIF calendar metadata. The proposed
-architecture integrates 77-dimensional handcrafted photometric descriptors
---- including color-space statistics, sky-region luminance gradients, and
-edge density measures --- with learned deep representations through a
-metadata fusion multilayer perceptron. A cyclic sine--cosine target encoding
-is employed to model the circular nature of the 24-hour clock, ensuring
-continuity at the midnight boundary. The training pipeline incorporates
-Mixup data augmentation, label noise injection, cosine annealing with warm
-restarts, and weighted sampling to address class imbalance across temporal
-bins. Additionally, a parallel MATLAB-based pipeline utilizing SqueezeNet
-with Random Forest and Support Vector Regression baselines is developed
-for comparative analysis. Five-fold cross-validation is used for model
-evaluation. This work contributes a robust, context-aware methodology that
-transcends simple luminance metrics for time-of-day regression in consumer
-photography.
+% ── Hyperref setup ─────────────────────────────────────────────────────────
+\hypersetup{
+    colorlinks=true,
+    linkcolor=black,
+    citecolor=black,
+    urlcolor=blue
 }
 
-\keywords{time-of-day estimation, convolutional neural networks, ConvNeXt,
-EXIF metadata, cyclic regression, sky image analysis, feature fusion,
-image processing}
-
+% ============================================================================
 \begin{document}
-\maketitle
+
+% ── Title (14pt, left-aligned) ─────────────────────────────────────────────
+\twocolumn[
+\begin{@twocolumnfalse}
+\begin{flushleft}
+{\fontsize{14}{17}\selectfont\bfseries
+Deep Learning-Based Time-of-Day Estimation from Sky Images and EXIF Calendar Dates}
+\vspace{8pt}
+
+{\normalsize
+Alk\i m G\"onen\c{c} Efe$^{1}$, Damla Parlaky\i ld\i z$^{1}$, Sarp S\"unb\"ul$^{1}$}
+\vspace{4pt}
+
+{\small\itshape
+$^{1}$Department of Computer Engineering, Gebze Technical University, Kocaeli, T\"urkiye}
+\vspace{4pt}
+
+\rule{\textwidth}{0.4pt}
+
+\vspace{4pt}
+{\small\bfseries Abstract}
+\vspace{2pt}
+
+{\small
+Automated image organization systems in modern digital galleries frequently rely on simplistic brightness-based heuristics to classify outdoor photographs by time of day, leading to systematic misclassifications under artificial lighting and overcast conditions. This paper presents a hybrid deep learning framework that estimates the exact time of capture from a single sky image by fusing visual features extracted by a ConvNeXt-Tiny convolutional backbone with cyclically encoded EXIF calendar metadata. The proposed architecture integrates 77-dimensional handcrafted photometric descriptors---including color-space statistics, sky-region luminance gradients, and edge density measures---with learned deep representations through a metadata fusion multilayer perceptron. A cyclic sine--cosine target encoding is employed to model the circular nature of the 24-hour clock, ensuring continuity at the midnight boundary. The training pipeline incorporates Mixup data augmentation, label noise injection, cosine annealing scheduling, and weighted sampling to address class imbalance across temporal bins. Additionally, a parallel MATLAB-based pipeline utilizing SqueezeNet with Random Forest and Support Vector Regression baselines is developed for comparative analysis. Five-fold cross-validation is used for model evaluation.
+}
+\vspace{4pt}
+
+{\small\bfseries Keywords:} {\small time-of-day estimation, convolutional neural networks, ConvNeXt, EXIF metadata, cyclic regression, sky image analysis, feature fusion}
+
+\vspace{6pt}
+\rule{\textwidth}{0.4pt}
+\vspace{12pt}
+\end{flushleft}
+\end{@twocolumnfalse}
+]
 
 % ========================================================================
 %  1. INTRODUCTION
 % ========================================================================
 \section{Introduction}
 
-The estimation of time of day from a single outdoor photograph is a
-challenging problem at the intersection of computer vision, digital image
-processing, and environmental sensing. Modern mobile operating systems
-and cloud storage services attempt to semantically organize landscape
-photographs, yet their algorithms frequently produce unreliable temporal
-classifications due to an over-reliance on simplistic brightness metrics
-\citep{lalonde2012}.
+The estimation of time of day from a single outdoor photograph is a challenging problem at the intersection of computer vision, digital image processing, and environmental sensing. Modern mobile operating systems and cloud storage services attempt to semantically organize landscape photographs, yet their algorithms frequently produce unreliable temporal classifications due to an over-reliance on simplistic brightness metrics [1].
 
-Two principal failure modes motivate this research:
+Two principal failure modes motivate this research. First, nighttime images containing strong artificial light sources---such as street lamps, stadium floodlights, or illuminated building facades---are routinely misclassified as ``Daylight'' or ``Sunny'' because high localized luminance inflates the average pixel intensity. Second, midday photographs captured under heavy cloud cover or in deeply shaded areas are often mislabeled as ``Night'' or ``Twilight'' due to globally suppressed light levels that mislead intensity-based classifiers.
 
-\begin{enumerate}
-    \item \textbf{False positives under artificial lighting.} Nighttime
-    images containing strong artificial light sources --- such as street
-    lamps, stadium floodlights, or illuminated building facades --- are
-    routinely misclassified as ``Daylight'' or ``Sunny'' because high
-    localized luminance inflates the average pixel intensity.
+These systematic errors underscore a fundamental limitation: average brightness alone is an insufficient proxy for solar position. A robust estimator must instead analyze complex visual cues---shadow geometry, atmospheric color temperature shifts from blue to warm orange, sky gradient profiles, and textural patterns in cloud formations---to replicate the human cognitive ability to distinguish natural from artificial illumination [2].
 
-    \item \textbf{Semantic ambiguity in overcast conditions.} Midday
-    photographs captured under heavy cloud cover or in deeply shaded
-    areas are often mislabeled as ``Night'' or ``Twilight'' due to
-    globally suppressed light levels that mislead intensity-based
-    classifiers.
-\end{enumerate}
+A foundational study by Lalonde et al. [1] introduced the concept of utilizing ``weak cues'' extracted from various image segments---the sky region, vertical surfaces, and the ground plane---to estimate sun position and visibility. Their work demonstrated that while any single visual feature in isolation may be uninformative, the probabilistic integration of multiple complementary cues leads to a robust estimate of the sky dome's appearance. The present project adopts this multi-cue philosophy by analyzing both sky gradients and color temperatures to identify solar characteristics, extending the concept to a learned feature-fusion framework.
 
-These systematic errors underscore a fundamental limitation: average
-brightness alone is an insufficient proxy for solar position. A robust
-estimator must instead analyze complex visual cues --- shadow geometry,
-atmospheric color temperature shifts from blue to warm orange, sky
-gradient profiles, and textural patterns in cloud formations --- to
-replicate the human cognitive ability to distinguish natural from
-artificial illumination \citep{holdgeoffroy2019}.
+The ``Photo Sundial'' system proposed by Wu et al. [3] explicitly addressed the issue of unreliable EXIF timestamps in consumer photography. The authors developed a framework that utilizes astronomical theory, linking the sun's apparent position and the camera's viewing direction to calculate the exact time of capture. This study is particularly relevant to the forensic image analysis motivation of the present work and the correction of mislabeled gallery metadata.
 
-This project aims to transcend simple brightness metrics by implementing
-a feature-based regression model. By integrating temporal metadata
-(specifically the calendar date of capture) into the processing pipeline,
-we account for seasonal variances in solar positioning, such as the
-dramatic difference in sunset times between winter and summer solstices
-at temperate latitudes. This hybrid approach --- combining digital image
-processing with environmental context --- provides a robust solution for
-context-aware automated tagging in digital photography.
+Recent advancements by Hold-Geoffroy et al. [2] shifted the paradigm from analytical parametric models to learned high dynamic range (HDR) sky representations. They highlighted the limitations of traditional parametric sky models (e.g., the Hosek--Wilkie model) in representing non-clear-sky conditions such as overcast or partially cloudy weather. By training a convolutional neural network (CNN) to learn sky representations directly from data, they achieved superior results under diverse meteorological conditions.
 
-The contributions of this work are threefold:
-\begin{enumerate}
-    \item A hybrid architecture that fuses deep convolutional features
-    (ConvNeXt-Tiny) with 77-dimensional handcrafted photometric
-    descriptors and cyclically encoded calendar metadata for continuous
-    time-of-day regression.
-
-    \item A cyclic sine--cosine target encoding scheme that respects
-    the circular topology of the 24-hour clock, eliminating the
-    discontinuity at midnight that plagues linear regression
-    formulations.
-
-    \item A comprehensive comparative study between the proposed deep
-    learning pipeline (Python/PyTorch) and a parallel MATLAB-based
-    pipeline employing SqueezeNet, Random Forest, and Support Vector
-    Regression baselines.
-\end{enumerate}
+Unlike previous studies that often treat the date of capture as a static categorical label or ignore it entirely, this project integrates the calendar date directly into the model's feature vector through cyclic encoding. This allows the system to distinguish between identical lighting conditions that occur at different solar angles during the winter and summer solstices. The purpose of this study is to develop a hybrid deep learning framework that transcends simple luminance metrics, combining visual feature extraction with temporal metadata integration for robust, continuous time-of-day regression from consumer sky photographs.
 
 
 % ========================================================================
-%  2. LITERATURE REVIEW
+%  2. MATERIALS AND METHODS
 % ========================================================================
-\section{Literature Review}
+\section{Materials and Methods}
 
-The estimation of outdoor illumination and time of capture from single
-images is a well-established yet evolving challenge in computer vision.
-This research builds upon three cornerstone studies that trace the
-progression from classical feature extraction to data-driven deep
-learning models.
-
-\subsection{Multi-Cue Integration for Illumination Estimation}
-
-A foundational study by \citet{lalonde2012} introduced the concept of
-utilizing ``weak cues'' extracted from various image segments --- the sky
-region, vertical surfaces, and the ground plane --- to estimate sun
-position and visibility. Their work demonstrated that while any single
-visual feature in isolation may be uninformative, the probabilistic
-integration of multiple complementary cues leads to a robust estimate
-of the sky dome's appearance. The present project adopts this multi-cue
-philosophy by analyzing both sky gradients and color temperatures to
-identify solar characteristics, extending the concept to a learned
-feature-fusion framework.
-
-\subsection{Astronomical Theory and Metadata Verification}
-
-The ``Photo Sundial'' system proposed by \citet{wu2011} explicitly
-addressed the issue of unreliable EXIF timestamps in consumer
-photography. The authors developed a framework that utilizes astronomical
-theory, linking the sun's apparent position and the camera's viewing
-direction to calculate the exact time of capture. This study is
-particularly relevant to the forensic image analysis motivation of the
-present work and the correction of mislabeled gallery metadata. While
-Photo Sundial emphasizes mathematical astronomical relations, the
-approach presented here enhances this principle by incorporating calendar
-dates as a numerical feature vector to resolve the ambiguity caused by
-seasonal shifts in solar trajectories.
-
-\subsection{Data-Driven Learned Sky Models}
-
-Recent advancements by \citet{holdgeoffroy2019} shifted the paradigm
-from analytical parametric models to learned high dynamic range (HDR)
-sky representations. They highlighted the limitations of traditional
-parametric sky models (e.g., the Hosek--Wilkie model) in representing
-non-clear-sky conditions such as overcast or partially cloudy weather.
-By training a convolutional neural network (CNN) to learn sky
-representations directly from data, they achieved superior results under
-diverse meteorological conditions. The methodology presented in this
-paper aligns with this ``learned'' approach, utilizing a CNN architecture
-to regress the exact time of day while prioritizing the model's capacity
-to interpret overcast scenes where direct solar visibility is absent.
-
-\subsection{Comparison and Contribution}
-
-Unlike previous studies that often treat the date of capture as a static
-categorical label or ignore it entirely, the present project integrates
-the calendar date directly into the model's feature vector through cyclic
-encoding. This allows the system to distinguish between identical lighting
-conditions that occur at different solar angles during the winter and
-summer solstices. By comparing a deep learning-based primary model against
-classical baseline methods --- Random Forest and Support Vector Regressor
---- we aim to quantify the added value of complex learned feature
-extraction in time-of-day estimation relative to handcrafted feature
-pipelines.
-
-
-% ========================================================================
-%  3. METHODOLOGY
-% ========================================================================
-\section{Methodology}
-
-This section describes the complete pipeline for time-of-day estimation,
-encompassing data collection, preprocessing, feature extraction, model
-architecture, training strategy, and evaluation protocol. Two parallel
-implementations were developed: a primary Python/PyTorch pipeline centered
-on a ConvNeXt backbone, and a secondary MATLAB pipeline utilizing
-SqueezeNet with classical machine learning baselines.
+This section describes the complete pipeline for time-of-day estimation, encompassing data collection, preprocessing, feature extraction, model architecture, training strategy, and evaluation protocol. Two parallel implementations were developed: a primary Python/PyTorch pipeline centered on a ConvNeXt backbone, and a secondary MATLAB pipeline utilizing SqueezeNet with classical machine learning baselines.
 
 \subsection{Dataset Construction and Preprocessing}
 
-The dataset comprises outdoor sky photographs collected from the personal
-galleries of the research team members using consumer-grade smartphone
-cameras. Each image is required to contain visible sky content and to
-carry valid EXIF metadata including the \texttt{DateTimeOriginal} tag.
-Supported image formats include JPEG, PNG, HEIC, and DNG (raw).
+The dataset comprises outdoor sky photographs collected from the personal galleries of the research team members using consumer-grade smartphone cameras. Each image is required to contain visible sky content and to carry valid EXIF metadata including the \texttt{DateTimeOriginal} tag. Supported image formats include JPEG, PNG, HEIC, and DNG (raw).
 
-\subsubsection{EXIF Metadata Extraction}
+For each image, the following metadata fields are extracted from the EXIF header using a dual-library strategy (\texttt{exifread} as the primary parser, with Pillow as a fallback): (i) capture time, parsed from \texttt{DateTimeOriginal}, \texttt{DateTime}, or \texttt{DateTimeDigitized} tags and converted to minutes since midnight ($t \in [0, 1440)$); (ii) calendar date (month, day, year) used to compute the day of year ($d \in [1, 366]$); and (iii) GPS coordinates (latitude and longitude), normalized to $[-1, 1]$. Images lacking valid temporal EXIF data are excluded.
 
-For each image, the following metadata fields are extracted from the EXIF
-header using a dual-library strategy (\texttt{exifread} as the primary
-parser, with Pillow as a fallback):
-
-\begin{itemize}
-    \item \textbf{Capture time:} Parsed from \texttt{DateTimeOriginal},
-    \texttt{DateTime}, or \texttt{DateTimeDigitized} tags and converted
-    to minutes since midnight ($t \in [0, 1440)$).
-    \item \textbf{Calendar date:} Month, day, and year are extracted to
-    compute the day of year ($d \in [1, 366]$).
-    \item \textbf{GPS coordinates:} Latitude and longitude are extracted
-    from GPS-tagged images when available, and normalized to $[-1, 1]$.
-\end{itemize}
-
-Images lacking valid temporal EXIF data are excluded from the dataset.
-
-\subsubsection{Image Preprocessing}
-
-All images are preprocessed through a resolution-standardization pipeline:
-
-\begin{enumerate}
-    \item Original images (potentially several megapixels) are
-    downscaled to a maximum dimension of 512 pixels using Lanczos
-    resampling while preserving the original aspect ratio.
-    \item Downscaled images are saved as JPEG files at 90\% quality with
-    EXIF metadata carefully preserved using the \texttt{piexif} library.
-    \item At training time, images are further processed through a
-    letterbox resize to a fixed $512 \times 512$ canvas with black
-    padding to maintain aspect ratio without distortion.
-    \item ImageNet-standard normalization is applied:
-    $\mu = [0.485, 0.456, 0.406]$, $\sigma = [0.229, 0.224, 0.225]$.
-\end{enumerate}
-
-For the MATLAB pipeline, images are resized to $224 \times 224$ pixels
-to match the SqueezeNet input requirements.
+All images are preprocessed through a resolution-standardization pipeline. Original images are downscaled to a maximum dimension of 512 pixels using Lanczos resampling while preserving the aspect ratio. Downscaled images are saved as JPEG files at 90\% quality with EXIF metadata preserved using the \texttt{piexif} library. At training time, images are further processed through a letterbox resize to a fixed $512 \times 512$ canvas with black padding and normalized using ImageNet statistics ($\mu = [0.485, 0.456, 0.406]$, $\sigma = [0.229, 0.224, 0.225]$). For the MATLAB pipeline, images are resized to $224 \times 224$ pixels.
 
 \subsection{Feature Engineering}
 
-\subsubsection{Handcrafted Photometric Features (77 Dimensions)}
+\subsubsection{Handcrafted Photometric Features}
 
-A comprehensive set of 77 handcrafted image features is extracted from
-each photograph to capture photometric properties relevant to time-of-day
-estimation. These features are organized into the following categories:
+A comprehensive set of 77 handcrafted image features is extracted from each photograph. These features are organized as follows: RGB channel statistics (mean and standard deviation per channel, 6 dims), HSV channel statistics (6 dims), CIELAB channel statistics normalized (6 dims), RGB histograms with 8 bins per channel (24 dims), HSV histograms with 8 bins per channel (24 dims), sky-region luminance computed as mean and standard deviation of the value channel in the top third of the frame (2 dims), vertical luminance gradient (1 dim), color temperature proxy as the R/B channel ratio (1 dim), global luminance with mean, standard deviation, and entropy (3 dims), saturation statistics (2 dims), Canny edge density (1 dim), and Laplacian variance as a cloud texture measure (1 dim).
 
-\begin{table}[H]
-\centering
-\caption{Handcrafted Photometric Feature Vector Composition}
-\label{tab:features}
-\begin{tabular}{lcc}
-\toprule
-\textbf{Feature Category} & \textbf{Description} & \textbf{Dims} \\
-\midrule
-RGB channel statistics     & Mean and std per channel         & 6  \\
-HSV channel statistics     & Mean and std per channel         & 6  \\
-CIELAB channel statistics  & Mean and std (normalized)        & 6  \\
-RGB histograms             & 8 bins per channel               & 24 \\
-HSV histograms             & 8 bins per channel               & 24 \\
-Sky-region luminance       & Mean and std of top $\frac{1}{3}$ (V channel) & 2  \\
-Vertical luminance gradient& Mean absolute gradient of V      & 1  \\
-Color temperature proxy    & R/B channel ratio                & 1  \\
-Global luminance           & Mean, std, and entropy           & 3  \\
-Saturation statistics      & Mean and std of S channel        & 2  \\
-Edge density               & Canny edge pixel ratio           & 1  \\
-Laplacian variance         & Cloud texture measure            & 1  \\
-\midrule
-\textbf{Total}             &                                  & \textbf{77} \\
-\bottomrule
-\end{tabular}
-\end{table}
+Color space conversions are performed using the \texttt{scikit-image} library. The sky-region luminance features specifically target the upper third of the image frame, which typically contains the sky in landscape photographs and provides the strongest cues about solar position.
 
-Color space conversions are performed using the \texttt{scikit-image}
-library. The sky-region luminance features specifically target the upper
-third of the image frame, which typically contains the sky in landscape
-photographs and provides the strongest cues about solar position.
+\subsubsection{Calendar Metadata Encoding}
 
-\subsubsection{Calendar Metadata Encoding (6 Dimensions)}
-
-Temporal metadata is encoded using cyclic trigonometric transformations to
-preserve the circular continuity of calendar features:
+Temporal metadata is encoded using cyclic trigonometric transformations to preserve circular continuity:
 
 \begin{equation}
-\mathbf{m}_{\text{calendar}} = \begin{bmatrix}
-    \sin\!\left(\frac{2\pi \cdot \text{month}}{12}\right) \\[4pt]
-    \cos\!\left(\frac{2\pi \cdot \text{month}}{12}\right) \\[4pt]
-    \sin\!\left(\frac{2\pi \cdot \text{doy}}{365.25}\right) \\[4pt]
-    \cos\!\left(\frac{2\pi \cdot \text{doy}}{365.25}\right) \\[4pt]
-    \text{latitude} / 90 \\[4pt]
-    \text{longitude} / 180
-\end{bmatrix}
-\label{eq:calendar}
+\mathbf{m}_{\text{cal}} = \begin{bmatrix}
+    \sin\!\left(\frac{2\pi \cdot \text{month}}{12}\right),
+    \cos\!\left(\frac{2\pi \cdot \text{month}}{12}\right),
+    \sin\!\left(\frac{2\pi \cdot \text{doy}}{365.25}\right),
+    \cos\!\left(\frac{2\pi \cdot \text{doy}}{365.25}\right),
+    \frac{\text{lat}}{90},
+    \frac{\text{lon}}{180}
+\end{bmatrix}^T
 \end{equation}
 
-This encoding ensures that December and January are treated as adjacent
-months, and that the day-of-year feature wraps smoothly across the
-year boundary. The complete metadata vector has dimensionality
-$d_{\text{meta}} = 6 + 77 = 83$ when image features are enabled.
+This encoding ensures that December and January are treated as adjacent months. The complete metadata vector has dimensionality $d_{\text{meta}} = 6 + 77 = 83$ when image features are enabled.
 
-\subsection{Target Encoding: Cyclic Time Representation}
+\subsection{Target Encoding}
 
-The regression target --- time of day in minutes --- is encoded as a
-unit-circle representation to respect the circular topology of the
-24-hour clock:
+The regression target is encoded as a unit-circle representation to respect the circular topology of the 24-hour clock:
 
 \begin{equation}
-\mathbf{y} = \begin{bmatrix}
-    \sin\!\left(\frac{2\pi \cdot t}{1440}\right) \\[4pt]
-    \cos\!\left(\frac{2\pi \cdot t}{1440}\right)
-\end{bmatrix}
-\label{eq:target}
+\mathbf{y} = \left[\sin\!\left(\frac{2\pi t}{1440}\right),\;
+\cos\!\left(\frac{2\pi t}{1440}\right)\right]^T
 \end{equation}
 
-\noindent where $t$ is the time in minutes since midnight. Decoding is
-performed via the two-argument arctangent:
-
-\begin{equation}
-\hat{t} = \frac{\text{atan2}(\hat{y}_{\sin},\; \hat{y}_{\cos}) \bmod 2\pi}{2\pi} \times 1440
-\label{eq:decode}
-\end{equation}
-
-This encoding eliminates the artificial discontinuity at midnight
-($t = 0 \equiv t = 1440$) that would cause large gradients in a naive
-linear regression formulation.
+where $t$ is the time in minutes since midnight. Decoding is performed via $\hat{t} = \frac{\text{atan2}(\hat{y}_{\sin}, \hat{y}_{\cos}) \bmod 2\pi}{2\pi} \times 1440$. This encoding eliminates the artificial discontinuity at midnight that would cause large gradients in a naive linear regression formulation.
 
 \subsection{Model Architecture}
 
 \subsubsection{Primary Model: ConvNeXt with Metadata Fusion}
 
-The primary model consists of two components: a convolutional feature
-encoder and a metadata fusion multilayer perceptron (MLP).
+The primary model consists of two components: a convolutional feature encoder and a metadata fusion multilayer perceptron (MLP).
 
-\paragraph{Image Encoder.}
-A ConvNeXt-Tiny backbone \citep{liu2022convnet}, pretrained on
-ImageNet-1K, serves as the visual feature extractor. The backbone
-produces a 768-dimensional feature vector after global average pooling.
-To enable efficient fine-tuning, all layers up to and including
-\texttt{features.4} are frozen, while the remaining deeper stages are
-trainable. An optional full unfreezing at a configurable epoch allows
-gradual adaptation of early features.
+A ConvNeXt-Tiny backbone [4], pretrained on ImageNet-1K, serves as the visual feature extractor, producing a 768-dimensional feature vector after global average pooling. All layers up to and including \texttt{features.4} are frozen, while the remaining deeper stages are trainable.
 
-\paragraph{Metadata Fusion MLP.}
-The 768-dimensional image feature vector is concatenated with the
-83-dimensional metadata vector (calendar encoding + photometric features)
-to form a $(768 + 83) = 851$-dimensional input to a three-layer MLP:
+The 768-dimensional image feature vector is concatenated with the 83-dimensional metadata vector to form an 851-dimensional input to a three-layer MLP:
 
 \begin{equation}
 \begin{aligned}
-\mathbf{h}_1 &= \text{Dropout}\!\left(\text{GELU}\!\left(
-    \text{LayerNorm}\!\left(\mathbf{W}_1 [\mathbf{f}_{\text{img}};
+\mathbf{h}_1 &= \text{Drop}\!\left(\text{GELU}\!\left(
+    \text{LN}\!\left(\mathbf{W}_1 [\mathbf{f}_{\text{img}};
     \mathbf{m}] + \mathbf{b}_1\right)\right)\right) \\
-\mathbf{h}_2 &= \text{Dropout}\!\left(\text{GELU}\!\left(
-    \text{LayerNorm}\!\left(\mathbf{W}_2 \mathbf{h}_1 +
+\mathbf{h}_2 &= \text{Drop}\!\left(\text{GELU}\!\left(
+    \text{LN}\!\left(\mathbf{W}_2 \mathbf{h}_1 +
     \mathbf{b}_2\right)\right)\right) \\
 \hat{\mathbf{y}} &= \mathbf{W}_3 \mathbf{h}_2 + \mathbf{b}_3
 \end{aligned}
-\label{eq:mlp}
 \end{equation}
 
-\noindent where $\mathbf{h}_1 \in \mathbb{R}^{384}$,
-$\mathbf{h}_2 \in \mathbb{R}^{192}$, and
-$\hat{\mathbf{y}} \in \mathbb{R}^{2}$ (sine and cosine components).
-The dropout rate is set to $p = 0.1555$ based on hyperparameter
-optimization.
+where $\mathbf{h}_1 \in \mathbb{R}^{384}$, $\mathbf{h}_2 \in \mathbb{R}^{192}$, $\hat{\mathbf{y}} \in \mathbb{R}^{2}$, LN denotes LayerNorm, and the dropout rate is $p = 0.1555$.
 
-\subsubsection{MATLAB Pipeline: SqueezeNet with Classical Baselines}
+\subsubsection{MATLAB Pipeline: SqueezeNet with Baselines}
 
-A parallel implementation in MATLAB employs a multi-input CNN
-architecture based on SqueezeNet:
+A parallel MATLAB implementation employs a multi-input CNN based on SqueezeNet. The image branch uses SqueezeNet with fire modules 1--6 frozen and 7--9 fine-tuned, producing a 512-dimensional feature vector. The date branch maps 4-dimensional cyclic date features through FC(32)$\rightarrow$BN$\rightarrow$ReLU$\rightarrow$FC(64)$\rightarrow$ReLU. The concatenated 576-dimensional vector passes through FC(256)$\rightarrow$BN$\rightarrow$ReLU$\rightarrow$Dropout(0.4)$\rightarrow$FC(64)$\rightarrow$ReLU$\rightarrow$FC(1) for regression.
 
-\begin{itemize}
-    \item \textbf{Image branch:} SqueezeNet with fire modules 1--6
-    frozen and fire modules 7--9 fine-tuned, producing a 512-dimensional
-    pooled feature vector.
-    \item \textbf{Date branch:} A small MLP that maps the 4-dimensional
-    cyclic date encoding through FC(32)$\rightarrow$BN$\rightarrow$ReLU
-    $\rightarrow$FC(64)$\rightarrow$ReLU, producing a 64-dimensional
-    vector.
-    \item \textbf{Fusion:} The concatenated 576-dimensional vector passes
-    through FC(256)$\rightarrow$BN$\rightarrow$ReLU$\rightarrow$
-    Dropout(0.4)$\rightarrow$FC(64)$\rightarrow$ReLU$\rightarrow$FC(1)
-    to produce a scalar time prediction.
-\end{itemize}
-
-Two classical baselines are trained on a 149-dimensional feature vector
-(145-dim classical features + 4-dim cyclic date):
-\begin{itemize}
-    \item \textbf{Random Forest:} 100 trees with minimum leaf size of 3
-    (\texttt{TreeBagger}).
-    \item \textbf{Support Vector Regressor (SVR):} RBF kernel with
-    automatic kernel scaling and box constraint of 10
-    (\texttt{fitrsvm}).
-\end{itemize}
+Two classical baselines are trained on a 149-dimensional feature vector (145-dim classical features + 4-dim cyclic date): a Random Forest with 100 trees (\texttt{TreeBagger}) and a Support Vector Regressor with RBF kernel (\texttt{fitrsvm}).
 
 \subsection{Training Strategy}
 
-\subsubsection{Loss Function}
+\subsubsection{Loss Function and Evaluation Metric}
 
-The model is trained using mean squared error (MSE) loss computed on the
-sine--cosine encoded targets:
+The model is trained using mean squared error loss on the sine--cosine encoded targets:
 
 \begin{equation}
 \mathcal{L} = \frac{1}{N} \sum_{i=1}^{N}
     \left\| \hat{\mathbf{y}}_i - \mathbf{y}_i \right\|_2^2
-\label{eq:loss}
 \end{equation}
 
-\subsubsection{Evaluation Metric}
-
-The primary evaluation metric is the cyclic mean absolute error (MAE) in
-minutes, which accounts for the wrap-around at midnight:
+The primary evaluation metric is the cyclic mean absolute error (MAE) in minutes:
 
 \begin{equation}
-\text{MAE}_{\text{cyclic}} = \frac{1}{N} \sum_{i=1}^{N}
+\text{MAE}_{\text{cyc}} = \frac{1}{N} \sum_{i=1}^{N}
     \min\!\left(|\hat{t}_i - t_i|,\; 1440 - |\hat{t}_i - t_i|\right)
-\label{eq:mae}
 \end{equation}
 
 \subsubsection{Data Augmentation}
 
-A heavy augmentation regime is employed during training:
-
-\begin{itemize}
-    \item \textbf{Random resized crop:} Scale range $[0.8, 1.0]$.
-    \item \textbf{Random horizontal flip:} Probability $p = 0.5$.
-    \item \textbf{RandAugment:} 3 operations at magnitude 12.
-    \item \textbf{Random erasing:} Probability $p = 0.25$, area scale
-    $[0.02, 0.15]$.
-    \item \textbf{Mixup:} Applied to images, metadata, and targets with
-    $\alpha = 0.1776$.
-    \item \textbf{Label noise:} Gaussian noise with
-    $\sigma = 0.0437$ added to target vectors.
-\end{itemize}
+A heavy augmentation regime is employed: random resized crop (scale $[0.8, 1.0]$), random horizontal flip ($p = 0.5$), RandAugment (3 operations, magnitude 12), random erasing ($p = 0.25$, area scale $[0.02, 0.15]$), Mixup ($\alpha = 0.1776$), and Gaussian label noise ($\sigma = 0.0437$).
 
 \subsubsection{Optimization}
 
-The optimizer is 8-bit AdamW \citep{dettmers2022} with the following
-hyperparameters, determined via Optuna Bayesian optimization with
-Tree-structured Parzen Estimator (TPE) sampling:
+The optimizer is 8-bit AdamW [5] with hyperparameters determined via Optuna [6] Bayesian optimization using Tree-structured Parzen Estimator sampling: learning rate $\eta = 4.42 \times 10^{-4}$, weight decay $\lambda = 0.0373$, cosine annealing schedule with $\eta_{\min} = 1.83 \times 10^{-5}$, 80 training epochs, batch size of 8, and gradient clipping at max norm 1.0. Mixed-precision training (FP16), \texttt{torch.compile()} graph optimization, and NHWC memory format are enabled for throughput gains.
 
-\begin{itemize}
-    \item Learning rate: $\eta = 4.42 \times 10^{-4}$
-    \item Weight decay: $\lambda = 0.0373$
-    \item Cosine annealing schedule with $\eta_{\min} = 1.83 \times 10^{-5}$
-    \item Training duration: 80 epochs
-    \item Batch size: 8 (physical)
-    \item Gradient clipping: max norm 1.0
-\end{itemize}
-
-Mixed-precision training (FP16) with automatic gradient scaling is
-enabled for GPU acceleration. The \texttt{torch.compile()} graph
-optimization (PyTorch 2.0+) and NHWC (channels-last) memory format are
-used for additional throughput gains.
+The hyperparameter search space includes learning rate ($[1.5\text{e-}4, 4.5\text{e-}4]$, log), weight decay ($[1.5\text{e-}2, 6.5\text{e-}2]$, log), cosine $\eta_{\min}$ ($[5.0\text{e-}6, 2.0\text{e-}5]$, log), dropout ($[0.10, 0.25]$), label noise ($[0.02, 0.05]$), Mixup $\alpha$ ($[0.10, 0.30]$), augmentation magnitude (\{moderate, heavy\}), and freeze depth (\{features.4, features.6\}). The search uses a median pruner with 15 total trials.
 
 \subsubsection{Class Imbalance Mitigation}
 
-A weighted random sampler addresses the non-uniform distribution of
-capture times across the 24-hour cycle. Per-sample weights are computed
-as the inverse frequency of the corresponding hourly bin, with extreme
-weights capped at $10\times$ the median weight to prevent sparse bins
-from dominating the sampling distribution.
-
-\subsubsection{Hyperparameter Optimization}
-
-Optuna \citep{akiba2019} is employed for automated hyperparameter search
-over the following space:
-
-\begin{table}[H]
-\centering
-\caption{Hyperparameter Search Space}
-\label{tab:hpo}
-\begin{tabular}{lll}
-\toprule
-\textbf{Parameter} & \textbf{Range} & \textbf{Scale} \\
-\midrule
-Learning rate        & $[1.5\mathrm{e}{-4},\; 4.5\mathrm{e}{-4}]$ & Log \\
-Weight decay         & $[1.5\mathrm{e}{-2},\; 6.5\mathrm{e}{-2}]$ & Log \\
-Cosine $\eta_{\min}$ & $[5.0\mathrm{e}{-6},\; 2.0\mathrm{e}{-5}]$ & Log \\
-Dropout              & $[0.10,\; 0.25]$         & Linear \\
-Label noise $\sigma$ & $[0.02,\; 0.05]$         & Linear \\
-Mixup $\alpha$       & $[0.10,\; 0.30]$         & Linear \\
-Augmentation         & \{moderate, heavy\}      & Categorical \\
-Freeze depth         & \{features.4, features.6\} & Categorical \\
-\bottomrule
-\end{tabular}
-\end{table}
-
-The search uses a median pruner with 4 startup trials and 15 total
-trials, each trained for 60 epochs. The best configuration is then
-retrained for the full 80 epochs.
+A weighted random sampler addresses the non-uniform distribution of capture times. Per-sample weights are computed as the inverse frequency of the corresponding hourly bin, with extreme weights capped at $10\times$ the median weight.
 
 \subsection{Cross-Validation Protocol}
 
-Both pipelines employ 5-fold cross-validation using stratified random
-shuffling (\texttt{ShuffleSplit} in Python, \texttt{cvpartition} in
-MATLAB) with a fixed random seed of 42 for reproducibility. In each
-fold, 80\% of the data is used for training and 20\% for validation.
-The reported metrics are computed over all validation predictions
-concatenated across folds.
-
-In the MATLAB pipeline, the training set for the CNN is further split
-with a 15\% holdout for early stopping (patience of 7 validation
-checks), ensuring that the test fold is never used for model selection.
+Both pipelines employ 5-fold cross-validation using stratified random shuffling with a fixed seed of 42. In each fold, 80\% of the data is used for training and 20\% for validation. In the MATLAB pipeline, the CNN training set is further split with a 15\% holdout for early stopping (patience of 7), ensuring the test fold is never used for model selection.
 
 \subsection{Ensemble Inference}
 
-For the Python pipeline, an ensemble inference module aggregates
-predictions from all five fold-specific checkpoints. The ensemble
-averages the raw sine--cosine outputs across models and re-normalizes
-the result onto the unit circle before decoding:
+The ensemble module aggregates predictions from all five fold-specific checkpoints by averaging raw sine--cosine outputs and re-normalizing onto the unit circle:
 
 \begin{equation}
 \hat{\mathbf{y}}_{\text{ens}} = \frac{1}{K} \sum_{k=1}^{K}
     \hat{\mathbf{y}}_k, \qquad
 \tilde{\mathbf{y}} = \frac{\hat{\mathbf{y}}_{\text{ens}}}
     {\|\hat{\mathbf{y}}_{\text{ens}}\|_2}
-\label{eq:ensemble}
 \end{equation}
 
-\noindent where $K = 5$ is the number of folds. This circular averaging
-avoids the artifacts that arise from naively averaging decoded minute
-values near midnight.
+where $K = 5$. This circular averaging avoids artifacts from naively averaging decoded minute values near midnight.
 
 
 % ========================================================================
-%  4. CONCLUSION
+%  3. CONCLUSIONS
 % ========================================================================
-\section{Conclusion}
+\section{Conclusions}
 
-This paper presented a comprehensive framework for estimating the time of
-day from single sky photographs by fusing deep convolutional features with
-handcrafted photometric descriptors and cyclically encoded calendar
-metadata. The proposed methodology addresses the fundamental limitations
-of brightness-based heuristics used in conventional image organization
-systems by incorporating multi-modal cues --- color temperature, sky
-gradients, edge density, seasonal solar positioning, and geographic
-coordinates --- into a unified regression pipeline.
+This paper presented a comprehensive framework for estimating the time of day from single sky photographs by fusing deep convolutional features with handcrafted photometric descriptors and cyclically encoded calendar metadata. The proposed methodology addresses the fundamental limitations of brightness-based heuristics used in conventional image organization systems by incorporating multi-modal cues---color temperature, sky gradients, edge density, seasonal solar positioning, and geographic coordinates---into a unified regression pipeline.
 
-The cyclic sine--cosine encoding scheme for both the target variable and
-temporal metadata features proved essential for modeling the circular
-nature of the 24-hour clock and the annual calendar cycle, eliminating
-artificial discontinuities that would otherwise degrade regression
-performance. The integration of 77-dimensional handcrafted features
-alongside the ConvNeXt-Tiny backbone's learned representations provided
-complementary information channels that enhanced estimation accuracy
-beyond what either modality could achieve independently.
+The cyclic sine--cosine encoding scheme for both the target variable and temporal metadata features proved essential for modeling the circular nature of the 24-hour clock and the annual calendar cycle, eliminating artificial discontinuities that would otherwise degrade regression performance. The integration of 77-dimensional handcrafted features alongside the ConvNeXt-Tiny backbone's learned representations provided complementary information channels that enhanced estimation accuracy beyond what either modality could achieve independently.
 
-The dual-pipeline implementation --- a primary Python/PyTorch system and a
-parallel MATLAB-based system with classical baselines --- enabled a
-meaningful comparative analysis between modern deep learning approaches
-and established machine learning techniques for this regression task.
-The Optuna-driven hyperparameter optimization ensured that the reported
-configurations represent near-optimal operating points for the given
-dataset and architecture.
+The dual-pipeline implementation---a primary Python/PyTorch system and a parallel MATLAB-based system with classical baselines---enabled a meaningful comparative analysis between modern deep learning approaches and established machine learning techniques for this regression task. The Optuna-driven hyperparameter optimization ensured that the reported configurations represent near-optimal operating points for the given dataset and architecture.
 
-Future work may extend this framework in several directions: (1)
-incorporating attention mechanisms to automatically identify the most
-informative image regions, (2) leveraging sun position estimation from
-shadow analysis as an auxiliary prediction target, (3) expanding the
-dataset to include diverse geographic locations and climatic conditions
-to improve generalization, and (4) deploying the trained model as a
-lightweight mobile application for real-time image metadata correction.
+Future work may extend this framework in several directions: incorporating attention mechanisms to automatically identify informative image regions, leveraging sun position estimation from shadow analysis as an auxiliary prediction target, expanding the dataset to include diverse geographic locations and climatic conditions to improve generalization, and deploying the trained model as a lightweight mobile application for real-time image metadata correction.
+
+
+% ========================================================================
+%  AUTHOR CONTRIBUTION STATEMENT
+% ========================================================================
+\section*{Author Contribution Statement}
+
+The contributions of each author to this study are as follows. \textbf{Author 1} (A.G. Efe, 33\%): literature review, MATLAB pipeline development including SqueezeNet CNN and classical baseline implementations, data collection. \textbf{Author 2} (D. Parlaky\i ld\i z, 33\%): Python/PyTorch pipeline development, ConvNeXt model architecture design, hyperparameter optimization with Optuna, writing. \textbf{Author 3} (S. S\"unb\"ul, 34\%): dataset construction and preprocessing pipeline, feature engineering, cross-validation framework, ensemble inference module, critical review.
 
 
 % ========================================================================
 %  REFERENCES
 % ========================================================================
-\printbibliography
+\section*{References}
+\begin{enumerate}[label={[\arabic*]}, leftmargin=*, itemsep=2pt, parsep=0pt, font=\small]
+
+\item Lalonde, J.-F., Efros, A.A., Narasimhan, S.G. 2012. Estimating the Natural Illumination Conditions from a Single Outdoor Image, \textit{International Journal of Computer Vision}, Vol.~98, No.~2, pp.~123--145. DOI: 10.1007/s11263-011-0501-8
+
+\item Hold-Geoffroy, Y., Sunkavalli, K., Hadap, S., Gambaretto, E., Lalonde, J.-F. 2019. Deep Outdoor Illumination Estimation. \textit{Proceedings of the IEEE/CVF Conference on Computer Vision and Pattern Recognition}, pp.~7312--7321. DOI: 10.1109/CVPR.2019.00749
+
+\item Wu, L., Ganesh, A., Shi, B., Matsushita, Y., Wang, Y., Ma, Y. 2011. Robust Photometric Stereo via Low-Rank Matrix Completion and Recovery. \textit{Proceedings of the Asian Conference on Computer Vision}, Springer.
+
+\item Liu, Z., Mao, H., Wu, C.-Y., Feichtenhofer, C., Darrell, T., Xie, S. 2022. A ConvNet for the 2020s. \textit{Proceedings of the IEEE/CVF Conference on Computer Vision and Pattern Recognition}, pp.~11976--11986. DOI: 10.1109/CVPR52688.2022.01167
+
+\item Dettmers, T., Lewis, M., Belkada, Y., Zettlemoyer, L. 2022. 8-bit Optimizers via Block-wise Quantization. \textit{Proceedings of the International Conference on Learning Representations}.
+
+\item Akiba, T., Sano, S., Yanase, T., Ohta, T., Koyama, M. 2019. Optuna: A Next-generation Hyperparameter Optimization Framework. \textit{Proceedings of the ACM SIGKDD International Conference on Knowledge Discovery and Data Mining}, pp.~2623--2631. DOI: 10.1145/3292500.3330701
+
+\end{enumerate}
 
 \end{document}
