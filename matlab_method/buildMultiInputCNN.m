@@ -3,7 +3,7 @@ function lgraph = buildMultiInputCNN(cfg)
 %
 %   Architecture
 %   ┌──────────────────────────────────────────────────────────────┐
-%   │  IMAGE INPUT [224×224×3]                                     │
+%   │  IMAGE INPUT [cfg.inputSize, default 112×112×3]                     │
 %   │   └─ ResNet-18 (frozen conv1–layer3, trainable layer4)       │
 %   │       └─ pool5 → flatten  [512]                              │
 %   │                         ╲                                    │
@@ -26,6 +26,15 @@ function lgraph = buildMultiInputCNN(cfg)
     net    = resnet18;
     lgraph = layerGraph(net);
 
+    % ── Replace input layer to match cfg.inputSize ─────────────────────
+    % ResNet-18's imageInputLayer is hardcoded to 224×224×3.
+    % Swap it out so the network accepts whatever size cfg specifies.
+    inputLayerName = lgraph.Layers(1).Name;
+    newInput = imageInputLayer(cfg.inputSize, ...
+                               'Name',          inputLayerName, ...
+                               'Normalization', 'none');
+    lgraph = replaceLayer(lgraph, inputLayerName, newInput);
+
     % ── Remove original classification head ────────────────────────────
     layerNames  = {lgraph.Layers.Name};
     headKeywords = {'classif', 'prob', 'softmax', 'output', 'fc1000'};
@@ -43,11 +52,12 @@ function lgraph = buildMultiInputCNN(cfg)
         lgraph = removeLayers(lgraph, toRemove);
     end
 
-    % ── Freeze early layers (conv1 through layer3) ─────────────────────
-    frozenPrefixes = {'conv1','bn_conv1', ...
-                      'res2a','res2b','bn2a','bn2b', ...
-                      'res3a','res3b','bn3a','bn3b', ...
-                      'res4a','res4b','bn4a','bn4b'};
+    % ── Freeze ONLY the very first layer ───────────────────────────────
+    % Freeze conv1 through layer3 (PyTorch naming).
+    % MATLAB resnet18 uses res2=layer1, res3=layer2, res4=layer3, res5=layer4.
+    % Only res5 (layer4) and the new head layers remain trainable.
+    frozenPrefixes = {'conv1',  'bn_conv1', ...
+                      'res2a',  'res2b',  'bn2a',  'bn2b'};
 
     for i = 1:numel(lgraph.Layers)
         lyr  = lgraph.Layers(i);
@@ -88,12 +98,12 @@ function lgraph = buildMultiInputCNN(cfg)
     dateLayers = [
         featureInputLayer(cfg.dateFeatureDim, 'Name','data_date', ...
                           'Normalization','none')
-        fullyConnectedLayer(64,  'Name','date_fc1', ...
+        fullyConnectedLayer(16,  'Name','date_fc1', ...
                             'WeightLearnRateFactor',2,'BiasLearnRateFactor',2)
         batchNormalizationLayer( 'Name','date_bn1')
         reluLayer(               'Name','date_relu1')
         dropoutLayer(0.2,        'Name','date_drop')
-        fullyConnectedLayer(128, 'Name','date_fc2', ...
+        fullyConnectedLayer(16,  'Name','date_fc2', ...
                             'WeightLearnRateFactor',2,'BiasLearnRateFactor',2)
         batchNormalizationLayer( 'Name','date_bn2')
         reluLayer(               'Name','date_relu2')
@@ -111,13 +121,14 @@ function lgraph = buildMultiInputCNN(cfg)
                             'WeightLearnRateFactor',4,'BiasLearnRateFactor',4)
         batchNormalizationLayer( 'Name','head_bn1')
         reluLayer(               'Name','head_relu1')
-        dropoutLayer(0.3,        'Name','head_drop')
+        dropoutLayer(0.5,        'Name','head_drop')  % <--- Increased to 0.5
         fullyConnectedLayer(64,  'Name','head_fc2', ...
                             'WeightLearnRateFactor',4,'BiasLearnRateFactor',4)
         batchNormalizationLayer( 'Name','head_bn2')
         reluLayer(               'Name','head_relu2')
         fullyConnectedLayer(2,   'Name','time_output', ...
                             'WeightLearnRateFactor',4,'BiasLearnRateFactor',4)
+        tanhLayer(               'Name','time_tanh')  % <--- The previous Quick Fix
         regressionLayer(         'Name','regression_output')
     ];
     lgraph = addLayers(lgraph, headLayers);

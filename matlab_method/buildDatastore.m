@@ -104,7 +104,7 @@ function img = augmentImage(img, targetHW)
     img   = imrotate(img, angle, 'bilinear', 'crop');
 
     % 3. Colour jitter (brightness, contrast, saturation, hue)
-    img = colorJitter(img, 0.25, 0.2, 0.25, 0.04);
+    % img = colorJitter(img, 0.25, 0.2, 0.25, 0.04);
 
     % 4. Random resized crop (scale 0.85–1.0)
     img = randomResizedCrop(img, targetHW, 0.85, 1.0);

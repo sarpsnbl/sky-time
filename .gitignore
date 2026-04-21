@@ -9,4 +9,5 @@
 .db
 .log
 *.zip
+/dataset_224x224
 *.csv

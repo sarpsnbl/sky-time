@@ -26,11 +26,11 @@ MINUTES_PER_DAY = 1440.0;
 
 % ── Configuration ─────────────────────────────────────────────────────────
 cfg.datasetPath    = 'dataset';
-cfg.imageFormats   = {'*.jpg','*.jpeg','*.png','*.dng','*.heic','*.HEIC'};
+cfg.imageFormats   = {'*.jpg','*.jpeg','*.png','*.heic','*.HEIC'};
 cfg.inputSize      = [224 224 3];
 cfg.kFolds         = 5;
 cfg.maxEpochs      = 30;
-cfg.miniBatch      = 8;
+cfg.miniBatch      = 96;
 cfg.learnRate      = 1e-4;
 cfg.l2Reg          = 1e-3;
 cfg.dateFeatureDim = 4;
@@ -42,14 +42,27 @@ fprintf('║    Sky Time Estimation – MATLAB Pipeline         ║\n');
 fprintf('╚══════════════════════════════════════════════════╝\n\n');
 
 % ── Step 1 : Load dataset ─────────────────────────────────────────────────
-fprintf('[1/5]  Scanning "%s" …\n', cfg.datasetPath);
+% Scan the ORIGINAL folder to safely extract all the EXIF metadata
+cfg.originalPath  = 'dataset'; 
+cfg.originalForms = {'*.jpg','*.jpeg','*.png','*.dng','*.heic','*.HEIC'};
+
+fprintf('[1/5]  Scanning "%s" for metadata …\n', cfg.originalPath);
 
 warning('off','all');
-[imgPaths, timeLabels, dateFeat] = loadDataset(cfg.datasetPath, cfg.imageFormats);
+[imgPaths, timeLabels, dateFeat] = loadDataset(cfg.originalPath, cfg.originalForms);
 warning('on','all');
 
+% --- THE FIX: Reroute the file paths to the resized folder ---
+% Now that we have the labels, we swap the paths to point to your new 
+% lightning-fast 224x224 JPGs instead of the heavy original files.
+for i = 1:numel(imgPaths)
+    [~, name, ~] = fileparts(imgPaths{i});
+    imgPaths{i}  = fullfile('dataset_224x224', [name, '.jpg']);
+end
+% -------------------------------------------------------------
+
 N = numel(imgPaths);
-fprintf('       %d images loaded with valid DateTime.\n\n', N);
+fprintf('       %d images loaded and re-routed to 224×224 folder.\n\n', N);
 
 timeMinutes = timeLabels * 60;
 angles      = 2 * pi * timeMinutes / MINUTES_PER_DAY;
@@ -74,12 +87,22 @@ res_svr = struct('guesses',[],'actuals',[],'paths',{{}});
 for fold = 1:cfg.kFolds
     fprintf('┌─ Fold %d / %d ─────────────────────────────────\n', fold, cfg.kFolds);
 
-    trIdx = training(cv, fold);
-    teIdx = test(cv, fold);
+    % Get the master indices for this fold
+    trIdxAll = training(cv, fold);
+    teIdx    = test(cv, fold);
+
+    % ── 1. ANTI-CHEATING: Split Train into Train & Val ────────────────
+    % We isolate the test set completely. Early stopping will now use
+    % a 15% holdout strictly from the training data.
+    trIndices = find(trIdxAll);
+    cvVal = cvpartition(numel(trIndices), 'HoldOut', 0.15);
+    actualTrIdx = trIndices(training(cvVal));
+    valIdx      = trIndices(test(cvVal));
 
     % ── Baseline 1 : Random Forest ────────────────────────────────────
+    % (Baselines can safely train on the full trIdxAll)
     fprintf('│  [RF]   Training Random Forest (100 trees) …\n');
-    rfMdl  = TreeBagger(100, X_base(trIdx,:), y_scalar(trIdx), ...
+    rfMdl  = TreeBagger(100, X_base(trIdxAll,:), y_scalar(trIdxAll), ...
                  'Method','regression','MinLeafSize',3);
     rfPred = predict(rfMdl, X_base(teIdx,:));
     res_rf.guesses = [res_rf.guesses;  rfPred];
@@ -89,7 +112,7 @@ for fold = 1:cfg.kFolds
 
     % ── Baseline 2 : SVR ──────────────────────────────────────────────
     fprintf('│  [SVR]  Training Support Vector Regressor …\n');
-    svrMdl  = fitrsvm(X_base(trIdx,:), y_scalar(trIdx), ...
+    svrMdl  = fitrsvm(X_base(trIdxAll,:), y_scalar(trIdxAll), ...
                   'KernelFunction','rbf','Standardize',true, ...
                   'KernelScale','auto','BoxConstraint',10);
     svrPred = predict(svrMdl, X_base(teIdx,:));
@@ -102,12 +125,12 @@ for fold = 1:cfg.kFolds
     fprintf('│  [CNN]  Building + training multi-input CNN …\n');
     lgraph  = buildMultiInputCNN(cfg);
 
-    trainDS = buildDatastore(imgPaths(trIdx), dateFeat(trIdx,:), ...
-                             yEncoded(trIdx,:), cfg, true);
-    valDS   = buildDatastore(imgPaths(teIdx), dateFeat(teIdx,:), ...
-                             yEncoded(teIdx,:), cfg, false);
+    % Build Datastores using the newly split indices
+    trainDS = buildDatastore(imgPaths(actualTrIdx), dateFeat(actualTrIdx,:), ...
+                             yEncoded(actualTrIdx,:), cfg, true);
+    valDS   = buildDatastore(imgPaths(valIdx), dateFeat(valIdx,:), ...
+                             yEncoded(valIdx,:), cfg, false);
 
-    % Single closure handles live RMSE plot + early stopping together
     outputFn = makeTrainingMonitor(cfg.esPatience, fold, cfg.kFolds);
 
     opts = trainingOptions('adam', ...
@@ -120,24 +143,46 @@ for fold = 1:cfg.kFolds
         'LearnRateDropPeriod',   15, ...
         'GradientThreshold',     1.0, ...
         'ValidationData',        valDS, ...
-        'ValidationFrequency',   10, ...
+        'ValidationFrequency',   20, ...
         'ValidationPatience',    cfg.esPatience, ...
         'OutputFcn',             outputFn, ...
         'Shuffle',               'every-epoch', ...
+        'DispatchInBackground',  true, ...
         'Plots',                 'none', ...
         'Verbose',               true, ...
-        'VerboseFrequency',      1);
+        'VerboseFrequency',      50);
 
     net = trainNetwork(trainDS, lgraph, opts);
 
-    cnnPredMinutes = predictCNN(net, imgPaths(teIdx), dateFeat(teIdx,:), cfg);
+    % ── 2. OOM FIX: Memory-Safe Batched Prediction ────────────────────
+    % Replace predictCNN with a batched datastore prediction so we 
+    % don't load all test images into RAM at once.
+    testDS = buildDatastore(imgPaths(teIdx), dateFeat(teIdx,:), ...
+                            yEncoded(teIdx,:), cfg, false);
+                            
+    % Strip the labels from the test datastore so predict() doesn't error out
+    testDS_noLabels = transform(testDS, @(data) data(1:2)); 
+
+    rawPreds = predict(net, testDS_noLabels, 'MiniBatchSize', cfg.miniBatch);
+
+    % Convert the raw [sin, cos] predictions back to minutes
+    angles_pred = atan2(rawPreds(:,1), rawPreds(:,2));
+    angles_pred(angles_pred < 0) = angles_pred(angles_pred < 0) + 2*pi;
+    cnnPredMinutes = (angles_pred / (2*pi)) * MINUTES_PER_DAY;
 
     res_cnn.guesses = [res_cnn.guesses;  cnnPredMinutes / 60];
     res_cnn.actuals = [res_cnn.actuals;  y_scalar(teIdx)];
     res_cnn.paths   = [res_cnn.paths;    imgPaths(teIdx)];
 
-    % ── Explicit cleanup ──────────────────────────────────────────────
-    clear net lgraph trainDS valDS outputFn cnnPredMinutes;
+    % ── 3. OOM FIX: Aggressive Cleanup ────────────────────────────────
+    % Close the figure generated by makeTrainingMonitor to free UI RAM
+    figName = sprintf('Training Monitor — Fold %d / %d', fold, cfg.kFolds);
+    close(findobj('Type', 'Figure', 'Name', figName));
+
+    % Clear massive objects from the workspace
+    clear net lgraph trainDS valDS testDS testDS_noLabels outputFn rawPreds angles_pred cnnPredMinutes;
+    
+    % Force garbage collection and clear GPU
     try
         if gpuDeviceCount > 0
             gpuDevice([]);
@@ -161,7 +206,7 @@ fprintf('═══════════════════════�
 fprintf('[5/5]  Per-Image Predictions — CNN Model\n');
 fprintf('─────────────────────────────────────────────────────────────\n');
 fprintf('%-6s  %-10s  %-10s  %-12s  %s\n', ...
-        'Index','Guess','Actual','Abs Err(min)','Image');
+        'Index','Guess','Actual','Abs Err','Image');
 fprintf('%s\n', repmat('─',1,80));
 
 allErr = zeros(numel(res_cnn.actuals),1);
@@ -171,13 +216,13 @@ for i = 1:numel(res_cnn.actuals)
     err = circularTimeDiff(g, a) * 60;
     allErr(i) = err;
     [~,fname,ext] = fileparts(res_cnn.paths{i});
-    fprintf('%-6d  guess: %-6s  actual: %-6s  %7.1f min     %s%s\n', ...
-            i, hoursToHHMM(g), hoursToHHMM(a), err, fname, ext);
+    fprintf('%-6d  guess: %-6s  actual: %-6s  %-12s  %s%s\n', ...
+            i, hoursToHHMM(g), hoursToHHMM(a), minsToHHMM(err), fname, ext);
 end
 
 rmse_min = sqrt(mean(allErr.^2));
 fprintf('%s\n', repmat('─',1,80));
-fprintf('error margin: %.2f min (RMSE over all folds)\n\n', rmse_min);
+fprintf('Overall RMSE: %s  (over all folds)\n\n', minsToHHMM(rmse_min));
 
 T = table((1:numel(res_cnn.actuals))', ...
           arrayfun(@hoursToHHMM, res_cnn.guesses,'UniformOutput',false), ...
@@ -368,5 +413,13 @@ function printModelResults(name, res)
     errs = arrayfun(@(g,a) circularTimeDiff(g,a)*60, res.guesses, res.actuals);
     rmse = sqrt(mean(errs.^2));
     mae  = mean(errs);
-    fprintf('  %-26s  RMSE: %6.2f min   MAE: %6.2f min\n', name, rmse, mae);
+    fprintf('  %-26s  RMSE: %s   MAE: %s\n', name, minsToHHMM(rmse), minsToHHMM(mae));
+end
+
+function str = minsToHHMM(mins)
+% Format a duration in minutes as HHhMMm.
+    hh  = floor(mins / 60);
+    mm  = round(mod(mins, 60));
+    if mm == 60, hh = hh + 1; mm = 0; end
+    str = sprintf('%02dh%02dm', hh, mm);
 end
