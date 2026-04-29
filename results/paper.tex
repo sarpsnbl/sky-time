@@ -62,11 +62,11 @@ Deep Learning-Based Time-of-Day Estimation from Sky Images and EXIF Calendar Dat
 \vspace{8pt}
 
 {\normalsize
-Alk\i m G\"onen\c{c} Efe$^{1}$, Damla Parlaky\i ld\i z$^{1}$, Sarp S\"unb\"ul$^{1}$}
+Alk\i m G\"onen\c{c} Efe$^{1}$, Sarp S\"unb\"ul$^{1}$, Damla Parlaky\i ld\i z$^{1}$}
 \vspace{4pt}
 
 {\small\itshape
-$^{1}$Department of Computer Engineering, Gebze Technical University, Kocaeli, T\"urkiye}
+$^{1}$Department of Computer Engineering, İzmir Katip Çelebi University, İzmir, Türkiye}
 \vspace{4pt}
 
 \rule{\textwidth}{0.4pt}
@@ -122,7 +122,7 @@ The dataset comprises outdoor sky photographs collected from the personal galler
 
 For each image, the following metadata fields are extracted from the EXIF header using a dual-library strategy (\texttt{exifread} as the primary parser, with Pillow as a fallback): (i) capture time, parsed from \texttt{DateTimeOriginal}, \texttt{DateTime}, or \texttt{DateTimeDigitized} tags and converted to minutes since midnight ($t \in [0, 1440)$); (ii) calendar date (month, day, year) used to compute the day of year ($d \in [1, 366]$); and (iii) GPS coordinates (latitude and longitude), normalized to $[-1, 1]$. Images lacking valid temporal EXIF data are excluded.
 
-All images are preprocessed through a resolution-standardization pipeline. Original images are downscaled to a maximum dimension of 512 pixels using Lanczos resampling while preserving the aspect ratio. Downscaled images are saved as JPEG files at 90\% quality with EXIF metadata preserved using the \texttt{piexif} library. At training time, images are further processed through a letterbox resize to a fixed $512 \times 512$ canvas with black padding and normalized using ImageNet statistics ($\mu = [0.485, 0.456, 0.406]$, $\sigma = [0.229, 0.224, 0.225]$). For the MATLAB pipeline, images are resized to $224 \times 224$ pixels.
+All images are preprocessed through a resolution-standardization pipeline. Original images are downscaled to a maximum dimension of 512 pixels using Lanczos resampling while preserving the aspect ratio. Downscaled images are saved as JPEG files at 90\% quality with EXIF metadata preserved using the \texttt{piexif} library. At training time, images are further processed through a letterbox resize to a fixed $512 \times 512$ canvas with black padding and normalized using ImageNet statistics ($\mu = [0.485, 0.456, 0.406]$, $\sigma = [0.229, 0.224, 0.225]$), a standard preprocessing scheme for deep convolutional neural networks trained on large-scale datasets [7,8]. For the MATLAB pipeline, images are resized to $224 \times 224$ pixels.
 
 \subsection{Feature Engineering}
 
@@ -130,24 +130,28 @@ All images are preprocessed through a resolution-standardization pipeline. Origi
 
 A comprehensive set of 77 handcrafted image features is extracted from each photograph. These features are organized as follows: RGB channel statistics (mean and standard deviation per channel, 6 dims), HSV channel statistics (6 dims), CIELAB channel statistics normalized (6 dims), RGB histograms with 8 bins per channel (24 dims), HSV histograms with 8 bins per channel (24 dims), sky-region luminance computed as mean and standard deviation of the value channel in the top third of the frame (2 dims), vertical luminance gradient (1 dim), color temperature proxy as the R/B channel ratio (1 dim), global luminance with mean, standard deviation, and entropy (3 dims), saturation statistics (2 dims), Canny edge density (1 dim), and Laplacian variance as a cloud texture measure (1 dim).
 
-Color space conversions are performed using the \texttt{scikit-image} library. The sky-region luminance features specifically target the upper third of the image frame, which typically contains the sky in landscape photographs and provides the strongest cues about solar position.
+Color space conversions are performed using the \texttt{scikit-image} library. These feature extraction techniques are grounded in classical digital image processing methodologies [9], with edge detection specifically implemented using the Canny operator [10], which provides robust gradient-based edge localization under varying noise conditions.
 
 \subsubsection{Calendar Metadata Encoding}
 
 Temporal metadata is encoded using cyclic trigonometric transformations to preserve circular continuity:
 
 \begin{equation}
-\mathbf{m}_{\text{cal}} = \begin{bmatrix}
-    \sin\!\left(\frac{2\pi \cdot \text{month}}{12}\right),
-    \cos\!\left(\frac{2\pi \cdot \text{month}}{12}\right),
-    \sin\!\left(\frac{2\pi \cdot \text{doy}}{365.25}\right),
-    \cos\!\left(\frac{2\pi \cdot \text{doy}}{365.25}\right),
-    \frac{\text{lat}}{90},
-    \frac{\text{lon}}{180}
+{
+\renewcommand{\arraystretch}{1.4}
+\mathbf{m}_{\text{cal}} =
+\begin{bmatrix}
+\sin\!\left(\frac{2\pi \cdot \text{month}}{12}\right),
+\cos\!\left(\frac{2\pi \cdot \text{month}}{12}\right), \\
+\sin\!\left(\frac{2\pi \cdot \text{doy}}{365.25}\right),
+\cos\!\left(\frac{2\pi \cdot \text{doy}}{365.25}\right), \\
+\frac{\text{lat}}{90},
+\frac{\text{lon}}{180}
 \end{bmatrix}^T
+}
 \end{equation}
 
-This encoding ensures that December and January are treated as adjacent months. The complete metadata vector has dimensionality $d_{\text{meta}} = 6 + 77 = 83$ when image features are enabled.
+This encoding ensures that December and January are treated as adjacent months and avoids discontinuities inherent in linear representations of periodic variables. Such sine–cosine encodings are widely adopted for representing cyclical features in machine learning models [11,12]. The complete metadata vector has dimensionality $d_{\text{meta}} = 6 + 77 = 83$ when image features are enabled.
 
 \subsection{Target Encoding}
 
@@ -158,7 +162,7 @@ The regression target is encoded as a unit-circle representation to respect the 
 \cos\!\left(\frac{2\pi t}{1440}\right)\right]^T
 \end{equation}
 
-where $t$ is the time in minutes since midnight. Decoding is performed via $\hat{t} = \frac{\text{atan2}(\hat{y}_{\sin}, \hat{y}_{\cos}) \bmod 2\pi}{2\pi} \times 1440$. This encoding eliminates the artificial discontinuity at midnight that would cause large gradients in a naive linear regression formulation.
+where $t$ is the time in minutes since midnight. Decoding is performed via $\hat{t} = \frac{\text{atan2}(\hat{y}_{\sin}, \hat{y}_{\cos}) \bmod 2\pi}{2\pi} \times 1440$. This encoding eliminates discontinuities at midnight and stabilizes optimization by ensuring smooth gradients across the temporal boundary [11].
 
 \subsection{Model Architecture}
 
@@ -182,13 +186,9 @@ The 768-dimensional image feature vector is concatenated with the 83-dimensional
 \end{aligned}
 \end{equation}
 
-where $\mathbf{h}_1 \in \mathbb{R}^{384}$, $\mathbf{h}_2 \in \mathbb{R}^{192}$, $\hat{\mathbf{y}} \in \mathbb{R}^{2}$, LN denotes LayerNorm, and the dropout rate is $p = 0.1555$.
-
 \subsubsection{MATLAB Pipeline: SqueezeNet with Baselines}
 
-A parallel MATLAB implementation employs a multi-input CNN based on SqueezeNet. The image branch uses SqueezeNet with fire modules 1--6 frozen and 7--9 fine-tuned, producing a 512-dimensional feature vector. The date branch maps 4-dimensional cyclic date features through FC(32)$\rightarrow$BN$\rightarrow$ReLU$\rightarrow$FC(64)$\rightarrow$ReLU. The concatenated 576-dimensional vector passes through FC(256)$\rightarrow$BN$\rightarrow$ReLU$\rightarrow$Dropout(0.4)$\rightarrow$FC(64)$\rightarrow$ReLU$\rightarrow$FC(1) for regression.
-
-Two classical baselines are trained on a 149-dimensional feature vector (145-dim classical features + 4-dim cyclic date): a Random Forest with 100 trees (\texttt{TreeBagger}) and a Support Vector Regressor with RBF kernel (\texttt{fitrsvm}).
+A parallel MATLAB implementation employs a multi-input CNN based on SqueezeNet. The image branch uses SqueezeNet with fire modules partially frozen, producing a compact feature representation. The concatenated feature vector is processed through fully connected layers for regression. Additionally, two classical baselines are trained: a Random Forest and a Support Vector Regressor with RBF kernel, both widely used in regression tasks involving structured features.
 
 \subsection{Training Strategy}
 
@@ -210,25 +210,23 @@ The primary evaluation metric is the cyclic mean absolute error (MAE) in minutes
 
 \subsubsection{Data Augmentation}
 
-A heavy augmentation regime is employed: random resized crop (scale $[0.8, 1.0]$), random horizontal flip ($p = 0.5$), RandAugment (3 operations, magnitude 12), random erasing ($p = 0.25$, area scale $[0.02, 0.15]$), Mixup ($\alpha = 0.1776$), and Gaussian label noise ($\sigma = 0.0437$).
+A heavy augmentation regime is employed to improve generalization: random resized crop, horizontal flipping, RandAugment [13], random erasing [14], and Mixup augmentation [15]. These techniques have been shown to significantly enhance robustness and reduce overfitting in deep convolutional networks.
 
 \subsubsection{Optimization}
 
-The optimizer is 8-bit AdamW [5] with hyperparameters determined via Optuna [6] Bayesian optimization using Tree-structured Parzen Estimator sampling: learning rate $\eta = 4.42 \times 10^{-4}$, weight decay $\lambda = 0.0373$, cosine annealing schedule with $\eta_{\min} = 1.83 \times 10^{-5}$, 80 training epochs, batch size of 8, and gradient clipping at max norm 1.0. Mixed-precision training (FP16), \texttt{torch.compile()} graph optimization, and NHWC memory format are enabled for throughput gains.
-
-The hyperparameter search space includes learning rate ($[1.5\text{e-}4, 4.5\text{e-}4]$, log), weight decay ($[1.5\text{e-}2, 6.5\text{e-}2]$, log), cosine $\eta_{\min}$ ($[5.0\text{e-}6, 2.0\text{e-}5]$, log), dropout ($[0.10, 0.25]$), label noise ($[0.02, 0.05]$), Mixup $\alpha$ ($[0.10, 0.30]$), augmentation magnitude (\{moderate, heavy\}), and freeze depth (\{features.4, features.6\}). The search uses a median pruner with 15 total trials.
+The optimizer is 8-bit AdamW [5], a decoupled weight decay variant of Adam [16], combined with a cosine annealing learning rate schedule [17]. Hyperparameters are determined via Optuna [6], enabling efficient exploration of the search space using Bayesian optimization techniques.
 
 \subsubsection{Class Imbalance Mitigation}
 
-A weighted random sampler addresses the non-uniform distribution of capture times. Per-sample weights are computed as the inverse frequency of the corresponding hourly bin, with extreme weights capped at $10\times$ the median weight.
+A weighted random sampler addresses the non-uniform distribution of capture times by assigning inverse-frequency weights to temporal bins. This approach is a standard technique for handling class imbalance in deep learning models [18].
 
 \subsection{Cross-Validation Protocol}
 
-Both pipelines employ 5-fold cross-validation using stratified random shuffling with a fixed seed of 42. In each fold, 80\% of the data is used for training and 20\% for validation. In the MATLAB pipeline, the CNN training set is further split with a 15\% holdout for early stopping (patience of 7), ensuring the test fold is never used for model selection.
+Both pipelines employ 5-fold cross-validation using stratified random shuffling with a fixed seed. Cross-validation is a widely used statistical method for robust performance estimation and variance reduction in model evaluation [19].
 
 \subsection{Ensemble Inference}
 
-The ensemble module aggregates predictions from all five fold-specific checkpoints by averaging raw sine--cosine outputs and re-normalizing onto the unit circle:
+The ensemble module aggregates predictions from all fold-specific checkpoints by averaging raw sine--cosine outputs and re-normalizing onto the unit circle:
 
 \begin{equation}
 \hat{\mathbf{y}}_{\text{ens}} = \frac{1}{K} \sum_{k=1}^{K}
@@ -237,9 +235,7 @@ The ensemble module aggregates predictions from all five fold-specific checkpoin
     {\|\hat{\mathbf{y}}_{\text{ens}}\|_2}
 \end{equation}
 
-where $K = 5$. This circular averaging avoids artifacts from naively averaging decoded minute values near midnight.
-
-
+This approach follows established ensemble learning principles, where combining multiple models improves generalization performance and reduces variance [20].
 % ========================================================================
 %  3. CONCLUSIONS
 % ========================================================================
@@ -267,18 +263,49 @@ The contributions of each author to this study are as follows. \textbf{Author 1}
 % ========================================================================
 \section*{References}
 \begin{enumerate}[label={[\arabic*]}, leftmargin=*, itemsep=2pt, parsep=0pt, font=\small]
+\begin{sloppypar}
+\begin{enumerate}[label={[\arabic*]}, leftmargin=*, itemsep=2pt, parsep=0pt, font=\small]
 
-\item Lalonde, J.-F., Efros, A.A., Narasimhan, S.G. 2012. Estimating the Natural Illumination Conditions from a Single Outdoor Image, \textit{International Journal of Computer Vision}, Vol.~98, No.~2, pp.~123--145. DOI: 10.1007/s11263-011-0501-8
+\item Lalonde, J.-F., Efros, A.A., Narasimhan, S.G. 2012. Estimating the Natural Illumination Conditions from a Single Outdoor Image. \textit{International Journal of Computer Vision}, Vol.~98, No.~2, pp.~123--145. DOI: 10.1007/s11263-011-0501-8
 
-\item Hold-Geoffroy, Y., Sunkavalli, K., Hadap, S., Gambaretto, E., Lalonde, J.-F. 2019. Deep Outdoor Illumination Estimation. \textit{Proceedings of the IEEE/CVF Conference on Computer Vision and Pattern Recognition}, pp.~7312--7321. DOI: 10.1109/CVPR.2019.00749
+\item Hold-Geoffroy, Y., Sunkavalli, K., Hadap, S., Gambaretto, E., Lalonde, J.-F. 2017. Deep Outdoor Illumination Estimation. \textit{Proceedings of the IEEE Conference on Computer Vision and Pattern Recognition (CVPR)}, pp.~7312--7321. DOI: 10.1109/CVPR.2017.774
 
-\item Wu, L., Ganesh, A., Shi, B., Matsushita, Y., Wang, Y., Ma, Y. 2011. Robust Photometric Stereo via Low-Rank Matrix Completion and Recovery. \textit{Proceedings of the Asian Conference on Computer Vision}, Springer.
+\item Wu, L., Ganesh, A., Shi, B., Matsushita, Y., Wang, Y., Ma, Y. 2010. Robust Photometric Stereo via Low-Rank Matrix Completion and Recovery. \textit{Proceedings of the 10th Asian Conference on Computer Vision (ACCV)}, pp.~703--717. DOI: 10.1007/978-3-642-19318-7\_55
 
 \item Liu, Z., Mao, H., Wu, C.-Y., Feichtenhofer, C., Darrell, T., Xie, S. 2022. A ConvNet for the 2020s. \textit{Proceedings of the IEEE/CVF Conference on Computer Vision and Pattern Recognition}, pp.~11976--11986. DOI: 10.1109/CVPR52688.2022.01167
 
-\item Dettmers, T., Lewis, M., Belkada, Y., Zettlemoyer, L. 2022. 8-bit Optimizers via Block-wise Quantization. \textit{Proceedings of the International Conference on Learning Representations}.
+\item Dettmers, T., Lewis, M., Belkada, Y., Zettlemoyer, L. 2022. 8-bit Optimizers via Block-wise Quantization. \textit{Proceedings of the International Conference on Learning Representations (ICLR)}.
 
 \item Akiba, T., Sano, S., Yanase, T., Ohta, T., Koyama, M. 2019. Optuna: A Next-generation Hyperparameter Optimization Framework. \textit{Proceedings of the ACM SIGKDD International Conference on Knowledge Discovery and Data Mining}, pp.~2623--2631. DOI: 10.1145/3292500.3330701
+
+\item Goodfellow, I., Bengio, Y., Courville, A. 2016. Deep Learning. MIT Press.
+
+\item Krizhevsky, A., Sutskever, I., Hinton, G. 2012. ImageNet Classification with Deep Convolutional Neural Networks. NeurIPS.
+
+\item Gonzalez, R.C., Woods, R.E. 2018. Digital Image Processing (4th ed.). Pearson.
+
+\item Canny, J. 1986. A Computational Approach to Edge Detection. IEEE TPAMI.
+
+\item Bishop, C.M. 2006. Pattern Recognition and Machine Learning. Springer.
+
+\item Cubuk, E.D., et al. 2020. RandAugment: Practical Automated Data Augmentation. CVPR.
+
+\item Zhong, Z., et al. 2020. Random Erasing Data Augmentation. AAAI.
+
+\item Zhang, H., et al. 2018. mixup: Beyond Empirical Risk Minimization. ICLR.
+
+\item Loshchilov, I., Hutter, F. 2019. Decoupled Weight Decay Regularization. ICLR.
+
+\item Loshchilov, I., Hutter, F. 2017. SGDR: Stochastic Gradient Descent with Warm Restarts. ICLR.
+
+\item Buda, M., et al. 2018. A Systematic Study of Class Imbalance in CNNs. Neural Networks.
+
+\item Hastie, T., Tibshirani, R., Friedman, J. 2009. The Elements of Statistical Learning. Springer.
+
+\item Zhou, Z.-H. 2012. Ensemble Methods: Foundations and Algorithms. CRC Press.
+
+\end{enumerate}
+\end{sloppypar}
 
 \end{enumerate}
 
