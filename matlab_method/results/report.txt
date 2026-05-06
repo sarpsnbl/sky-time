@@ -1,0 +1,32 @@
+Sky Time Estimation Analysis Report
+====================================
+Total Samples Analyzed: 2481
+
+Error Metrics (Minutes):
+------------------------
+Mean Absolute Error:   81.16
+Median Absolute Error: 45.66
+Minimum Error:         0.09
+Maximum Error:         717.63
+
+Top 5 Most Accurate Predictions:
+                          ImagePath Actual Guess  AbsErr_min
+       dataset_224x224\DSCF1739.jpg  18:53 18:53    0.089974
+dataset_224x224\20230124_154555.jpg  15:46 15:46    0.131841
+       dataset_224x224\DSCF1285.jpg  20:30 20:30    0.141648
+       dataset_224x224\DSCF7310.jpg  14:52 14:51    0.160654
+       dataset_224x224\DSCF2795.jpg  09:03 09:03    0.167996
+
+Top 5 Least Accurate Predictions:
+                              ImagePath Actual Guess  AbsErr_min
+dataset_224x224\IMG_20230828_074017.jpg  07:40 19:43  717.634277
+    dataset_224x224\20250906_074044.jpg  07:41 19:46  714.652588
+    dataset_224x224\20250906_074536.jpg  07:46 19:56  709.578796
+    dataset_224x224\20250906_074900.jpg  07:49 19:30  700.519836
+           dataset_224x224\DSCF2745.jpg  06:59 18:23  683.594421
+
+Summary:
+The model shows a distribution of errors with a mean of 81.16 minutes. 
+The scatter plot 'actual_vs_guess.png' visualizes the correlation between 
+ground truth and predictions, while 'error_distribution.png' shows the 
+frequency of error magnitudes across the dataset.

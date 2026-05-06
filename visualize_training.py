@@ -3,23 +3,17 @@ visualize_training.py
 =====================
 Reads the JSONL log written by main.py during training and produces:
 
-  Page 1 — Training curves
-    • Train / val MAE (minutes) per epoch, per fold
-    • Train / val loss per epoch, per fold
+  training_report.png  — Training curves (MAE + Loss) + scatter panel
 
-  Page 2 — Guess vs Actual scatter (best fold)
-    • Each point is one validation image coloured by error magnitude
-    • Diagonal = perfect prediction; dashed lines = ±30 min bands
-    • Hardest N images shown as thumbnail strip with predicted/actual overlay
+  predictions.png      — Standalone predicted vs actual scatter (for Figure 10)
 
 Usage
 -----
     python visualize_training.py
-    python visualize_training.py --log checkpoints/train_log.jsonl
-    python visualize_training.py --log checkpoints/train_log.jsonl \\
-                                 --out training_report.png --hard 12
-
-The log file is written by the modified main.py during evaluate_with_log().
+    python visualize_training.py --log results/train_log.jsonl
+    python visualize_training.py --log results/train_log.jsonl \\
+                                 --out results/training_report.png \\
+                                 --predictions-out results/predictions.png
 """
 
 import argparse
@@ -35,7 +29,6 @@ import matplotlib.pyplot as plt
 import matplotlib.gridspec as mgridspec
 import matplotlib.patches as mpatches
 import numpy as np
-from PIL import Image as PILImage
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
@@ -228,62 +221,110 @@ def _plot_hardest(image_records, errors, n_hard: int, fig, gs_row):
 # Main plot
 # ---------------------------------------------------------------------------
 
-def plot_training(log_path: str, out_path: str, n_hard: int = 10) -> None:
+def plot_training(log_path: str, out_path: str,
+                  predictions_out: str | None = None) -> None:
     epoch_records, image_records = load_log(log_path)
 
     if not epoch_records:
         print("WARNING: No epoch records found in log.")
     if not image_records:
-        print("WARNING: No image records found in log — "
-              "scatter and hardest panels will be empty.")
+        print("WARNING: No image records found in log — scatter panel will be empty.")
 
     has_images = len(image_records) > 0
 
-    # ── figure layout ─────────────────────────────────────────────────────
-    # Row 0: training curves (2 cols)
-    # Row 1: scatter (left) + hardest strip (right, n_hard cols)
-    n_hard_actual = min(n_hard, len(image_records)) if has_images else 0
-
-    fig = plt.figure(figsize=(max(18, 2 * n_hard_actual), 14),
-                     constrained_layout=True)
-    fig.suptitle("Training Report", fontsize=14, fontweight="bold")
-
-    outer = mgridspec.GridSpec(2, 1, figure=fig,
-                               height_ratios=[1.0, 1.4], hspace=0.35)
-
-    # row 0: curves
-    gs_top = mgridspec.GridSpecFromSubplotSpec(
-        1, 2, subplot_spec=outer[0], wspace=0.25
-    )
+    # ── main report: curves only ───────────────────────────────────────────
+    fig, ax_mae = plt.subplots(figsize=(8, 5.5))
+    fig.suptitle("Training Report — Python ConvNeXt Pipeline",
+                 fontsize=14, fontweight="bold")
     if epoch_records:
-        _plot_curves(epoch_records, fig, gs_top)
-
-    # row 1: scatter + hardest strip
-    gs_bot = mgridspec.GridSpecFromSubplotSpec(
-        2, 1, subplot_spec=outer[1], height_ratios=[1.6, 1], hspace=0.45
-    )
-
-    errors = np.array([])
-    if has_images:
-        errors = _plot_scatter(image_records, fig, gs_bot[0])
-
-    if n_hard_actual > 0:
-        gs_strip = mgridspec.GridSpecFromSubplotSpec(
-            1, n_hard_actual, subplot_spec=gs_bot[1], wspace=0.12
-        )
-        _plot_hardest(image_records, errors, n_hard_actual, fig, gs_strip)
-
-        # strip title
-        ax_strip_title = fig.add_subplot(gs_bot[1])
-        ax_strip_title.set_axis_off()
-        ax_strip_title.set_title(
-            f"Hardest {n_hard_actual} Validation Images (by cyclic MAE)",
-            fontsize=10, pad=4,
-        )
-
+        _plot_curves_axes(epoch_records, ax_mae)
+    fig.tight_layout()
     fig.savefig(out_path, dpi=150, bbox_inches="tight")
     plt.close(fig)
-    print(f"Saved → {out_path}")
+    print(f"Saved training report → {out_path}")
+
+    # ── standalone scatter for Figure 10 ──────────────────────────────────
+    if predictions_out and has_images:
+        fig2, ax2 = plt.subplots(figsize=(7, 7))
+        _plot_scatter_ax(image_records, ax2)
+        fig2.tight_layout()
+        fig2.savefig(predictions_out, dpi=200, bbox_inches="tight")
+        plt.close(fig2)
+        print(f"Saved predictions scatter → {predictions_out}")
+
+
+# ---------------------------------------------------------------------------
+# Helper wrappers expected by plot_training
+# ---------------------------------------------------------------------------
+
+def _plot_curves_axes(epoch_records, ax_mae):
+    """Plot MAE curve onto pre-created axes."""
+    folds = sorted({r["fold"] for r in epoch_records})
+    for fold in folds:
+        col  = _FOLD_COLOURS[fold % len(_FOLD_COLOURS)]
+        recs = sorted([r for r in epoch_records if r["fold"] == fold],
+                      key=lambda r: r["epoch"])
+        epochs     = [r["epoch"]      for r in recs]
+        train_mae  = [r["train_mae"]  for r in recs]
+        val_mae    = [r["val_mae"]    for r in recs]
+
+        lbl = f"fold {fold}"
+        ax_mae.plot(epochs, train_mae, color=col, linestyle="--",
+                    linewidth=1.2, alpha=0.6, label=f"{lbl} train")
+        ax_mae.plot(epochs, val_mae,   color=col, linestyle="-",
+                    linewidth=1.8, label=f"{lbl} val")
+
+        best_ep = recs[int(np.argmin(val_mae))]
+        ax_mae.scatter([best_ep["epoch"]], [best_ep["val_mae"]],
+                       color=col, s=60, zorder=5, marker="*")
+
+    ax_mae.set_xlabel("Epoch", fontsize=10)
+    ax_mae.set_ylabel("MAE (minutes)", fontsize=10)
+    ax_mae.set_title("Training & Validation MAE per Epoch", fontsize=11)
+    ax_mae.grid(linestyle="--", alpha=0.4)
+    
+    handles = [
+        plt.Line2D([0], [0], color="gray", linestyle="--", label="train"),
+        plt.Line2D([0], [0], color="gray", linestyle="-",  label="val"),
+    ]
+    ax_mae.legend(handles=handles, fontsize=8)
+
+
+def _plot_scatter_ax(image_records, ax):
+    """Guess vs actual scatter — returns error array."""
+    pred_h   = np.array([r["pred_min"] / 60.0 for r in image_records])
+    actual_h = np.array([r["actual_min"] / 60.0 for r in image_records])
+    errors   = np.array([_cyclic_diff(r["pred_min"], r["actual_min"])
+                         for r in image_records])
+
+    sc = ax.scatter(actual_h, pred_h, c=errors, cmap="RdYlGn_r",
+                    vmin=0, vmax=120, s=18, alpha=0.7, linewidths=0)
+    cb = plt.colorbar(sc, ax=ax, pad=0.02)
+    cb.set_label("Error (min)", fontsize=9)
+
+    ax.plot([0, 24], [0, 24], color="black", linewidth=1.0, label="perfect")
+    for offset in [0.5, -0.5]:
+        ax.plot([0, 24], [offset, 24 + offset], color="gray",
+                linewidth=0.8, linestyle=":")
+    ax.fill_between([0, 24], [-0.5, 23.5], [0.5, 24.5],
+                    alpha=0.08, color="green", label="±30 min")
+
+    mean_err   = errors.mean()
+    median_err = float(np.median(errors))
+    ax.set_title(
+        f"Predicted vs Actual  |  mean {mean_err:.1f} min  |  median {median_err:.1f} min",
+        fontsize=10,
+    )
+    ax.set_xlabel("Actual Time (h)", fontsize=10)
+    ax.set_ylabel("Predicted Time (h)", fontsize=10)
+    ax.set_xlim(0, 24); ax.set_ylim(0, 24)
+    ax.set_xticks(range(0, 25, 3))
+    ax.set_xticklabels([f"{h:02d}h" for h in range(0, 25, 3)], fontsize=8)
+    ax.set_yticks(range(0, 25, 3))
+    ax.set_yticklabels([f"{h:02d}h" for h in range(0, 25, 3)], fontsize=8)
+    ax.grid(linestyle="--", alpha=0.3)
+    ax.legend(fontsize=8)
+    return errors
 
 
 # ---------------------------------------------------------------------------
@@ -295,21 +336,23 @@ def main():
         description="Visualize training curves and per-image diagnostics."
     )
     parser.add_argument(
-        "--log", default=os.path.join("checkpoints", "train_log.jsonl"),
-        help="Path to the JSONL log written by main.py "
-             "(default: checkpoints/train_log.jsonl)"
+        "--log", default=os.path.join("results", "train_log.jsonl"),
+        help="Path to the JSONL log (default: results/train_log.jsonl)"
     )
-    parser.add_argument("--out", default="training_report.png")
-    parser.add_argument("--hard", type=int, default=10,
-                        help="Number of hardest images to show (default: 10)")
+    parser.add_argument("--out", default="results/training_report.png")
+    parser.add_argument(
+        "--predictions-out", default="results/predictions.png",
+        help="Path to save the standalone scatter plot (Figure 10). "
+             "Default: results/predictions.png"
+    )
     args = parser.parse_args()
 
     if not os.path.exists(args.log):
         print(f"ERROR: Log file '{args.log}' not found.")
-        print("  Run main.py first, or pass --log <path>.")
         sys.exit(1)
 
-    plot_training(args.log, args.out, n_hard=args.hard)
+    plot_training(args.log, args.out,
+                  predictions_out=args.predictions_out)
 
 
 if __name__ == "__main__":

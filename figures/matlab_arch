@@ -1,0 +1,32 @@
+digraph matlab_arch {
+	nodesep=0.6 rankdir=TB ranksep=0.5
+	node [fillcolor=lightblue fontname=Arial shape=box style="rounded,filled"]
+	img [label="Sky Image
+(224×224×3)" fillcolor=lightyellow]
+	date [label="Date Encoding
+(4 dims)" fillcolor=lightyellow]
+	squeezenet [label="SqueezeNet
+(fire1-6 frozen, fire7-9 fine-tuned)" fillcolor=lightcoral]
+	img_feat [label="Image Features
+(512 dims)"]
+	date_fc1 [label="FC(32) → BN → ReLU" fillcolor=lightgreen]
+	date_fc2 [label="FC(64) → ReLU" fillcolor=lightgreen]
+	date_feat [label="Date Features
+(64 dims)"]
+	concat [label="Concatenate
+(576 dims)" fillcolor=lightgrey]
+	head1 [label="FC(256) → BN → ReLU → Dropout(0.4)" fillcolor=lightgreen]
+	head2 [label="FC(64) → ReLU" fillcolor=lightgreen]
+	out [label="FC(1) → Regression Layer
+[Fractional Hours]" fillcolor=lightyellow]
+	img -> squeezenet
+	squeezenet -> img_feat
+	date -> date_fc1
+	date_fc1 -> date_fc2
+	date_fc2 -> date_feat
+	img_feat -> concat
+	date_feat -> concat
+	concat -> head1
+	head1 -> head2
+	head2 -> out
+}

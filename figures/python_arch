@@ -1,0 +1,25 @@
+digraph python_arch {
+	nodesep=0.5 rankdir=TB ranksep=0.5
+	node [fillcolor=lightblue fontname=Arial shape=box style="rounded,filled"]
+	img [label="Sky Image
+(512×512×3)" fillcolor=lightyellow]
+	meta [label="Calendar Metadata
+(83 dims)" fillcolor=lightyellow]
+	convnext [label="ConvNeXt-Tiny Backbone
+(Frozen until features.4)" fillcolor=lightcoral]
+	pool [label="Global Average Pooling
+(768 dims)"]
+	concat [label="Concatenate
+(851 dims)" fillcolor=lightgrey]
+	mlp1 [label="FC(384) → LN → GELU → Dropout(0.156)" fillcolor=lightgreen]
+	mlp2 [label="FC(384) → LN → GELU → Dropout(0.156)" fillcolor=lightgreen]
+	out [label="FC(2)
+[sin, cos]" fillcolor=lightyellow]
+	img -> convnext
+	convnext -> pool
+	pool -> concat
+	meta -> concat
+	concat -> mlp1
+	mlp1 -> mlp2
+	mlp2 -> out
+}

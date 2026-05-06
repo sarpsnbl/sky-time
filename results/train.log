@@ -1,0 +1,1148 @@
+2026-04-17 22:57:04  INFO   ============================================================
+2026-04-17 22:57:04  INFO   Time-of-Day Estimation  --  ConvNeXt
+2026-04-17 22:57:04  INFO   Device      : cuda
+2026-04-17 22:57:04  INFO   Model       : convnext_tiny
+2026-04-17 22:57:04  INFO   Image size  : 512
+2026-04-17 22:57:04  INFO   Batch Size  : Physical 8 | Effective 8
+2026-04-17 22:57:04  INFO   Optimizers  : Compile=True, AMP=True, 8-bit=True, NHWC=True
+2026-04-17 22:57:04  INFO   ============================================================
+2026-04-17 22:57:04  INFO   ====================  FOLD 1/5  ====================
+2026-04-17 22:57:30  INFO   Compiling model with torch.compile() ...
+2026-04-17 22:57:30  INFO   Fold 0 | trainable params: 402,626
+2026-04-17 22:57:30  INFO   Using bitsandbytes 8-bit AdamW
+2026-04-17 22:59:28  INFO   Fold 0  Ep   1/80  loss 0.30407/0.31114  MAE  196.8/ 203.4m  lr 4.42e-04  118.1s  * best
+2026-04-17 22:59:29  INFO   Checkpoint saved -> checkpoints/best_fold0.pt
+2026-04-17 23:00:02  INFO   Fold 0  Ep   2/80  loss 0.21394/0.23209  MAE  147.8/ 141.8m  lr 4.41e-04  33.1s  * best
+2026-04-17 23:00:03  INFO   Checkpoint saved -> checkpoints/best_fold0.pt
+2026-04-17 23:00:34  INFO   Fold 0  Ep   3/80  loss 0.21146/0.22510  MAE  144.8/ 133.2m  lr 4.41e-04  31.3s  * best
+2026-04-17 23:00:35  INFO   Checkpoint saved -> checkpoints/best_fold0.pt
+2026-04-17 23:01:05  INFO   Fold 0  Ep   4/80  loss 0.18524/0.15913  MAE  129.5/ 106.5m  lr 4.39e-04  30.3s  * best
+2026-04-17 23:01:06  INFO   Checkpoint saved -> checkpoints/best_fold0.pt
+2026-04-17 23:01:31  INFO   Fold 0  Ep   5/80  loss 0.16676/0.19534  MAE  118.9/ 118.5m  lr 4.38e-04  24.7s
+2026-04-17 23:01:56  INFO   Fold 0  Ep   6/80  loss 0.14119/0.14795  MAE  109.9/ 101.2m  lr 4.36e-04  25.8s  * best
+2026-04-17 23:01:57  INFO   Checkpoint saved -> checkpoints/best_fold0.pt
+2026-04-17 23:02:22  INFO   Fold 0  Ep   7/80  loss 0.13468/0.13305  MAE  105.5/  88.1m  lr 4.34e-04  24.8s  * best
+2026-04-17 23:02:23  INFO   Checkpoint saved -> checkpoints/best_fold0.pt
+2026-04-17 23:02:43  INFO   Fold 0  Ep   8/80  loss 0.12722/0.16964  MAE   96.9/  97.9m  lr 4.32e-04  20.2s
+2026-04-17 23:03:06  INFO   Fold 0  Ep   9/80  loss 0.11484/0.13739  MAE   92.1/  89.5m  lr 4.29e-04  23.0s
+2026-04-17 23:03:27  INFO   Fold 0  Ep  10/80  loss 0.10699/0.19626  MAE   84.2/ 115.1m  lr 4.26e-04  21.2s
+2026-04-17 23:03:45  INFO   Fold 0  Ep  11/80  loss 0.10993/0.14844  MAE   87.4/ 100.3m  lr 4.23e-04  17.3s
+2026-04-17 23:04:05  INFO   Fold 0  Ep  12/80  loss 0.10018/0.13630  MAE   83.3/  93.5m  lr 4.19e-04  20.1s
+2026-04-17 23:04:23  INFO   Fold 0  Ep  13/80  loss 0.09117/0.11232  MAE   79.9/  80.9m  lr 4.15e-04  17.8s  * best
+2026-04-17 23:04:23  INFO   Checkpoint saved -> checkpoints/best_fold0.pt
+2026-04-17 23:04:43  INFO   Fold 0  Ep  14/80  loss 0.08965/0.11683  MAE   75.8/  82.8m  lr 4.11e-04  19.2s
+2026-04-17 23:04:57  INFO   Fold 0  Ep  15/80  loss 0.09024/0.12125  MAE   76.6/  84.0m  lr 4.06e-04  14.8s
+2026-04-17 23:05:16  INFO   Fold 0  Ep  16/80  loss 0.08763/0.11258  MAE   74.2/  78.8m  lr 4.02e-04  18.8s  * best
+2026-04-17 23:05:17  INFO   Checkpoint saved -> checkpoints/best_fold0.pt
+2026-04-17 23:05:34  INFO   Fold 0  Ep  17/80  loss 0.07898/0.12394  MAE   69.6/  83.8m  lr 3.97e-04  16.8s
+2026-04-17 23:05:53  INFO   Fold 0  Ep  18/80  loss 0.08012/0.12690  MAE   69.5/  85.0m  lr 3.91e-04  18.7s
+2026-04-17 23:06:08  INFO   Fold 0  Ep  19/80  loss 0.07420/0.09928  MAE   70.0/  72.7m  lr 3.86e-04  15.0s  * best
+2026-04-17 23:06:09  INFO   Checkpoint saved -> checkpoints/best_fold0.pt
+2026-04-17 23:06:27  INFO   Fold 0  Ep  20/80  loss 0.07476/0.10976  MAE   70.2/  80.8m  lr 3.80e-04  18.3s
+2026-04-17 23:06:41  INFO   Fold 0  Ep  21/80  loss 0.07705/0.12168  MAE   70.4/  79.9m  lr 3.74e-04  13.9s
+2026-04-17 23:06:55  INFO   Fold 0  Ep  22/80  loss 0.07144/0.10183  MAE   64.4/  74.5m  lr 3.68e-04  13.8s
+2026-04-17 23:07:12  INFO   Fold 0  Ep  23/80  loss 0.07598/0.11398  MAE   68.9/  80.6m  lr 3.61e-04  17.1s
+2026-04-17 23:07:24  INFO   Fold 0  Ep  24/80  loss 0.07181/0.10227  MAE   67.9/  72.6m  lr 3.55e-04  12.7s  * best
+2026-04-17 23:07:25  INFO   Checkpoint saved -> checkpoints/best_fold0.pt
+2026-04-17 23:07:41  INFO   Fold 0  Ep  25/80  loss 0.07067/0.12546  MAE   67.5/  84.1m  lr 3.48e-04  16.0s
+2026-04-17 23:07:53  INFO   Fold 0  Ep  26/80  loss 0.06914/0.09607  MAE   67.4/  69.6m  lr 3.41e-04  12.2s  * best
+2026-04-17 23:07:54  INFO   Checkpoint saved -> checkpoints/best_fold0.pt
+2026-04-17 23:08:06  INFO   Fold 0  Ep  27/80  loss 0.06496/0.09881  MAE   61.7/  69.7m  lr 3.34e-04  12.1s
+2026-04-17 23:08:23  INFO   Fold 0  Ep  28/80  loss 0.05801/0.09803  MAE   58.0/  71.5m  lr 3.26e-04  16.9s
+2026-04-17 23:08:36  INFO   Fold 0  Ep  29/80  loss 0.06018/0.10577  MAE   58.9/  75.4m  lr 3.19e-04  13.1s
+2026-04-17 23:08:53  INFO   Fold 0  Ep  30/80  loss 0.06092/0.11424  MAE   62.4/  76.9m  lr 3.11e-04  17.0s
+2026-04-17 23:09:06  INFO   Fold 0  Ep  31/80  loss 0.05941/0.10114  MAE   58.5/  71.1m  lr 3.03e-04  13.2s
+2026-04-17 23:09:23  INFO   Fold 0  Ep  32/80  loss 0.06004/0.09456  MAE   61.6/  69.3m  lr 2.96e-04  17.0s  * best
+2026-04-17 23:09:24  INFO   Checkpoint saved -> checkpoints/best_fold0.pt
+2026-04-17 23:09:37  INFO   Fold 0  Ep  33/80  loss 0.05258/0.11322  MAE   55.7/  75.5m  lr 2.88e-04  13.1s
+2026-04-17 23:09:51  INFO   Fold 0  Ep  34/80  loss 0.05649/0.10349  MAE   57.5/  72.3m  lr 2.80e-04  13.6s
+2026-04-17 23:10:08  INFO   Fold 0  Ep  35/80  loss 0.04909/0.09607  MAE   53.0/  69.7m  lr 2.71e-04  17.0s
+2026-04-17 23:10:20  INFO   Fold 0  Ep  36/80  loss 0.04668/0.08982  MAE   50.2/  64.0m  lr 2.63e-04  12.2s  * best
+2026-04-17 23:10:21  INFO   Checkpoint saved -> checkpoints/best_fold0.pt
+2026-04-17 23:10:38  INFO   Fold 0  Ep  37/80  loss 0.04560/0.09707  MAE   51.2/  68.6m  lr 2.55e-04  17.0s
+2026-04-17 23:10:51  INFO   Fold 0  Ep  38/80  loss 0.05054/0.08832  MAE   55.4/  64.7m  lr 2.47e-04  12.3s
+2026-04-17 23:11:04  INFO   Fold 0  Ep  39/80  loss 0.04556/0.09483  MAE   52.4/  69.5m  lr 2.38e-04  13.1s
+2026-04-17 23:11:20  INFO   Fold 0  Ep  40/80  loss 0.04634/0.09177  MAE   52.2/  65.6m  lr 2.30e-04  16.6s
+2026-04-17 23:11:33  INFO   Fold 0  Ep  41/80  loss 0.04450/0.08945  MAE   51.7/  64.9m  lr 2.22e-04  13.1s
+2026-04-17 23:11:50  INFO   Fold 0  Ep  42/80  loss 0.04463/0.08870  MAE   50.8/  66.4m  lr 2.14e-04  16.8s
+2026-04-17 23:12:04  INFO   Fold 0  Ep  43/80  loss 0.04526/0.07921  MAE   51.4/  60.5m  lr 2.05e-04  13.5s  * best
+2026-04-17 23:12:05  INFO   Checkpoint saved -> checkpoints/best_fold0.pt
+2026-04-17 23:12:23  INFO   Fold 0  Ep  44/80  loss 0.04122/0.09588  MAE   48.4/  67.5m  lr 1.97e-04  18.0s
+2026-04-17 23:12:36  INFO   Fold 0  Ep  45/80  loss 0.03780/0.08918  MAE   46.7/  62.8m  lr 1.89e-04  13.7s
+2026-04-17 23:12:49  INFO   Fold 0  Ep  46/80  loss 0.04137/0.09108  MAE   48.7/  65.6m  lr 1.81e-04  12.9s
+2026-04-17 23:13:06  INFO   Fold 0  Ep  47/80  loss 0.03899/0.10339  MAE   47.1/  69.4m  lr 1.73e-04  16.8s
+2026-04-17 23:13:19  INFO   Fold 0  Ep  48/80  loss 0.03760/0.08648  MAE   45.2/  62.3m  lr 1.65e-04  13.1s
+2026-04-17 23:13:36  INFO   Fold 0  Ep  49/80  loss 0.03922/0.09159  MAE   44.6/  64.0m  lr 1.57e-04  17.0s
+2026-04-17 23:13:49  INFO   Fold 0  Ep  50/80  loss 0.03602/0.09002  MAE   45.1/  62.1m  lr 1.49e-04  12.9s
+2026-04-17 23:14:02  INFO   Fold 0  Ep  51/80  loss 0.03536/0.09201  MAE   44.1/  64.8m  lr 1.41e-04  13.0s
+2026-04-17 23:14:19  INFO   Fold 0  Ep  52/80  loss 0.03404/0.09194  MAE   42.7/  64.2m  lr 1.34e-04  16.6s
+2026-04-17 23:14:32  INFO   Fold 0  Ep  53/80  loss 0.03258/0.09332  MAE   40.9/  66.0m  lr 1.27e-04  13.0s
+2026-04-17 23:14:50  INFO   Fold 0  Ep  54/80  loss 0.03795/0.08633  MAE   47.3/  62.5m  lr 1.19e-04  18.0s
+2026-04-17 23:15:04  INFO   Fold 0  Ep  55/80  loss 0.03509/0.08997  MAE   45.2/  64.2m  lr 1.12e-04  14.0s
+2026-04-17 23:15:18  INFO   Fold 0  Ep  56/80  loss 0.03553/0.08397  MAE   44.0/  60.8m  lr 1.06e-04  14.0s
+2026-04-17 23:15:35  INFO   Fold 0  Ep  57/80  loss 0.03574/0.08225  MAE   42.7/  60.4m  lr 9.90e-05  17.8s  * best
+2026-04-17 23:15:37  INFO   Checkpoint saved -> checkpoints/best_fold0.pt
+2026-04-17 23:15:49  INFO   Fold 0  Ep  58/80  loss 0.03325/0.08451  MAE   42.4/  61.3m  lr 9.26e-05  12.3s
+2026-04-17 23:16:06  INFO   Fold 0  Ep  59/80  loss 0.03257/0.08720  MAE   43.1/  63.5m  lr 8.63e-05  16.6s
+2026-04-17 23:16:18  INFO   Fold 0  Ep  60/80  loss 0.03490/0.08762  MAE   44.2/  62.9m  lr 8.03e-05  12.6s
+2026-04-17 23:16:34  INFO   Fold 0  Ep  61/80  loss 0.03084/0.08553  MAE   40.4/  62.9m  lr 7.46e-05  16.2s
+2026-04-17 23:16:47  INFO   Fold 0  Ep  62/80  loss 0.03015/0.08867  MAE   40.6/  62.3m  lr 6.91e-05  12.5s
+2026-04-17 23:17:00  INFO   Fold 0  Ep  63/80  loss 0.03386/0.08247  MAE   44.2/  60.1m  lr 6.38e-05  13.5s  * best
+2026-04-17 23:17:01  INFO   Checkpoint saved -> checkpoints/best_fold0.pt
+2026-04-17 23:17:18  INFO   Fold 0  Ep  64/80  loss 0.03312/0.08037  MAE   43.1/  59.0m  lr 5.88e-05  16.7s  * best
+2026-04-17 23:17:19  INFO   Checkpoint saved -> checkpoints/best_fold0.pt
+2026-04-17 23:17:32  INFO   Fold 0  Ep  65/80  loss 0.02982/0.08143  MAE   39.3/  59.0m  lr 5.40e-05  13.2s
+2026-04-17 23:17:48  INFO   Fold 0  Ep  66/80  loss 0.02764/0.07968  MAE   38.0/  58.4m  lr 4.95e-05  16.2s  * best
+2026-04-17 23:17:49  INFO   Checkpoint saved -> checkpoints/best_fold0.pt
+2026-04-17 23:18:02  INFO   Fold 0  Ep  67/80  loss 0.03473/0.08615  MAE   43.5/  61.1m  lr 4.53e-05  12.3s
+2026-04-17 23:18:14  INFO   Fold 0  Ep  68/80  loss 0.02894/0.08809  MAE   38.7/  63.0m  lr 4.14e-05  12.4s
+2026-04-17 23:18:30  INFO   Fold 0  Ep  69/80  loss 0.02822/0.08168  MAE   38.2/  59.2m  lr 3.78e-05  15.9s
+2026-04-17 23:18:43  INFO   Fold 0  Ep  70/80  loss 0.02797/0.08191  MAE   37.6/  59.2m  lr 3.44e-05  12.7s
+2026-04-17 23:18:59  INFO   Fold 0  Ep  71/80  loss 0.02934/0.08296  MAE   39.0/  59.9m  lr 3.14e-05  16.6s
+2026-04-17 23:19:12  INFO   Fold 0  Ep  72/80  loss 0.02905/0.08232  MAE   39.5/  59.1m  lr 2.87e-05  12.4s
+2026-04-17 23:19:25  INFO   Fold 0  Ep  73/80  loss 0.02863/0.08018  MAE   38.6/  58.4m  lr 2.63e-05  12.9s  * best
+2026-04-17 23:19:26  INFO   Checkpoint saved -> checkpoints/best_fold0.pt
+2026-04-17 23:19:42  INFO   Fold 0  Ep  74/80  loss 0.02663/0.08111  MAE   36.1/  58.7m  lr 2.42e-05  16.2s
+2026-04-17 23:19:55  INFO   Fold 0  Ep  75/80  loss 0.02952/0.08333  MAE   40.2/  60.6m  lr 2.24e-05  13.0s
+2026-04-17 23:20:11  INFO   Fold 0  Ep  76/80  loss 0.03035/0.08160  MAE   41.3/  59.2m  lr 2.09e-05  16.1s
+2026-04-17 23:20:24  INFO   Fold 0  Ep  77/80  loss 0.02998/0.08212  MAE   39.6/  60.2m  lr 1.98e-05  13.5s
+2026-04-17 23:20:37  INFO   Fold 0  Ep  78/80  loss 0.02606/0.08204  MAE   36.0/  58.7m  lr 1.90e-05  12.8s
+2026-04-17 23:20:54  INFO   Fold 0  Ep  79/80  loss 0.03076/0.08225  MAE   43.2/  59.4m  lr 1.85e-05  16.3s
+2026-04-17 23:21:07  INFO   Fold 0  Ep  80/80  loss 0.02888/0.08162  MAE   38.2/  59.0m  lr 1.83e-05  13.0s
+2026-04-17 23:21:07  INFO   Loaded checkpoint 'checkpoints/best_fold0.pt'  (epoch 73, val MAE 58.38 min)
+2026-04-17 23:21:10  INFO   Per-image diagnostics logged -> checkpoints/train_log.jsonl
+2026-04-17 23:21:11  INFO   Checkpoint saved -> checkpoints/last_fold0.pt
+2026-04-17 23:21:11  INFO   Fold 0 complete -- best val MAE: 58.38 min 
+2026-04-17 23:21:14  INFO   ====================  FOLD 2/5  ====================
+2026-04-17 23:21:40  INFO   Compiling model with torch.compile() ...
+2026-04-17 23:21:40  INFO   Fold 1 | trainable params: 402,626
+2026-04-17 23:21:40  INFO   Using bitsandbytes 8-bit AdamW
+2026-04-17 23:23:28  INFO   Fold 1  Ep   1/80  loss 0.29935/0.24920  MAE  193.0/ 156.4m  lr 4.42e-04  107.9s  * best
+2026-04-17 23:23:29  INFO   Checkpoint saved -> checkpoints/best_fold1.pt
+2026-04-17 23:24:06  INFO   Fold 1  Ep   2/80  loss 0.21502/0.25792  MAE  144.6/ 157.1m  lr 4.41e-04  36.8s
+2026-04-17 23:24:37  INFO   Fold 1  Ep   3/80  loss 0.17953/0.17895  MAE  125.3/ 118.6m  lr 4.41e-04  31.4s  * best
+2026-04-17 23:24:38  INFO   Checkpoint saved -> checkpoints/best_fold1.pt
+2026-04-17 23:25:07  INFO   Fold 1  Ep   4/80  loss 0.16520/0.25191  MAE  120.5/ 147.8m  lr 4.39e-04  29.1s
+2026-04-17 23:25:34  INFO   Fold 1  Ep   5/80  loss 0.15479/0.14232  MAE  114.8/  98.0m  lr 4.38e-04  26.9s  * best
+2026-04-17 23:25:35  INFO   Checkpoint saved -> checkpoints/best_fold1.pt
+2026-04-17 23:25:57  INFO   Fold 1  Ep   6/80  loss 0.14664/0.14140  MAE  108.4/  96.1m  lr 4.36e-04  21.5s  * best
+2026-04-17 23:25:58  INFO   Checkpoint saved -> checkpoints/best_fold1.pt
+2026-04-17 23:26:22  INFO   Fold 1  Ep   7/80  loss 0.13255/0.15014  MAE  101.3/ 100.1m  lr 4.34e-04  24.2s
+2026-04-17 23:26:45  INFO   Fold 1  Ep   8/80  loss 0.12821/0.16841  MAE   97.4/ 105.0m  lr 4.32e-04  23.4s
+2026-04-17 23:27:04  INFO   Fold 1  Ep   9/80  loss 0.11219/0.11837  MAE   88.3/  80.5m  lr 4.29e-04  19.2s  * best
+2026-04-17 23:27:05  INFO   Checkpoint saved -> checkpoints/best_fold1.pt
+2026-04-17 23:27:29  INFO   Fold 1  Ep  10/80  loss 0.10667/0.11757  MAE   87.0/  78.7m  lr 4.26e-04  23.2s  * best
+2026-04-17 23:27:29  INFO   Checkpoint saved -> checkpoints/best_fold1.pt
+2026-04-17 23:27:48  INFO   Fold 1  Ep  11/80  loss 0.10769/0.15222  MAE   86.3/  94.5m  lr 4.23e-04  18.7s
+2026-04-17 23:28:09  INFO   Fold 1  Ep  12/80  loss 0.10428/0.11232  MAE   85.3/  80.8m  lr 4.19e-04  20.7s
+2026-04-17 23:28:25  INFO   Fold 1  Ep  13/80  loss 0.09695/0.11886  MAE   79.1/  81.2m  lr 4.15e-04  16.2s
+2026-04-17 23:28:45  INFO   Fold 1  Ep  14/80  loss 0.08480/0.12044  MAE   73.0/  81.1m  lr 4.11e-04  19.8s
+2026-04-17 23:29:01  INFO   Fold 1  Ep  15/80  loss 0.09521/0.11877  MAE   80.8/  80.2m  lr 4.06e-04  16.1s
+2026-04-17 23:29:21  INFO   Fold 1  Ep  16/80  loss 0.08428/0.10074  MAE   72.1/  73.4m  lr 4.02e-04  19.5s  * best
+2026-04-17 23:29:21  INFO   Checkpoint saved -> checkpoints/best_fold1.pt
+2026-04-17 23:29:37  INFO   Fold 1  Ep  17/80  loss 0.08598/0.11908  MAE   76.9/  76.2m  lr 3.97e-04  15.3s
+2026-04-17 23:29:55  INFO   Fold 1  Ep  18/80  loss 0.08088/0.10931  MAE   72.4/  77.1m  lr 3.91e-04  18.4s
+2026-04-17 23:30:10  INFO   Fold 1  Ep  19/80  loss 0.08159/0.10799  MAE   70.5/  74.8m  lr 3.86e-04  14.3s
+2026-04-17 23:30:28  INFO   Fold 1  Ep  20/80  loss 0.07259/0.11122  MAE   70.0/  79.2m  lr 3.80e-04  18.0s
+2026-04-17 23:30:41  INFO   Fold 1  Ep  21/80  loss 0.07517/0.09994  MAE   67.6/  72.8m  lr 3.74e-04  13.8s  * best
+2026-04-17 23:30:42  INFO   Checkpoint saved -> checkpoints/best_fold1.pt
+2026-04-17 23:31:00  INFO   Fold 1  Ep  22/80  loss 0.06761/0.10968  MAE   66.0/  76.3m  lr 3.68e-04  17.3s
+2026-04-17 23:31:13  INFO   Fold 1  Ep  23/80  loss 0.07001/0.10356  MAE   64.7/  71.4m  lr 3.61e-04  13.7s  * best
+2026-04-17 23:31:14  INFO   Checkpoint saved -> checkpoints/best_fold1.pt
+2026-04-17 23:31:31  INFO   Fold 1  Ep  24/80  loss 0.06884/0.10152  MAE   65.7/  70.8m  lr 3.55e-04  16.5s  * best
+2026-04-17 23:31:32  INFO   Checkpoint saved -> checkpoints/best_fold1.pt
+2026-04-17 23:31:44  INFO   Fold 1  Ep  25/80  loss 0.07026/0.11148  MAE   70.5/  73.6m  lr 3.48e-04  12.7s
+2026-04-17 23:31:57  INFO   Fold 1  Ep  26/80  loss 0.05827/0.10252  MAE   59.2/  71.7m  lr 3.41e-04  12.7s
+2026-04-17 23:32:13  INFO   Fold 1  Ep  27/80  loss 0.06232/0.09711  MAE   60.8/  70.8m  lr 3.34e-04  15.7s  * best
+2026-04-17 23:32:13  INFO   Checkpoint saved -> checkpoints/best_fold1.pt
+2026-04-17 23:32:26  INFO   Fold 1  Ep  28/80  loss 0.06312/0.09863  MAE   61.8/  73.5m  lr 3.26e-04  12.5s
+2026-04-17 23:32:42  INFO   Fold 1  Ep  29/80  loss 0.05862/0.09507  MAE   60.7/  67.4m  lr 3.19e-04  15.8s  * best
+2026-04-17 23:32:43  INFO   Checkpoint saved -> checkpoints/best_fold1.pt
+2026-04-17 23:32:54  INFO   Fold 1  Ep  30/80  loss 0.05178/0.10524  MAE   54.5/  70.6m  lr 3.11e-04  11.8s
+2026-04-17 23:33:06  INFO   Fold 1  Ep  31/80  loss 0.05257/0.09534  MAE   54.8/  66.4m  lr 3.03e-04  11.8s  * best
+2026-04-17 23:33:07  INFO   Checkpoint saved -> checkpoints/best_fold1.pt
+2026-04-17 23:33:23  INFO   Fold 1  Ep  32/80  loss 0.05513/0.09447  MAE   57.2/  67.1m  lr 2.96e-04  15.6s
+2026-04-17 23:33:35  INFO   Fold 1  Ep  33/80  loss 0.05316/0.09067  MAE   54.8/  66.4m  lr 2.88e-04  12.8s  * best
+2026-04-17 23:33:36  INFO   Checkpoint saved -> checkpoints/best_fold1.pt
+2026-04-17 23:33:52  INFO   Fold 1  Ep  34/80  loss 0.05297/0.09497  MAE   56.9/  67.0m  lr 2.80e-04  16.3s
+2026-04-17 23:34:05  INFO   Fold 1  Ep  35/80  loss 0.05661/0.10003  MAE   58.2/  71.1m  lr 2.71e-04  12.8s
+2026-04-17 23:34:18  INFO   Fold 1  Ep  36/80  loss 0.05002/0.10122  MAE   54.6/  69.0m  lr 2.63e-04  13.0s
+2026-04-17 23:34:35  INFO   Fold 1  Ep  37/80  loss 0.05019/0.10119  MAE   53.9/  69.7m  lr 2.55e-04  16.7s
+2026-04-17 23:34:48  INFO   Fold 1  Ep  38/80  loss 0.05323/0.09068  MAE   54.8/  63.9m  lr 2.47e-04  12.6s  * best
+2026-04-17 23:34:49  INFO   Checkpoint saved -> checkpoints/best_fold1.pt
+2026-04-17 23:35:05  INFO   Fold 1  Ep  39/80  loss 0.04283/0.09858  MAE   49.7/  68.9m  lr 2.38e-04  16.1s
+2026-04-17 23:35:17  INFO   Fold 1  Ep  40/80  loss 0.04761/0.09296  MAE   52.8/  65.6m  lr 2.30e-04  12.5s
+2026-04-17 23:35:30  INFO   Fold 1  Ep  41/80  loss 0.04795/0.09152  MAE   53.1/  64.2m  lr 2.22e-04  12.9s
+2026-04-17 23:35:46  INFO   Fold 1  Ep  42/80  loss 0.04351/0.08874  MAE   51.1/  63.5m  lr 2.14e-04  15.8s  * best
+2026-04-17 23:35:47  INFO   Checkpoint saved -> checkpoints/best_fold1.pt
+2026-04-17 23:35:59  INFO   Fold 1  Ep  43/80  loss 0.04342/0.09294  MAE   50.7/  64.1m  lr 2.05e-04  12.3s
+2026-04-17 23:36:12  INFO   Fold 1  Ep  44/80  loss 0.03865/0.09395  MAE   45.8/  65.6m  lr 1.97e-04  12.7s
+2026-04-17 23:36:28  INFO   Fold 1  Ep  45/80  loss 0.03914/0.10108  MAE   46.7/  68.6m  lr 1.89e-04  16.3s
+2026-04-17 23:36:40  INFO   Fold 1  Ep  46/80  loss 0.03887/0.09122  MAE   45.3/  64.6m  lr 1.81e-04  12.0s
+2026-04-17 23:36:56  INFO   Fold 1  Ep  47/80  loss 0.04425/0.09151  MAE   50.9/  62.5m  lr 1.73e-04  15.9s  * best
+2026-04-17 23:36:57  INFO   Checkpoint saved -> checkpoints/best_fold1.pt
+2026-04-17 23:37:10  INFO   Fold 1  Ep  48/80  loss 0.03804/0.09462  MAE   44.1/  66.0m  lr 1.65e-04  12.6s
+2026-04-17 23:37:22  INFO   Fold 1  Ep  49/80  loss 0.04337/0.08925  MAE   48.1/  63.2m  lr 1.57e-04  12.0s
+2026-04-17 23:37:37  INFO   Fold 1  Ep  50/80  loss 0.03653/0.08662  MAE   43.1/  62.3m  lr 1.49e-04  15.3s  * best
+2026-04-17 23:37:38  INFO   Checkpoint saved -> checkpoints/best_fold1.pt
+2026-04-17 23:37:49  INFO   Fold 1  Ep  51/80  loss 0.03389/0.08675  MAE   42.1/  63.5m  lr 1.41e-04  11.7s
+2026-04-17 23:38:05  INFO   Fold 1  Ep  52/80  loss 0.03764/0.08386  MAE   46.1/  59.6m  lr 1.34e-04  15.4s  * best
+2026-04-17 23:38:06  INFO   Checkpoint saved -> checkpoints/best_fold1.pt
+2026-04-17 23:38:17  INFO   Fold 1  Ep  53/80  loss 0.03585/0.08475  MAE   44.8/  61.9m  lr 1.27e-04  11.6s
+2026-04-17 23:38:29  INFO   Fold 1  Ep  54/80  loss 0.03724/0.08349  MAE   45.7/  60.5m  lr 1.19e-04  11.6s
+2026-04-17 23:38:44  INFO   Fold 1  Ep  55/80  loss 0.03563/0.08744  MAE   45.3/  60.5m  lr 1.12e-04  15.1s
+2026-04-17 23:38:55  INFO   Fold 1  Ep  56/80  loss 0.03049/0.08637  MAE   40.4/  61.2m  lr 1.06e-04  11.6s
+2026-04-17 23:39:07  INFO   Fold 1  Ep  57/80  loss 0.03688/0.08827  MAE   46.8/  61.8m  lr 9.90e-05  11.5s
+2026-04-17 23:39:22  INFO   Fold 1  Ep  58/80  loss 0.03759/0.08770  MAE   47.1/  62.8m  lr 9.26e-05  15.1s
+2026-04-17 23:39:34  INFO   Fold 1  Ep  59/80  loss 0.03262/0.08668  MAE   40.6/  61.0m  lr 8.63e-05  11.6s
+2026-04-17 23:39:45  INFO   Fold 1  Ep  60/80  loss 0.03346/0.08622  MAE   41.5/  60.3m  lr 8.03e-05  11.5s
+2026-04-17 23:40:00  INFO   Fold 1  Ep  61/80  loss 0.03079/0.08396  MAE   38.3/  59.7m  lr 7.46e-05  15.0s
+2026-04-17 23:40:12  INFO   Fold 1  Ep  62/80  loss 0.03238/0.08400  MAE   41.4/  59.5m  lr 6.91e-05  11.3s  * best
+2026-04-17 23:40:12  INFO   Checkpoint saved -> checkpoints/best_fold1.pt
+2026-04-17 23:40:27  INFO   Fold 1  Ep  63/80  loss 0.02957/0.08274  MAE   39.1/  58.6m  lr 6.38e-05  14.9s  * best
+2026-04-17 23:40:28  INFO   Checkpoint saved -> checkpoints/best_fold1.pt
+2026-04-17 23:40:39  INFO   Fold 1  Ep  64/80  loss 0.03060/0.08257  MAE   40.8/  58.9m  lr 5.88e-05  11.1s
+2026-04-17 23:40:51  INFO   Fold 1  Ep  65/80  loss 0.03448/0.08374  MAE   42.7/  59.4m  lr 5.40e-05  11.4s
+2026-04-17 23:41:06  INFO   Fold 1  Ep  66/80  loss 0.03122/0.08328  MAE   40.0/  59.1m  lr 4.95e-05  14.8s
+2026-04-17 23:41:18  INFO   Fold 1  Ep  67/80  loss 0.03106/0.08316  MAE   40.5/  59.1m  lr 4.53e-05  12.3s
+2026-04-17 23:41:29  INFO   Fold 1  Ep  68/80  loss 0.02991/0.08608  MAE   40.1/  61.2m  lr 4.14e-05  11.4s
+2026-04-17 23:41:44  INFO   Fold 1  Ep  69/80  loss 0.02941/0.08548  MAE   40.4/  60.5m  lr 3.78e-05  14.8s
+2026-04-17 23:41:56  INFO   Fold 1  Ep  70/80  loss 0.02830/0.08403  MAE   37.9/  59.7m  lr 3.44e-05  11.5s
+2026-04-17 23:42:07  INFO   Fold 1  Ep  71/80  loss 0.03003/0.08351  MAE   39.2/  59.4m  lr 3.14e-05  11.4s
+2026-04-17 23:42:23  INFO   Fold 1  Ep  72/80  loss 0.02999/0.08226  MAE   42.1/  58.8m  lr 2.87e-05  15.6s
+2026-04-17 23:42:34  INFO   Fold 1  Ep  73/80  loss 0.02758/0.08367  MAE   38.0/  59.4m  lr 2.63e-05  11.7s
+2026-04-17 23:42:46  INFO   Fold 1  Ep  74/80  loss 0.02923/0.08135  MAE   38.9/  58.4m  lr 2.42e-05  11.8s  * best
+2026-04-17 23:42:51  INFO   Checkpoint saved -> checkpoints/best_fold1.pt
+2026-04-17 23:43:02  INFO   Fold 1  Ep  75/80  loss 0.03133/0.08240  MAE   41.6/  58.8m  lr 2.24e-05  11.7s
+2026-04-17 23:43:14  INFO   Fold 1  Ep  76/80  loss 0.02739/0.08457  MAE   37.8/  59.9m  lr 2.09e-05  11.4s
+2026-04-17 23:43:29  INFO   Fold 1  Ep  77/80  loss 0.02767/0.08365  MAE   38.0/  59.8m  lr 1.98e-05  15.0s
+2026-04-17 23:43:40  INFO   Fold 1  Ep  78/80  loss 0.02622/0.08317  MAE   36.9/  59.6m  lr 1.90e-05  11.3s
+2026-04-17 23:43:52  INFO   Fold 1  Ep  79/80  loss 0.02894/0.08276  MAE   37.9/  59.2m  lr 1.85e-05  11.3s
+2026-04-17 23:44:07  INFO   Fold 1  Ep  80/80  loss 0.02801/0.08284  MAE   39.3/  59.7m  lr 1.83e-05  15.0s
+2026-04-17 23:44:07  INFO   Loaded checkpoint 'checkpoints/best_fold1.pt'  (epoch 74, val MAE 58.40 min)
+2026-04-17 23:44:09  INFO   Per-image diagnostics logged -> checkpoints/train_log.jsonl
+2026-04-17 23:44:10  INFO   Checkpoint saved -> checkpoints/last_fold1.pt
+2026-04-17 23:44:10  INFO   Fold 1 complete -- best val MAE: 58.40 min 
+2026-04-17 23:44:13  INFO   ====================  FOLD 3/5  ====================
+2026-04-17 23:44:38  INFO   Compiling model with torch.compile() ...
+2026-04-17 23:44:38  INFO   Fold 2 | trainable params: 402,626
+2026-04-17 23:44:38  INFO   Using bitsandbytes 8-bit AdamW
+2026-04-17 23:46:09  INFO   Fold 2  Ep   1/80  loss 0.30464/0.38144  MAE  194.7/ 225.7m  lr 4.42e-04  90.9s  * best
+2026-04-17 23:46:10  INFO   Checkpoint saved -> checkpoints/best_fold2.pt
+2026-04-17 23:46:42  INFO   Fold 2  Ep   2/80  loss 0.21728/0.22114  MAE  149.4/ 139.6m  lr 4.41e-04  32.0s  * best
+2026-04-17 23:46:43  INFO   Checkpoint saved -> checkpoints/best_fold2.pt
+2026-04-17 23:47:13  INFO   Fold 2  Ep   3/80  loss 0.18429/0.18794  MAE  132.3/ 118.4m  lr 4.41e-04  30.3s  * best
+2026-04-17 23:47:14  INFO   Checkpoint saved -> checkpoints/best_fold2.pt
+2026-04-17 23:47:42  INFO   Fold 2  Ep   4/80  loss 0.15872/0.17217  MAE  113.4/ 111.5m  lr 4.39e-04  28.1s  * best
+2026-04-17 23:47:43  INFO   Checkpoint saved -> checkpoints/best_fold2.pt
+2026-04-17 23:48:07  INFO   Fold 2  Ep   5/80  loss 0.15767/0.15647  MAE  115.9/ 107.1m  lr 4.38e-04  23.5s  * best
+2026-04-17 23:48:08  INFO   Checkpoint saved -> checkpoints/best_fold2.pt
+2026-04-17 23:48:32  INFO   Fold 2  Ep   6/80  loss 0.13800/0.18870  MAE  106.9/ 116.5m  lr 4.36e-04  24.8s
+2026-04-17 23:48:57  INFO   Fold 2  Ep   7/80  loss 0.13689/0.14819  MAE  104.9/ 103.7m  lr 4.34e-04  24.2s  * best
+2026-04-17 23:48:57  INFO   Checkpoint saved -> checkpoints/best_fold2.pt
+2026-04-17 23:49:17  INFO   Fold 2  Ep   8/80  loss 0.13000/0.12320  MAE   97.3/  90.3m  lr 4.32e-04  19.3s  * best
+2026-04-17 23:49:17  INFO   Checkpoint saved -> checkpoints/best_fold2.pt
+2026-04-17 23:49:40  INFO   Fold 2  Ep   9/80  loss 0.11948/0.15214  MAE   96.4/ 101.2m  lr 4.29e-04  22.7s
+2026-04-17 23:50:02  INFO   Fold 2  Ep  10/80  loss 0.11332/0.17635  MAE   92.0/ 112.4m  lr 4.26e-04  21.8s
+2026-04-17 23:50:19  INFO   Fold 2  Ep  11/80  loss 0.10655/0.13787  MAE   86.4/  89.7m  lr 4.23e-04  16.8s  * best
+2026-04-17 23:50:20  INFO   Checkpoint saved -> checkpoints/best_fold2.pt
+2026-04-17 23:50:39  INFO   Fold 2  Ep  12/80  loss 0.10484/0.12873  MAE   86.7/  86.9m  lr 4.19e-04  19.6s  * best
+2026-04-17 23:50:40  INFO   Checkpoint saved -> checkpoints/best_fold2.pt
+2026-04-17 23:50:56  INFO   Fold 2  Ep  13/80  loss 0.09091/0.11755  MAE   79.7/  88.6m  lr 4.15e-04  15.9s
+2026-04-17 23:51:15  INFO   Fold 2  Ep  14/80  loss 0.09687/0.10659  MAE   80.2/  81.5m  lr 4.11e-04  19.1s  * best
+2026-04-17 23:51:16  INFO   Checkpoint saved -> checkpoints/best_fold2.pt
+2026-04-17 23:51:31  INFO   Fold 2  Ep  15/80  loss 0.09789/0.11562  MAE   83.8/  81.6m  lr 4.06e-04  15.4s
+2026-04-17 23:51:50  INFO   Fold 2  Ep  16/80  loss 0.08223/0.12567  MAE   72.8/  80.4m  lr 4.02e-04  18.9s  * best
+2026-04-17 23:51:51  INFO   Checkpoint saved -> checkpoints/best_fold2.pt
+2026-04-17 23:52:06  INFO   Fold 2  Ep  17/80  loss 0.08362/0.12035  MAE   70.7/  81.7m  lr 3.97e-04  14.5s
+2026-04-17 23:52:24  INFO   Fold 2  Ep  18/80  loss 0.08559/0.11061  MAE   73.5/  81.5m  lr 3.91e-04  18.3s
+2026-04-17 23:52:38  INFO   Fold 2  Ep  19/80  loss 0.08314/0.12861  MAE   75.3/  87.0m  lr 3.86e-04  14.6s
+2026-04-17 23:52:53  INFO   Fold 2  Ep  20/80  loss 0.07380/0.10976  MAE   68.4/  79.3m  lr 3.80e-04  14.4s  * best
+2026-04-17 23:52:54  INFO   Checkpoint saved -> checkpoints/best_fold2.pt
+2026-04-17 23:53:11  INFO   Fold 2  Ep  21/80  loss 0.07962/0.10656  MAE   72.8/  76.6m  lr 3.74e-04  17.2s  * best
+2026-04-17 23:53:12  INFO   Checkpoint saved -> checkpoints/best_fold2.pt
+2026-04-17 23:53:26  INFO   Fold 2  Ep  22/80  loss 0.06982/0.10248  MAE   64.7/  77.6m  lr 3.68e-04  14.3s
+2026-04-17 23:53:44  INFO   Fold 2  Ep  23/80  loss 0.07256/0.09721  MAE   67.8/  71.6m  lr 3.61e-04  17.5s  * best
+2026-04-17 23:53:44  INFO   Checkpoint saved -> checkpoints/best_fold2.pt
+2026-04-17 23:53:58  INFO   Fold 2  Ep  24/80  loss 0.06812/0.12085  MAE   66.0/  80.3m  lr 3.55e-04  13.1s
+2026-04-17 23:54:15  INFO   Fold 2  Ep  25/80  loss 0.05952/0.10330  MAE   58.6/  73.2m  lr 3.48e-04  17.1s
+2026-04-17 23:54:28  INFO   Fold 2  Ep  26/80  loss 0.06423/0.11539  MAE   62.1/  79.1m  lr 3.41e-04  13.0s
+2026-04-17 23:54:41  INFO   Fold 2  Ep  27/80  loss 0.06558/0.10405  MAE   63.2/  72.4m  lr 3.34e-04  13.0s
+2026-04-17 23:54:58  INFO   Fold 2  Ep  28/80  loss 0.05934/0.10451  MAE   57.1/  75.1m  lr 3.26e-04  16.9s
+2026-04-17 23:55:11  INFO   Fold 2  Ep  29/80  loss 0.05742/0.10155  MAE   58.4/  74.3m  lr 3.19e-04  13.3s
+2026-04-17 23:55:27  INFO   Fold 2  Ep  30/80  loss 0.05936/0.10038  MAE   59.4/  71.8m  lr 3.11e-04  16.4s
+2026-04-17 23:55:40  INFO   Fold 2  Ep  31/80  loss 0.05830/0.11412  MAE   59.2/  77.2m  lr 3.03e-04  12.9s
+2026-04-17 23:55:53  INFO   Fold 2  Ep  32/80  loss 0.05822/0.09377  MAE   61.7/  69.5m  lr 2.96e-04  12.6s  * best
+2026-04-17 23:55:54  INFO   Checkpoint saved -> checkpoints/best_fold2.pt
+2026-04-17 23:56:10  INFO   Fold 2  Ep  33/80  loss 0.05170/0.08747  MAE   55.0/  64.8m  lr 2.88e-04  16.1s  * best
+2026-04-17 23:56:11  INFO   Checkpoint saved -> checkpoints/best_fold2.pt
+2026-04-17 23:56:24  INFO   Fold 2  Ep  34/80  loss 0.05473/0.09299  MAE   57.0/  66.3m  lr 2.80e-04  13.0s
+2026-04-17 23:56:40  INFO   Fold 2  Ep  35/80  loss 0.05697/0.08426  MAE   61.3/  65.1m  lr 2.71e-04  16.8s
+2026-04-17 23:56:54  INFO   Fold 2  Ep  36/80  loss 0.04829/0.08830  MAE   50.8/  65.3m  lr 2.63e-04  14.1s
+2026-04-17 23:57:11  INFO   Fold 2  Ep  37/80  loss 0.04493/0.09079  MAE   50.3/  66.2m  lr 2.55e-04  16.5s
+2026-04-17 23:57:24  INFO   Fold 2  Ep  38/80  loss 0.04413/0.08433  MAE   51.2/  63.8m  lr 2.47e-04  13.2s  * best
+2026-04-17 23:57:25  INFO   Checkpoint saved -> checkpoints/best_fold2.pt
+2026-04-17 23:57:39  INFO   Fold 2  Ep  39/80  loss 0.04609/0.08212  MAE   51.2/  62.1m  lr 2.38e-04  13.8s  * best
+2026-04-17 23:57:40  INFO   Checkpoint saved -> checkpoints/best_fold2.pt
+2026-04-17 23:57:57  INFO   Fold 2  Ep  40/80  loss 0.04966/0.08917  MAE   54.1/  65.5m  lr 2.30e-04  17.4s
+2026-04-17 23:58:11  INFO   Fold 2  Ep  41/80  loss 0.04508/0.08659  MAE   50.7/  63.5m  lr 2.22e-04  13.7s
+2026-04-17 23:58:28  INFO   Fold 2  Ep  42/80  loss 0.04519/0.08483  MAE   49.3/  62.2m  lr 2.14e-04  17.2s
+2026-04-17 23:58:41  INFO   Fold 2  Ep  43/80  loss 0.04500/0.08882  MAE   50.4/  65.8m  lr 2.05e-04  13.2s
+2026-04-17 23:58:58  INFO   Fold 2  Ep  44/80  loss 0.04471/0.09946  MAE   52.0/  70.6m  lr 1.97e-04  16.7s
+2026-04-17 23:59:11  INFO   Fold 2  Ep  45/80  loss 0.04193/0.08017  MAE   49.7/  61.1m  lr 1.89e-04  13.2s  * best
+2026-04-17 23:59:12  INFO   Checkpoint saved -> checkpoints/best_fold2.pt
+2026-04-17 23:59:25  INFO   Fold 2  Ep  46/80  loss 0.04349/0.08907  MAE   50.2/  65.2m  lr 1.81e-04  13.0s
+2026-04-17 23:59:42  INFO   Fold 2  Ep  47/80  loss 0.04183/0.08297  MAE   50.1/  61.5m  lr 1.73e-04  16.7s
+2026-04-17 23:59:55  INFO   Fold 2  Ep  48/80  loss 0.03637/0.08133  MAE   43.5/  61.3m  lr 1.65e-04  13.2s
+2026-04-18 00:00:12  INFO   Fold 2  Ep  49/80  loss 0.03559/0.08199  MAE   43.8/  61.6m  lr 1.57e-04  16.7s
+2026-04-18 00:00:25  INFO   Fold 2  Ep  50/80  loss 0.03918/0.08971  MAE   49.5/  62.7m  lr 1.49e-04  13.1s
+2026-04-18 00:00:38  INFO   Fold 2  Ep  51/80  loss 0.03839/0.08626  MAE   45.0/  64.3m  lr 1.41e-04  13.3s
+2026-04-18 00:00:55  INFO   Fold 2  Ep  52/80  loss 0.03625/0.08411  MAE   45.9/  61.8m  lr 1.34e-04  16.9s
+2026-04-18 00:01:08  INFO   Fold 2  Ep  53/80  loss 0.03509/0.08537  MAE   44.1/  61.9m  lr 1.27e-04  13.0s
+2026-04-18 00:01:25  INFO   Fold 2  Ep  54/80  loss 0.03635/0.07901  MAE   44.6/  59.9m  lr 1.19e-04  16.5s  * best
+2026-04-18 00:01:26  INFO   Checkpoint saved -> checkpoints/best_fold2.pt
+2026-04-18 00:01:39  INFO   Fold 2  Ep  55/80  loss 0.03298/0.08677  MAE   41.8/  62.1m  lr 1.12e-04  13.0s
+2026-04-18 00:01:52  INFO   Fold 2  Ep  56/80  loss 0.03466/0.08205  MAE   44.7/  57.9m  lr 1.06e-04  13.0s  * best
+2026-04-18 00:01:52  INFO   Checkpoint saved -> checkpoints/best_fold2.pt
+2026-04-18 00:02:09  INFO   Fold 2  Ep  57/80  loss 0.03399/0.08202  MAE   43.0/  59.7m  lr 9.90e-05  16.4s
+2026-04-18 00:02:22  INFO   Fold 2  Ep  58/80  loss 0.03358/0.08100  MAE   40.9/  60.4m  lr 9.26e-05  12.7s
+2026-04-18 00:02:38  INFO   Fold 2  Ep  59/80  loss 0.03080/0.08383  MAE   42.0/  61.3m  lr 8.63e-05  16.3s
+2026-04-18 00:02:51  INFO   Fold 2  Ep  60/80  loss 0.03224/0.07814  MAE   41.5/  58.6m  lr 8.03e-05  13.0s
+2026-04-18 00:03:04  INFO   Fold 2  Ep  61/80  loss 0.03307/0.08116  MAE   44.2/  59.1m  lr 7.46e-05  12.7s
+2026-04-18 00:03:20  INFO   Fold 2  Ep  62/80  loss 0.02950/0.08426  MAE   39.4/  60.3m  lr 6.91e-05  16.3s
+2026-04-18 00:03:33  INFO   Fold 2  Ep  63/80  loss 0.02991/0.08167  MAE   39.9/  59.8m  lr 6.38e-05  12.7s
+2026-04-18 00:03:49  INFO   Fold 2  Ep  64/80  loss 0.02799/0.07711  MAE   38.8/  57.0m  lr 5.88e-05  16.4s  * best
+2026-04-18 00:03:50  INFO   Checkpoint saved -> checkpoints/best_fold2.pt
+2026-04-18 00:04:03  INFO   Fold 2  Ep  65/80  loss 0.02968/0.07604  MAE   38.8/  56.4m  lr 5.40e-05  12.7s  * best
+2026-04-18 00:04:04  INFO   Checkpoint saved -> checkpoints/best_fold2.pt
+2026-04-18 00:04:20  INFO   Fold 2  Ep  66/80  loss 0.02945/0.07819  MAE   39.1/  57.9m  lr 4.95e-05  16.3s
+2026-04-18 00:04:33  INFO   Fold 2  Ep  67/80  loss 0.03079/0.07371  MAE   40.4/  55.3m  lr 4.53e-05  12.7s  * best
+2026-04-18 00:04:33  INFO   Checkpoint saved -> checkpoints/best_fold2.pt
+2026-04-18 00:04:46  INFO   Fold 2  Ep  68/80  loss 0.02954/0.07731  MAE   38.5/  57.2m  lr 4.14e-05  12.6s
+2026-04-18 00:05:02  INFO   Fold 2  Ep  69/80  loss 0.03214/0.07778  MAE   41.4/  57.2m  lr 3.78e-05  16.1s
+2026-04-18 00:05:15  INFO   Fold 2  Ep  70/80  loss 0.02781/0.07868  MAE   38.7/  57.8m  lr 3.44e-05  12.6s
+2026-04-18 00:05:27  INFO   Fold 2  Ep  71/80  loss 0.02948/0.07889  MAE   39.5/  58.0m  lr 3.14e-05  12.6s
+2026-04-18 00:05:44  INFO   Fold 2  Ep  72/80  loss 0.02894/0.07758  MAE   40.7/  57.2m  lr 2.87e-05  16.1s
+2026-04-18 00:05:56  INFO   Fold 2  Ep  73/80  loss 0.03042/0.07995  MAE   40.7/  58.0m  lr 2.63e-05  12.7s
+2026-04-18 00:06:12  INFO   Fold 2  Ep  74/80  loss 0.02890/0.07919  MAE   38.5/  57.8m  lr 2.42e-05  16.2s
+2026-04-18 00:06:25  INFO   Fold 2  Ep  75/80  loss 0.02833/0.07621  MAE   40.5/  56.5m  lr 2.24e-05  12.6s
+2026-04-18 00:06:38  INFO   Fold 2  Ep  76/80  loss 0.02713/0.07681  MAE   37.9/  56.8m  lr 2.09e-05  12.6s
+2026-04-18 00:06:54  INFO   Fold 2  Ep  77/80  loss 0.02621/0.07671  MAE   38.4/  56.8m  lr 1.98e-05  16.2s
+2026-04-18 00:07:07  INFO   Fold 2  Ep  78/80  loss 0.02668/0.07712  MAE   36.7/  57.0m  lr 1.90e-05  12.7s
+2026-04-18 00:07:23  INFO   Fold 2  Ep  79/80  loss 0.02973/0.07788  MAE   40.3/  57.2m  lr 1.85e-05  16.2s
+2026-04-18 00:07:35  INFO   Fold 2  Ep  80/80  loss 0.02955/0.07695  MAE   40.0/  56.7m  lr 1.83e-05  12.7s
+2026-04-18 00:07:36  INFO   Loaded checkpoint 'checkpoints/best_fold2.pt'  (epoch 67, val MAE 55.30 min)
+2026-04-18 00:07:39  INFO   Per-image diagnostics logged -> checkpoints/train_log.jsonl
+2026-04-18 00:07:39  INFO   Checkpoint saved -> checkpoints/last_fold2.pt
+2026-04-18 00:07:39  INFO   Fold 2 complete -- best val MAE: 55.30 min 
+2026-04-18 00:07:42  INFO   ====================  FOLD 4/5  ====================
+2026-04-18 00:08:08  INFO   Compiling model with torch.compile() ...
+2026-04-18 00:08:08  INFO   Fold 3 | trainable params: 402,626
+2026-04-18 00:08:08  INFO   Using bitsandbytes 8-bit AdamW
+2026-04-18 00:09:57  INFO   Fold 3  Ep   1/80  loss 0.32111/0.29103  MAE  207.5/ 181.7m  lr 4.42e-04  109.1s  * best
+2026-04-18 00:09:58  INFO   Checkpoint saved -> checkpoints/best_fold3.pt
+2026-04-18 00:10:34  INFO   Fold 3  Ep   2/80  loss 0.22510/0.21758  MAE  154.6/ 133.1m  lr 4.41e-04  35.9s  * best
+2026-04-18 00:10:34  INFO   Checkpoint saved -> checkpoints/best_fold3.pt
+2026-04-18 00:11:05  INFO   Fold 3  Ep   3/80  loss 0.19317/0.18489  MAE  131.1/ 117.1m  lr 4.41e-04  30.2s  * best
+2026-04-18 00:11:05  INFO   Checkpoint saved -> checkpoints/best_fold3.pt
+2026-04-18 00:11:32  INFO   Fold 3  Ep   4/80  loss 0.17299/0.16923  MAE  120.7/ 112.1m  lr 4.39e-04  27.2s  * best
+2026-04-18 00:11:33  INFO   Checkpoint saved -> checkpoints/best_fold3.pt
+2026-04-18 00:11:55  INFO   Fold 3  Ep   5/80  loss 0.14476/0.16155  MAE  108.6/ 105.5m  lr 4.38e-04  21.5s  * best
+2026-04-18 00:11:56  INFO   Checkpoint saved -> checkpoints/best_fold3.pt
+2026-04-18 00:12:21  INFO   Fold 3  Ep   6/80  loss 0.13602/0.13081  MAE  104.6/  91.0m  lr 4.36e-04  25.3s  * best
+2026-04-18 00:12:22  INFO   Checkpoint saved -> checkpoints/best_fold3.pt
+2026-04-18 00:12:45  INFO   Fold 3  Ep   7/80  loss 0.13041/0.12991  MAE  101.7/  88.5m  lr 4.34e-04  23.4s  * best
+2026-04-18 00:12:46  INFO   Checkpoint saved -> checkpoints/best_fold3.pt
+2026-04-18 00:13:05  INFO   Fold 3  Ep   8/80  loss 0.12485/0.11783  MAE   96.8/  85.8m  lr 4.32e-04  18.7s  * best
+2026-04-18 00:13:06  INFO   Checkpoint saved -> checkpoints/best_fold3.pt
+2026-04-18 00:13:27  INFO   Fold 3  Ep   9/80  loss 0.11521/0.13902  MAE   89.6/  95.9m  lr 4.29e-04  21.3s
+2026-04-18 00:13:44  INFO   Fold 3  Ep  10/80  loss 0.11497/0.11298  MAE   89.7/  83.0m  lr 4.26e-04  17.3s  * best
+2026-04-18 00:13:45  INFO   Checkpoint saved -> checkpoints/best_fold3.pt
+2026-04-18 00:14:05  INFO   Fold 3  Ep  11/80  loss 0.10747/0.11263  MAE   86.3/  81.6m  lr 4.23e-04  19.9s  * best
+2026-04-18 00:14:06  INFO   Checkpoint saved -> checkpoints/best_fold3.pt
+2026-04-18 00:14:21  INFO   Fold 3  Ep  12/80  loss 0.10489/0.11264  MAE   86.0/  80.2m  lr 4.19e-04  15.5s  * best
+2026-04-18 00:14:22  INFO   Checkpoint saved -> checkpoints/best_fold3.pt
+2026-04-18 00:14:41  INFO   Fold 3  Ep  13/80  loss 0.09793/0.11612  MAE   80.9/  79.7m  lr 4.15e-04  19.3s  * best
+2026-04-18 00:14:42  INFO   Checkpoint saved -> checkpoints/best_fold3.pt
+2026-04-18 00:14:57  INFO   Fold 3  Ep  14/80  loss 0.10131/0.15380  MAE   82.2/  97.3m  lr 4.11e-04  14.7s
+2026-04-18 00:15:16  INFO   Fold 3  Ep  15/80  loss 0.09123/0.10044  MAE   76.4/  75.5m  lr 4.06e-04  18.8s  * best
+2026-04-18 00:15:17  INFO   Checkpoint saved -> checkpoints/best_fold3.pt
+2026-04-18 00:15:32  INFO   Fold 3  Ep  16/80  loss 0.08786/0.10789  MAE   75.9/  77.7m  lr 4.02e-04  15.6s
+2026-04-18 00:15:50  INFO   Fold 3  Ep  17/80  loss 0.09305/0.09531  MAE   78.1/  69.5m  lr 3.97e-04  18.2s  * best
+2026-04-18 00:15:51  INFO   Checkpoint saved -> checkpoints/best_fold3.pt
+2026-04-18 00:16:05  INFO   Fold 3  Ep  18/80  loss 0.08436/0.09974  MAE   72.1/  73.9m  lr 3.91e-04  14.1s
+2026-04-18 00:16:23  INFO   Fold 3  Ep  19/80  loss 0.08219/0.11403  MAE   72.3/  77.2m  lr 3.86e-04  18.2s
+2026-04-18 00:16:37  INFO   Fold 3  Ep  20/80  loss 0.07941/0.13734  MAE   70.3/  90.7m  lr 3.80e-04  13.5s
+2026-04-18 00:16:54  INFO   Fold 3  Ep  21/80  loss 0.07799/0.11251  MAE   71.5/  78.3m  lr 3.74e-04  17.1s
+2026-04-18 00:17:07  INFO   Fold 3  Ep  22/80  loss 0.07083/0.09112  MAE   65.9/  70.6m  lr 3.68e-04  12.9s
+2026-04-18 00:17:20  INFO   Fold 3  Ep  23/80  loss 0.06698/0.08762  MAE   66.2/  67.5m  lr 3.61e-04  13.3s  * best
+2026-04-18 00:17:21  INFO   Checkpoint saved -> checkpoints/best_fold3.pt
+2026-04-18 00:17:38  INFO   Fold 3  Ep  24/80  loss 0.07710/0.09020  MAE   73.0/  69.0m  lr 3.55e-04  16.4s
+2026-04-18 00:17:51  INFO   Fold 3  Ep  25/80  loss 0.06481/0.09569  MAE   62.7/  69.1m  lr 3.48e-04  13.0s
+2026-04-18 00:18:07  INFO   Fold 3  Ep  26/80  loss 0.06465/0.09414  MAE   61.4/  67.8m  lr 3.41e-04  16.4s
+2026-04-18 00:18:19  INFO   Fold 3  Ep  27/80  loss 0.06230/0.09573  MAE   65.7/  70.3m  lr 3.34e-04  12.0s
+2026-04-18 00:18:31  INFO   Fold 3  Ep  28/80  loss 0.06644/0.08780  MAE   62.8/  67.5m  lr 3.26e-04  12.1s  * best
+2026-04-18 00:18:32  INFO   Checkpoint saved -> checkpoints/best_fold3.pt
+2026-04-18 00:18:47  INFO   Fold 3  Ep  29/80  loss 0.06249/0.08760  MAE   61.9/  68.2m  lr 3.19e-04  15.6s
+2026-04-18 00:18:59  INFO   Fold 3  Ep  30/80  loss 0.05413/0.08359  MAE   55.5/  64.1m  lr 3.11e-04  12.1s  * best
+2026-04-18 00:19:00  INFO   Checkpoint saved -> checkpoints/best_fold3.pt
+2026-04-18 00:19:16  INFO   Fold 3  Ep  31/80  loss 0.05380/0.08683  MAE   55.4/  68.0m  lr 3.03e-04  15.8s
+2026-04-18 00:19:28  INFO   Fold 3  Ep  32/80  loss 0.05300/0.08027  MAE   54.7/  63.3m  lr 2.96e-04  12.2s  * best
+2026-04-18 00:19:29  INFO   Checkpoint saved -> checkpoints/best_fold3.pt
+2026-04-18 00:19:41  INFO   Fold 3  Ep  33/80  loss 0.05179/0.09054  MAE   54.8/  66.3m  lr 2.88e-04  12.0s
+2026-04-18 00:19:57  INFO   Fold 3  Ep  34/80  loss 0.05675/0.08506  MAE   58.4/  64.5m  lr 2.80e-04  15.7s
+2026-04-18 00:20:08  INFO   Fold 3  Ep  35/80  loss 0.05669/0.08156  MAE   57.6/  62.7m  lr 2.71e-04  11.5s  * best
+2026-04-18 00:20:09  INFO   Checkpoint saved -> checkpoints/best_fold3.pt
+2026-04-18 00:20:22  INFO   Fold 3  Ep  36/80  loss 0.05099/0.09172  MAE   54.8/  70.0m  lr 2.63e-04  12.2s
+2026-04-18 00:20:37  INFO   Fold 3  Ep  37/80  loss 0.05407/0.08248  MAE   56.5/  67.3m  lr 2.55e-04  15.5s
+2026-04-18 00:20:49  INFO   Fold 3  Ep  38/80  loss 0.04836/0.08213  MAE   53.1/  63.6m  lr 2.47e-04  12.0s
+2026-04-18 00:21:04  INFO   Fold 3  Ep  39/80  loss 0.04777/0.07336  MAE   53.0/  59.3m  lr 2.38e-04  14.7s  * best
+2026-04-18 00:21:05  INFO   Checkpoint saved -> checkpoints/best_fold3.pt
+2026-04-18 00:21:16  INFO   Fold 3  Ep  40/80  loss 0.04544/0.07479  MAE   51.2/  59.6m  lr 2.30e-04  11.5s
+2026-04-18 00:21:28  INFO   Fold 3  Ep  41/80  loss 0.04843/0.08356  MAE   52.5/  62.8m  lr 2.22e-04  11.4s
+2026-04-18 00:21:43  INFO   Fold 3  Ep  42/80  loss 0.04448/0.07716  MAE   49.8/  60.6m  lr 2.14e-04  15.4s
+2026-04-18 00:21:55  INFO   Fold 3  Ep  43/80  loss 0.04586/0.07672  MAE   49.0/  60.4m  lr 2.05e-04  11.5s
+2026-04-18 00:22:06  INFO   Fold 3  Ep  44/80  loss 0.04532/0.07378  MAE   50.6/  61.3m  lr 1.97e-04  11.8s
+2026-04-18 00:22:22  INFO   Fold 3  Ep  45/80  loss 0.04431/0.07390  MAE   49.9/  57.0m  lr 1.89e-04  16.1s  * best
+2026-04-18 00:22:23  INFO   Checkpoint saved -> checkpoints/best_fold3.pt
+2026-04-18 00:22:35  INFO   Fold 3  Ep  46/80  loss 0.03984/0.07297  MAE   47.7/  58.7m  lr 1.81e-04  12.0s
+2026-04-18 00:22:51  INFO   Fold 3  Ep  47/80  loss 0.04235/0.07673  MAE   49.2/  61.5m  lr 1.73e-04  15.5s
+2026-04-18 00:23:02  INFO   Fold 3  Ep  48/80  loss 0.03709/0.07359  MAE   44.7/  58.4m  lr 1.65e-04  11.7s
+2026-04-18 00:23:14  INFO   Fold 3  Ep  49/80  loss 0.04104/0.07133  MAE   47.6/  57.1m  lr 1.57e-04  11.9s
+2026-04-18 00:23:30  INFO   Fold 3  Ep  50/80  loss 0.03967/0.07125  MAE   47.6/  56.2m  lr 1.49e-04  15.3s  * best
+2026-04-18 00:23:30  INFO   Checkpoint saved -> checkpoints/best_fold3.pt
+2026-04-18 00:23:43  INFO   Fold 3  Ep  51/80  loss 0.03948/0.06776  MAE   44.8/  55.2m  lr 1.41e-04  12.5s  * best
+2026-04-18 00:23:44  INFO   Checkpoint saved -> checkpoints/best_fold3.pt
+2026-04-18 00:23:56  INFO   Fold 3  Ep  52/80  loss 0.03587/0.07083  MAE   43.9/  56.4m  lr 1.34e-04  12.3s
+2026-04-18 00:24:11  INFO   Fold 3  Ep  53/80  loss 0.03667/0.07700  MAE   45.7/  57.6m  lr 1.27e-04  15.3s
+2026-04-18 00:24:23  INFO   Fold 3  Ep  54/80  loss 0.03556/0.07318  MAE   44.4/  55.7m  lr 1.19e-04  11.9s
+2026-04-18 00:24:39  INFO   Fold 3  Ep  55/80  loss 0.03775/0.06885  MAE   45.5/  56.0m  lr 1.12e-04  15.4s
+2026-04-18 00:24:50  INFO   Fold 3  Ep  56/80  loss 0.03144/0.06784  MAE   41.2/  54.9m  lr 1.06e-04  11.7s  * best
+2026-04-18 00:24:51  INFO   Checkpoint saved -> checkpoints/best_fold3.pt
+2026-04-18 00:25:03  INFO   Fold 3  Ep  57/80  loss 0.03344/0.06822  MAE   42.4/  54.7m  lr 9.90e-05  11.9s  * best
+2026-04-18 00:25:04  INFO   Checkpoint saved -> checkpoints/best_fold3.pt
+2026-04-18 00:25:19  INFO   Fold 3  Ep  58/80  loss 0.03096/0.06761  MAE   39.7/  54.6m  lr 9.26e-05  15.3s  * best
+2026-04-18 00:25:20  INFO   Checkpoint saved -> checkpoints/best_fold3.pt
+2026-04-18 00:25:32  INFO   Fold 3  Ep  59/80  loss 0.03222/0.06591  MAE   41.6/  54.3m  lr 8.63e-05  11.7s  * best
+2026-04-18 00:25:33  INFO   Checkpoint saved -> checkpoints/best_fold3.pt
+2026-04-18 00:25:44  INFO   Fold 3  Ep  60/80  loss 0.03230/0.06588  MAE   41.8/  53.2m  lr 8.03e-05  11.7s  * best
+2026-04-18 00:25:45  INFO   Checkpoint saved -> checkpoints/best_fold3.pt
+2026-04-18 00:26:00  INFO   Fold 3  Ep  61/80  loss 0.03364/0.06628  MAE   41.0/  55.1m  lr 7.46e-05  15.1s
+2026-04-18 00:26:12  INFO   Fold 3  Ep  62/80  loss 0.03212/0.06877  MAE   40.5/  55.4m  lr 6.91e-05  11.7s
+2026-04-18 00:26:27  INFO   Fold 3  Ep  63/80  loss 0.02968/0.06906  MAE   39.3/  54.8m  lr 6.38e-05  15.1s
+2026-04-18 00:26:39  INFO   Fold 3  Ep  64/80  loss 0.03327/0.06908  MAE   41.5/  56.0m  lr 5.88e-05  11.5s
+2026-04-18 00:26:50  INFO   Fold 3  Ep  65/80  loss 0.03195/0.06905  MAE   41.5/  54.7m  lr 5.40e-05  11.6s
+2026-04-18 00:27:05  INFO   Fold 3  Ep  66/80  loss 0.02870/0.07009  MAE   38.7/  55.0m  lr 4.95e-05  14.9s
+2026-04-18 00:27:17  INFO   Fold 3  Ep  67/80  loss 0.02947/0.06683  MAE   39.5/  54.9m  lr 4.53e-05  11.8s
+2026-04-18 00:27:29  INFO   Fold 3  Ep  68/80  loss 0.02779/0.06437  MAE   37.9/  52.7m  lr 4.14e-05  11.7s  * best
+2026-04-18 00:27:30  INFO   Checkpoint saved -> checkpoints/best_fold3.pt
+2026-04-18 00:27:45  INFO   Fold 3  Ep  69/80  loss 0.03058/0.06702  MAE   40.7/  54.1m  lr 3.78e-05  15.4s
+2026-04-18 00:27:57  INFO   Fold 3  Ep  70/80  loss 0.03222/0.06611  MAE   41.5/  53.7m  lr 3.44e-05  11.9s
+2026-04-18 00:28:09  INFO   Fold 3  Ep  71/80  loss 0.03071/0.06706  MAE   41.2/  52.9m  lr 3.14e-05  11.6s
+2026-04-18 00:28:24  INFO   Fold 3  Ep  72/80  loss 0.02967/0.06684  MAE   39.0/  54.5m  lr 2.87e-05  15.2s
+2026-04-18 00:28:35  INFO   Fold 3  Ep  73/80  loss 0.02826/0.06601  MAE   37.2/  53.7m  lr 2.63e-05  11.4s
+2026-04-18 00:28:50  INFO   Fold 3  Ep  74/80  loss 0.02748/0.06718  MAE   37.6/  53.9m  lr 2.42e-05  14.4s
+2026-04-18 00:29:00  INFO   Fold 3  Ep  75/80  loss 0.02894/0.06644  MAE   39.1/  53.7m  lr 2.24e-05  10.7s
+2026-04-18 00:29:11  INFO   Fold 3  Ep  76/80  loss 0.03069/0.06660  MAE   41.8/  54.0m  lr 2.09e-05  10.5s
+2026-04-18 00:29:25  INFO   Fold 3  Ep  77/80  loss 0.02966/0.06593  MAE   40.5/  53.2m  lr 1.98e-05  14.2s
+2026-04-18 00:29:36  INFO   Fold 3  Ep  78/80  loss 0.02670/0.06528  MAE   37.0/  52.3m  lr 1.90e-05  10.5s  * best
+2026-04-18 00:29:36  INFO   Checkpoint saved -> checkpoints/best_fold3.pt
+2026-04-18 00:29:47  INFO   Fold 3  Ep  79/80  loss 0.02713/0.06389  MAE   36.2/  52.0m  lr 1.85e-05  10.5s  * best
+2026-04-18 00:29:48  INFO   Checkpoint saved -> checkpoints/best_fold3.pt
+2026-04-18 00:30:02  INFO   Fold 3  Ep  80/80  loss 0.02791/0.06411  MAE   39.3/  52.8m  lr 1.83e-05  14.1s
+2026-04-18 00:30:03  INFO   Loaded checkpoint 'checkpoints/best_fold3.pt'  (epoch 79, val MAE 52.03 min)
+2026-04-18 00:30:05  INFO   Per-image diagnostics logged -> checkpoints/train_log.jsonl
+2026-04-18 00:30:05  INFO   Checkpoint saved -> checkpoints/last_fold3.pt
+2026-04-18 00:30:05  INFO   Fold 3 complete -- best val MAE: 52.03 min 
+2026-04-18 00:30:08  INFO   ====================  FOLD 5/5  ====================
+2026-04-18 00:30:28  INFO   Compiling model with torch.compile() ...
+2026-04-18 00:30:28  INFO   Fold 4 | trainable params: 402,626
+2026-04-18 00:30:28  INFO   Using bitsandbytes 8-bit AdamW
+2026-04-18 00:31:57  INFO   Fold 4  Ep   1/80  loss 0.31037/0.53719  MAE  201.3/ 284.5m  lr 4.42e-04  88.8s  * best
+2026-04-18 00:31:58  INFO   Checkpoint saved -> checkpoints/best_fold4.pt
+2026-04-18 00:32:29  INFO   Fold 4  Ep   2/80  loss 0.23843/0.26444  MAE  157.8/ 149.2m  lr 4.41e-04  31.1s  * best
+2026-04-18 00:32:30  INFO   Checkpoint saved -> checkpoints/best_fold4.pt
+2026-04-18 00:32:56  INFO   Fold 4  Ep   3/80  loss 0.19290/0.21174  MAE  135.4/ 133.3m  lr 4.41e-04  26.1s  * best
+2026-04-18 00:33:01  INFO   Checkpoint saved -> checkpoints/best_fold4.pt
+2026-04-18 00:33:24  INFO   Fold 4  Ep   4/80  loss 0.17055/0.20328  MAE  121.9/ 125.3m  lr 4.39e-04  23.9s  * best
+2026-04-18 00:33:25  INFO   Checkpoint saved -> checkpoints/best_fold4.pt
+2026-04-18 00:33:51  INFO   Fold 4  Ep   5/80  loss 0.15978/0.14876  MAE  116.3/  99.4m  lr 4.38e-04  25.2s  * best
+2026-04-18 00:33:52  INFO   Checkpoint saved -> checkpoints/best_fold4.pt
+2026-04-18 00:34:16  INFO   Fold 4  Ep   6/80  loss 0.13487/0.16644  MAE  103.9/ 106.0m  lr 4.36e-04  24.3s
+2026-04-18 00:34:36  INFO   Fold 4  Ep   7/80  loss 0.13455/0.15419  MAE  101.8/  97.7m  lr 4.34e-04  19.8s  * best
+2026-04-18 00:34:37  INFO   Checkpoint saved -> checkpoints/best_fold4.pt
+2026-04-18 00:34:59  INFO   Fold 4  Ep   8/80  loss 0.12078/0.14783  MAE   94.1/  98.8m  lr 4.32e-04  22.4s
+2026-04-18 00:35:16  INFO   Fold 4  Ep   9/80  loss 0.11609/0.13369  MAE   92.2/  90.5m  lr 4.29e-04  17.4s  * best
+2026-04-18 00:35:17  INFO   Checkpoint saved -> checkpoints/best_fold4.pt
+2026-04-18 00:35:38  INFO   Fold 4  Ep  10/80  loss 0.11063/0.11973  MAE   88.7/  83.9m  lr 4.26e-04  20.8s  * best
+2026-04-18 00:35:39  INFO   Checkpoint saved -> checkpoints/best_fold4.pt
+2026-04-18 00:35:55  INFO   Fold 4  Ep  11/80  loss 0.10825/0.11665  MAE   88.9/  83.0m  lr 4.23e-04  16.0s  * best
+2026-04-18 00:35:59  INFO   Checkpoint saved -> checkpoints/best_fold4.pt
+2026-04-18 00:36:15  INFO   Fold 4  Ep  12/80  loss 0.10776/0.13109  MAE   86.9/  85.4m  lr 4.19e-04  16.2s
+2026-04-18 00:36:35  INFO   Fold 4  Ep  13/80  loss 0.09086/0.11616  MAE   78.7/  79.3m  lr 4.15e-04  19.6s  * best
+2026-04-18 00:36:36  INFO   Checkpoint saved -> checkpoints/best_fold4.pt
+2026-04-18 00:36:51  INFO   Fold 4  Ep  14/80  loss 0.08978/0.10545  MAE   77.3/  77.3m  lr 4.11e-04  14.8s  * best
+2026-04-18 00:36:52  INFO   Checkpoint saved -> checkpoints/best_fold4.pt
+2026-04-18 00:37:05  INFO   Fold 4  Ep  15/80  loss 0.09309/0.09825  MAE   78.0/  73.9m  lr 4.06e-04  13.9s  * best
+2026-04-18 00:37:06  INFO   Checkpoint saved -> checkpoints/best_fold4.pt
+2026-04-18 00:37:24  INFO   Fold 4  Ep  16/80  loss 0.08089/0.12186  MAE   72.4/  84.0m  lr 4.02e-04  17.4s
+2026-04-18 00:37:37  INFO   Fold 4  Ep  17/80  loss 0.09279/0.11289  MAE   78.6/  77.8m  lr 3.97e-04  13.4s
+2026-04-18 00:37:54  INFO   Fold 4  Ep  18/80  loss 0.07736/0.10784  MAE   69.5/  74.8m  lr 3.91e-04  17.0s
+2026-04-18 00:38:08  INFO   Fold 4  Ep  19/80  loss 0.07404/0.12355  MAE   69.6/  84.1m  lr 3.86e-04  13.5s
+2026-04-18 00:38:24  INFO   Fold 4  Ep  20/80  loss 0.08545/0.10848  MAE   72.4/  76.0m  lr 3.80e-04  16.6s
+2026-04-18 00:38:37  INFO   Fold 4  Ep  21/80  loss 0.07093/0.15026  MAE   65.1/ 100.2m  lr 3.74e-04  12.8s
+2026-04-18 00:38:49  INFO   Fold 4  Ep  22/80  loss 0.06744/0.10251  MAE   62.0/  73.4m  lr 3.68e-04  11.9s  * best
+2026-04-18 00:38:50  INFO   Checkpoint saved -> checkpoints/best_fold4.pt
+2026-04-18 00:39:06  INFO   Fold 4  Ep  23/80  loss 0.07145/0.10191  MAE   66.3/  73.8m  lr 3.61e-04  15.9s
+2026-04-18 00:39:18  INFO   Fold 4  Ep  24/80  loss 0.06926/0.10301  MAE   64.6/  72.6m  lr 3.55e-04  12.2s  * best
+2026-04-18 00:39:19  INFO   Checkpoint saved -> checkpoints/best_fold4.pt
+2026-04-18 00:39:34  INFO   Fold 4  Ep  25/80  loss 0.06414/0.09230  MAE   61.0/  67.6m  lr 3.48e-04  15.9s  * best
+2026-04-18 00:39:35  INFO   Checkpoint saved -> checkpoints/best_fold4.pt
+2026-04-18 00:39:48  INFO   Fold 4  Ep  26/80  loss 0.06281/0.09753  MAE   62.7/  70.5m  lr 3.41e-04  12.1s
+2026-04-18 00:40:00  INFO   Fold 4  Ep  27/80  loss 0.06238/0.09495  MAE   62.0/  68.8m  lr 3.34e-04  12.3s
+2026-04-18 00:40:15  INFO   Fold 4  Ep  28/80  loss 0.05872/0.11055  MAE   59.1/  72.2m  lr 3.26e-04  15.5s
+2026-04-18 00:40:27  INFO   Fold 4  Ep  29/80  loss 0.06115/0.11015  MAE   62.7/  74.4m  lr 3.19e-04  12.0s
+2026-04-18 00:40:39  INFO   Fold 4  Ep  30/80  loss 0.05998/0.10096  MAE   58.5/  73.3m  lr 3.11e-04  11.7s
+2026-04-18 00:40:54  INFO   Fold 4  Ep  31/80  loss 0.05481/0.10807  MAE   55.6/  75.4m  lr 3.03e-04  15.2s
+2026-04-18 00:41:06  INFO   Fold 4  Ep  32/80  loss 0.05432/0.09707  MAE   56.0/  67.5m  lr 2.96e-04  11.5s  * best
+2026-04-18 00:41:07  INFO   Checkpoint saved -> checkpoints/best_fold4.pt
+2026-04-18 00:41:22  INFO   Fold 4  Ep  33/80  loss 0.05441/0.09636  MAE   55.9/  67.1m  lr 2.88e-04  14.9s  * best
+2026-04-18 00:41:22  INFO   Checkpoint saved -> checkpoints/best_fold4.pt
+2026-04-18 00:41:34  INFO   Fold 4  Ep  34/80  loss 0.05502/0.09436  MAE   56.4/  66.9m  lr 2.80e-04  11.5s  * best
+2026-04-18 00:41:35  INFO   Checkpoint saved -> checkpoints/best_fold4.pt
+2026-04-18 00:41:46  INFO   Fold 4  Ep  35/80  loss 0.05042/0.08470  MAE   53.4/  62.8m  lr 2.71e-04  11.2s  * best
+2026-04-18 00:41:47  INFO   Checkpoint saved -> checkpoints/best_fold4.pt
+2026-04-18 00:42:02  INFO   Fold 4  Ep  36/80  loss 0.04572/0.10381  MAE   50.0/  73.1m  lr 2.63e-04  14.7s
+2026-04-18 00:42:12  INFO   Fold 4  Ep  37/80  loss 0.04578/0.09663  MAE   50.1/  67.1m  lr 2.55e-04  10.8s
+2026-04-18 00:42:23  INFO   Fold 4  Ep  38/80  loss 0.04506/0.08691  MAE   49.3/  61.8m  lr 2.47e-04  10.9s  * best
+2026-04-18 00:42:24  INFO   Checkpoint saved -> checkpoints/best_fold4.pt
+2026-04-18 00:42:39  INFO   Fold 4  Ep  39/80  loss 0.04457/0.09753  MAE   49.4/  66.2m  lr 2.38e-04  14.7s
+2026-04-18 00:42:50  INFO   Fold 4  Ep  40/80  loss 0.04545/0.09398  MAE   50.9/  66.5m  lr 2.30e-04  11.1s
+2026-04-18 00:43:01  INFO   Fold 4  Ep  41/80  loss 0.04711/0.09280  MAE   51.0/  64.2m  lr 2.22e-04  11.1s
+2026-04-18 00:43:16  INFO   Fold 4  Ep  42/80  loss 0.04243/0.09355  MAE   49.6/  68.0m  lr 2.14e-04  14.8s
+2026-04-18 00:43:27  INFO   Fold 4  Ep  43/80  loss 0.04408/0.08843  MAE   51.1/  64.8m  lr 2.05e-04  10.9s
+2026-04-18 00:43:38  INFO   Fold 4  Ep  44/80  loss 0.04359/0.09080  MAE   48.8/  64.9m  lr 1.97e-04  11.2s
+2026-04-18 00:43:52  INFO   Fold 4  Ep  45/80  loss 0.03900/0.08720  MAE   46.9/  62.6m  lr 1.89e-04  14.5s
+2026-04-18 00:44:03  INFO   Fold 4  Ep  46/80  loss 0.04003/0.08272  MAE   48.5/  61.8m  lr 1.81e-04  10.9s  * best
+2026-04-18 00:44:04  INFO   Checkpoint saved -> checkpoints/best_fold4.pt
+2026-04-18 00:44:15  INFO   Fold 4  Ep  47/80  loss 0.04132/0.08749  MAE   49.0/  61.4m  lr 1.73e-04  10.8s  * best
+2026-04-18 00:44:16  INFO   Checkpoint saved -> checkpoints/best_fold4.pt
+2026-04-18 00:44:30  INFO   Fold 4  Ep  48/80  loss 0.03933/0.08907  MAE   46.7/  62.3m  lr 1.65e-04  14.3s
+2026-04-18 00:44:41  INFO   Fold 4  Ep  49/80  loss 0.03739/0.08158  MAE   44.3/  59.4m  lr 1.57e-04  10.9s  * best
+2026-04-18 00:44:42  INFO   Checkpoint saved -> checkpoints/best_fold4.pt
+2026-04-18 00:44:53  INFO   Fold 4  Ep  50/80  loss 0.03642/0.08445  MAE   43.6/  61.3m  lr 1.49e-04  10.7s
+2026-04-18 00:45:07  INFO   Fold 4  Ep  51/80  loss 0.03563/0.08338  MAE   45.1/  61.3m  lr 1.41e-04  14.3s
+2026-04-18 00:45:18  INFO   Fold 4  Ep  52/80  loss 0.03900/0.08060  MAE   48.2/  59.1m  lr 1.34e-04  10.6s  * best
+2026-04-18 00:45:18  INFO   Checkpoint saved -> checkpoints/best_fold4.pt
+2026-04-18 00:45:33  INFO   Fold 4  Ep  53/80  loss 0.03781/0.08337  MAE   46.1/  60.7m  lr 1.27e-04  14.5s
+2026-04-18 00:45:44  INFO   Fold 4  Ep  54/80  loss 0.03657/0.07981  MAE   44.4/  58.7m  lr 1.19e-04  11.5s  * best
+2026-04-18 00:45:45  INFO   Checkpoint saved -> checkpoints/best_fold4.pt
+2026-04-18 00:45:57  INFO   Fold 4  Ep  55/80  loss 0.03723/0.08199  MAE   46.2/  59.0m  lr 1.12e-04  11.5s
+2026-04-18 00:46:12  INFO   Fold 4  Ep  56/80  loss 0.03260/0.07926  MAE   41.9/  58.4m  lr 1.06e-04  15.1s  * best
+2026-04-18 00:46:13  INFO   Checkpoint saved -> checkpoints/best_fold4.pt
+2026-04-18 00:46:25  INFO   Fold 4  Ep  57/80  loss 0.03202/0.07773  MAE   42.1/  55.6m  lr 9.90e-05  12.0s  * best
+2026-04-18 00:46:26  INFO   Checkpoint saved -> checkpoints/best_fold4.pt
+2026-04-18 00:46:37  INFO   Fold 4  Ep  58/80  loss 0.03319/0.08422  MAE   41.3/  59.6m  lr 9.26e-05  11.7s
+2026-04-18 00:46:53  INFO   Fold 4  Ep  59/80  loss 0.03212/0.08043  MAE   41.3/  57.8m  lr 8.63e-05  15.4s
+2026-04-18 00:47:05  INFO   Fold 4  Ep  60/80  loss 0.03378/0.08256  MAE   43.2/  57.9m  lr 8.03e-05  11.7s
+2026-04-18 00:47:20  INFO   Fold 4  Ep  61/80  loss 0.03171/0.08128  MAE   40.9/  58.8m  lr 7.46e-05  15.5s
+2026-04-18 00:47:32  INFO   Fold 4  Ep  62/80  loss 0.03252/0.08196  MAE   42.9/  59.4m  lr 6.91e-05  12.4s
+2026-04-18 00:47:44  INFO   Fold 4  Ep  63/80  loss 0.02990/0.08195  MAE   41.7/  58.5m  lr 6.38e-05  11.8s
+2026-04-18 00:48:00  INFO   Fold 4  Ep  64/80  loss 0.03410/0.08030  MAE   43.9/  59.5m  lr 5.88e-05  15.3s
+2026-04-18 00:48:11  INFO   Fold 4  Ep  65/80  loss 0.03217/0.07807  MAE   42.6/  57.6m  lr 5.40e-05  11.7s
+2026-04-18 00:48:23  INFO   Fold 4  Ep  66/80  loss 0.03175/0.07878  MAE   42.1/  57.3m  lr 4.95e-05  11.6s
+2026-04-18 00:48:38  INFO   Fold 4  Ep  67/80  loss 0.03112/0.07685  MAE   42.6/  57.3m  lr 4.53e-05  15.3s
+2026-04-18 00:48:50  INFO   Fold 4  Ep  68/80  loss 0.03049/0.07809  MAE   42.6/  56.2m  lr 4.14e-05  11.5s
+2026-04-18 00:49:01  INFO   Fold 4  Ep  69/80  loss 0.03070/0.07908  MAE   41.3/  57.7m  lr 3.78e-05  11.6s
+2026-04-18 00:49:16  INFO   Fold 4  Ep  70/80  loss 0.02886/0.07712  MAE   38.0/  55.6m  lr 3.44e-05  15.3s
+2026-04-18 00:49:28  INFO   Fold 4  Ep  71/80  loss 0.02713/0.07900  MAE   37.1/  56.3m  lr 3.14e-05  11.5s
+2026-04-18 00:49:39  INFO   Fold 4  Ep  72/80  loss 0.02813/0.07683  MAE   39.3/  55.8m  lr 2.87e-05  11.3s
+2026-04-18 00:49:54  INFO   Fold 4  Ep  73/80  loss 0.02749/0.07740  MAE   37.4/  56.5m  lr 2.63e-05  15.1s
+2026-04-18 00:50:06  INFO   Fold 4  Ep  74/80  loss 0.02806/0.07673  MAE   37.9/  55.5m  lr 2.42e-05  11.3s  * best
+2026-04-18 00:50:07  INFO   Checkpoint saved -> checkpoints/best_fold4.pt
+2026-04-18 00:50:21  INFO   Fold 4  Ep  75/80  loss 0.02742/0.07778  MAE   37.3/  56.7m  lr 2.24e-05  14.7s
+2026-04-18 00:50:33  INFO   Fold 4  Ep  76/80  loss 0.02730/0.07633  MAE   37.9/  55.7m  lr 2.09e-05  11.4s
+2026-04-18 00:50:44  INFO   Fold 4  Ep  77/80  loss 0.02801/0.07687  MAE   37.2/  56.4m  lr 1.98e-05  11.1s
+2026-04-18 00:50:59  INFO   Fold 4  Ep  78/80  loss 0.02942/0.07714  MAE   38.0/  55.6m  lr 1.90e-05  14.7s
+2026-04-18 00:51:11  INFO   Fold 4  Ep  79/80  loss 0.02771/0.07690  MAE   38.6/  55.4m  lr 1.85e-05  12.2s  * best
+2026-04-18 00:51:12  INFO   Checkpoint saved -> checkpoints/best_fold4.pt
+2026-04-18 00:51:23  INFO   Fold 4  Ep  80/80  loss 0.03292/0.07806  MAE   40.3/  55.9m  lr 1.83e-05  11.4s
+2026-04-18 00:51:24  INFO   Loaded checkpoint 'checkpoints/best_fold4.pt'  (epoch 79, val MAE 55.38 min)
+2026-04-18 00:51:26  INFO   Per-image diagnostics logged -> checkpoints/train_log.jsonl
+2026-04-18 00:51:27  INFO   Checkpoint saved -> checkpoints/last_fold4.pt
+2026-04-18 00:51:27  INFO   Fold 4 complete -- best val MAE: 55.38 min 
+2026-04-18 00:51:33  INFO   ============================================================
+2026-04-18 00:51:33  INFO   Cross-validation results
+2026-04-18 00:51:33  INFO     Fold 0: 58.38 min
+2026-04-18 00:51:33  INFO     Fold 1: 58.40 min
+2026-04-18 00:51:33  INFO     Fold 2: 55.30 min
+2026-04-18 00:51:33  INFO     Fold 3: 52.03 min
+2026-04-18 00:51:33  INFO     Fold 4: 55.38 min
+2026-04-18 00:51:33  INFO     Mean MAE: 55.90 min
+2026-04-18 00:51:33  INFO   ============================================================
+2026-04-29 14:16:49  INFO   ============================================================
+2026-04-29 14:16:49  INFO   Time-of-Day Estimation  --  ConvNeXt
+2026-04-29 14:16:49  INFO   Device      : cuda
+2026-04-29 14:16:49  INFO   Model       : convnext_tiny
+2026-04-29 14:16:49  INFO   Image size  : 512
+2026-04-29 14:16:49  INFO   Batch Size  : Physical 8 | Effective 8
+2026-04-29 14:16:49  INFO   Optimizers  : Compile=True, AMP=True, 8-bit=True, NHWC=True
+2026-04-29 14:16:49  INFO   ============================================================
+2026-04-29 14:16:49  INFO   ====================  FOLD 1/5  ====================
+2026-04-29 14:17:26  INFO   Compiling model with torch.compile() ...
+2026-04-29 14:17:26  INFO   Fold 0 | trainable params: 402,626
+2026-04-29 14:17:26  INFO   Using bitsandbytes 8-bit AdamW
+2026-04-29 14:19:13  INFO   Fold 0  Ep   1/80  loss 0.31343/0.25471  MAE  201.0/ 148.8m  lr 4.42e-04  107.4s  * best
+2026-04-29 14:19:14  INFO   Checkpoint saved -> checkpoints/best_fold0.pt
+2026-04-29 14:19:40  INFO   Fold 0  Ep   2/80  loss 0.22249/0.19246  MAE  151.9/ 123.0m  lr 4.41e-04  26.1s  * best
+2026-04-29 14:19:41  INFO   Checkpoint saved -> checkpoints/best_fold0.pt
+2026-04-29 14:20:05  INFO   Fold 0  Ep   3/80  loss 0.19288/0.16667  MAE  134.9/ 106.1m  lr 4.41e-04  24.2s  * best
+2026-04-29 14:20:06  INFO   Checkpoint saved -> checkpoints/best_fold0.pt
+2026-04-29 14:20:29  INFO   Fold 0  Ep   4/80  loss 0.16424/0.20951  MAE  120.6/ 129.0m  lr 4.39e-04  23.2s
+2026-04-29 14:20:48  INFO   Fold 0  Ep   5/80  loss 0.15033/0.15461  MAE  114.1/ 105.1m  lr 4.38e-04  19.2s  * best
+2026-04-29 14:20:49  INFO   Checkpoint saved -> checkpoints/best_fold0.pt
+2026-04-29 14:21:10  INFO   Fold 0  Ep   6/80  loss 0.13547/0.15393  MAE  105.3/ 105.3m  lr 4.36e-04  20.8s
+2026-04-29 14:21:28  INFO   Fold 0  Ep   7/80  loss 0.12880/0.13659  MAE   97.8/  95.4m  lr 4.34e-04  17.7s  * best
+2026-04-29 14:21:29  INFO   Checkpoint saved -> checkpoints/best_fold0.pt
+2026-04-29 14:21:47  INFO   Fold 0  Ep   8/80  loss 0.11934/0.15439  MAE   93.3/  97.7m  lr 4.32e-04  18.4s
+2026-04-29 14:22:04  INFO   Fold 0  Ep   9/80  loss 0.10858/0.13111  MAE   85.9/  90.2m  lr 4.29e-04  16.5s  * best
+2026-04-29 14:22:06  INFO   Checkpoint saved -> checkpoints/best_fold0.pt
+2026-04-29 14:22:22  INFO   Fold 0  Ep  10/80  loss 0.10987/0.15087  MAE   87.5/  97.2m  lr 4.26e-04  15.6s
+2026-04-29 14:22:37  INFO   Fold 0  Ep  11/80  loss 0.10383/0.11493  MAE   83.9/  80.7m  lr 4.23e-04  15.1s  * best
+2026-04-29 14:22:38  INFO   Checkpoint saved -> checkpoints/best_fold0.pt
+2026-04-29 14:22:54  INFO   Fold 0  Ep  12/80  loss 0.09059/0.11365  MAE   79.2/  81.7m  lr 4.19e-04  16.0s
+2026-04-29 14:23:08  INFO   Fold 0  Ep  13/80  loss 0.09618/0.11542  MAE   83.7/  81.2m  lr 4.15e-04  14.2s
+2026-04-29 14:23:23  INFO   Fold 0  Ep  14/80  loss 0.08653/0.12612  MAE   76.7/  85.8m  lr 4.11e-04  15.6s
+2026-04-29 14:23:36  INFO   Fold 0  Ep  15/80  loss 0.08289/0.11632  MAE   74.1/  80.4m  lr 4.06e-04  12.9s  * best
+2026-04-29 14:23:37  INFO   Checkpoint saved -> checkpoints/best_fold0.pt
+2026-04-29 14:23:53  INFO   Fold 0  Ep  16/80  loss 0.07814/0.11962  MAE   70.7/  83.6m  lr 4.02e-04  16.1s
+2026-04-29 14:24:06  INFO   Fold 0  Ep  17/80  loss 0.07985/0.10288  MAE   72.2/  74.0m  lr 3.97e-04  13.0s  * best
+2026-04-29 14:24:07  INFO   Checkpoint saved -> checkpoints/best_fold0.pt
+2026-04-29 14:24:22  INFO   Fold 0  Ep  18/80  loss 0.07514/0.11868  MAE   67.9/  80.1m  lr 3.91e-04  14.6s
+2026-04-29 14:24:34  INFO   Fold 0  Ep  19/80  loss 0.07742/0.11531  MAE   70.0/  76.4m  lr 3.86e-04  12.3s
+2026-04-29 14:24:46  INFO   Fold 0  Ep  20/80  loss 0.06735/0.12255  MAE   64.2/  85.0m  lr 3.80e-04  12.0s
+2026-04-29 14:25:00  INFO   Fold 0  Ep  21/80  loss 0.06729/0.13615  MAE   63.7/  85.4m  lr 3.74e-04  13.8s
+2026-04-29 14:25:12  INFO   Fold 0  Ep  22/80  loss 0.07116/0.11319  MAE   66.1/  77.0m  lr 3.68e-04  11.6s
+2026-04-29 14:25:23  INFO   Fold 0  Ep  23/80  loss 0.06643/0.09556  MAE   61.9/  69.3m  lr 3.61e-04  11.9s  * best
+2026-04-29 14:25:24  INFO   Checkpoint saved -> checkpoints/best_fold0.pt
+2026-04-29 14:25:38  INFO   Fold 0  Ep  24/80  loss 0.06618/0.11522  MAE   63.8/  76.9m  lr 3.55e-04  13.4s
+2026-04-29 14:25:49  INFO   Fold 0  Ep  25/80  loss 0.06683/0.10028  MAE   63.0/  72.3m  lr 3.48e-04  11.2s
+2026-04-29 14:26:01  INFO   Fold 0  Ep  26/80  loss 0.06529/0.10262  MAE   66.7/  75.1m  lr 3.41e-04  11.7s
+2026-04-29 14:26:14  INFO   Fold 0  Ep  27/80  loss 0.05092/0.09275  MAE   54.3/  68.0m  lr 3.34e-04  13.4s  * best
+2026-04-29 14:26:15  INFO   Checkpoint saved -> checkpoints/best_fold0.pt
+2026-04-29 14:26:26  INFO   Fold 0  Ep  28/80  loss 0.05604/0.09610  MAE   59.3/  68.6m  lr 3.26e-04  11.5s
+2026-04-29 14:26:39  INFO   Fold 0  Ep  29/80  loss 0.05373/0.08774  MAE   55.5/  65.5m  lr 3.19e-04  12.7s  * best
+2026-04-29 14:26:40  INFO   Checkpoint saved -> checkpoints/best_fold0.pt
+2026-04-29 14:26:51  INFO   Fold 0  Ep  30/80  loss 0.05014/0.09520  MAE   52.2/  68.5m  lr 3.11e-04  11.4s
+2026-04-29 14:27:02  INFO   Fold 0  Ep  31/80  loss 0.04738/0.09544  MAE   53.6/  70.2m  lr 3.03e-04  10.7s
+2026-04-29 14:27:14  INFO   Fold 0  Ep  32/80  loss 0.05268/0.08461  MAE   55.7/  62.8m  lr 2.96e-04  12.1s  * best
+2026-04-29 14:27:15  INFO   Checkpoint saved -> checkpoints/best_fold0.pt
+2026-04-29 14:27:25  INFO   Fold 0  Ep  33/80  loss 0.04632/0.08592  MAE   51.2/  66.1m  lr 2.88e-04  10.7s
+2026-04-29 14:27:36  INFO   Fold 0  Ep  34/80  loss 0.04605/0.08343  MAE   53.2/  65.2m  lr 2.80e-04  10.5s
+2026-04-29 14:27:48  INFO   Fold 0  Ep  35/80  loss 0.04959/0.08610  MAE   54.7/  62.6m  lr 2.71e-04  12.2s  * best
+2026-04-29 14:27:49  INFO   Checkpoint saved -> checkpoints/best_fold0.pt
+2026-04-29 14:28:00  INFO   Fold 0  Ep  36/80  loss 0.04388/0.08560  MAE   49.7/  63.7m  lr 2.63e-04  11.3s
+2026-04-29 14:28:11  INFO   Fold 0  Ep  37/80  loss 0.04194/0.08513  MAE   48.4/  62.9m  lr 2.55e-04  10.8s
+2026-04-29 14:28:23  INFO   Fold 0  Ep  38/80  loss 0.04496/0.09656  MAE   52.1/  68.7m  lr 2.47e-04  12.2s
+2026-04-29 14:28:34  INFO   Fold 0  Ep  39/80  loss 0.04151/0.08789  MAE   48.0/  65.1m  lr 2.38e-04  11.1s
+2026-04-29 14:28:45  INFO   Fold 0  Ep  40/80  loss 0.04018/0.08676  MAE   46.5/  64.6m  lr 2.30e-04  10.8s
+2026-04-29 14:28:57  INFO   Fold 0  Ep  41/80  loss 0.03833/0.08339  MAE   47.9/  60.2m  lr 2.22e-04  12.2s  * best
+2026-04-29 14:28:58  INFO   Checkpoint saved -> checkpoints/best_fold0.pt
+2026-04-29 14:29:09  INFO   Fold 0  Ep  42/80  loss 0.03796/0.08082  MAE   45.1/  60.5m  lr 2.14e-04  10.7s
+2026-04-29 14:29:20  INFO   Fold 0  Ep  43/80  loss 0.04255/0.07693  MAE   49.0/  60.4m  lr 2.05e-04  10.9s
+2026-04-29 14:29:32  INFO   Fold 0  Ep  44/80  loss 0.03771/0.08644  MAE   47.8/  61.8m  lr 1.97e-04  12.1s
+2026-04-29 14:29:43  INFO   Fold 0  Ep  45/80  loss 0.03862/0.07747  MAE   46.4/  59.7m  lr 1.89e-04  10.7s  * best
+2026-04-29 14:29:44  INFO   Checkpoint saved -> checkpoints/best_fold0.pt
+2026-04-29 14:29:55  INFO   Fold 0  Ep  46/80  loss 0.03678/0.07781  MAE   45.0/  58.1m  lr 1.81e-04  10.8s  * best
+2026-04-29 14:29:55  INFO   Checkpoint saved -> checkpoints/best_fold0.pt
+2026-04-29 14:30:08  INFO   Fold 0  Ep  47/80  loss 0.03810/0.07966  MAE   45.0/  59.6m  lr 1.73e-04  12.3s
+2026-04-29 14:30:18  INFO   Fold 0  Ep  48/80  loss 0.03290/0.07498  MAE   42.7/  56.9m  lr 1.65e-04  10.6s  * best
+2026-04-29 14:30:19  INFO   Checkpoint saved -> checkpoints/best_fold0.pt
+2026-04-29 14:30:30  INFO   Fold 0  Ep  49/80  loss 0.03241/0.07236  MAE   42.6/  53.8m  lr 1.57e-04  10.6s  * best
+2026-04-29 14:30:33  INFO   Checkpoint saved -> checkpoints/best_fold0.pt
+2026-04-29 14:30:43  INFO   Fold 0  Ep  50/80  loss 0.03274/0.07182  MAE   42.6/  56.7m  lr 1.49e-04  10.6s
+2026-04-29 14:30:54  INFO   Fold 0  Ep  51/80  loss 0.03230/0.07289  MAE   41.0/  56.3m  lr 1.41e-04  10.7s
+2026-04-29 14:31:04  INFO   Fold 0  Ep  52/80  loss 0.03250/0.06791  MAE   42.3/  54.0m  lr 1.34e-04  10.6s
+2026-04-29 14:31:17  INFO   Fold 0  Ep  53/80  loss 0.03430/0.06580  MAE   43.9/  53.7m  lr 1.27e-04  12.1s  * best
+2026-04-29 14:31:18  INFO   Checkpoint saved -> checkpoints/best_fold0.pt
+2026-04-29 14:31:28  INFO   Fold 0  Ep  54/80  loss 0.02895/0.06648  MAE   38.6/  52.5m  lr 1.19e-04  10.4s  * best
+2026-04-29 14:31:29  INFO   Checkpoint saved -> checkpoints/best_fold0.pt
+2026-04-29 14:31:41  INFO   Fold 0  Ep  55/80  loss 0.03064/0.07258  MAE   39.2/  54.6m  lr 1.12e-04  11.9s
+2026-04-29 14:31:51  INFO   Fold 0  Ep  56/80  loss 0.03178/0.06914  MAE   42.5/  53.3m  lr 1.06e-04  10.6s
+2026-04-29 14:32:02  INFO   Fold 0  Ep  57/80  loss 0.03028/0.07422  MAE   40.1/  55.4m  lr 9.90e-05  10.4s
+2026-04-29 14:32:14  INFO   Fold 0  Ep  58/80  loss 0.03093/0.07118  MAE   39.7/  55.1m  lr 9.26e-05  12.3s
+2026-04-29 14:32:25  INFO   Fold 0  Ep  59/80  loss 0.03101/0.06985  MAE   40.2/  54.4m  lr 8.63e-05  10.5s
+2026-04-29 14:32:35  INFO   Fold 0  Ep  60/80  loss 0.03136/0.07130  MAE   43.3/  55.2m  lr 8.03e-05  10.4s
+2026-04-29 14:32:47  INFO   Fold 0  Ep  61/80  loss 0.02884/0.06940  MAE   39.5/  54.3m  lr 7.46e-05  12.5s
+2026-04-29 14:32:59  INFO   Fold 0  Ep  62/80  loss 0.02755/0.06118  MAE   38.0/  49.4m  lr 6.91e-05  11.2s  * best
+2026-04-29 14:33:00  INFO   Checkpoint saved -> checkpoints/best_fold0.pt
+2026-04-29 14:33:11  INFO   Fold 0  Ep  63/80  loss 0.02641/0.06356  MAE   36.0/  51.9m  lr 6.38e-05  11.3s
+2026-04-29 14:33:23  INFO   Fold 0  Ep  64/80  loss 0.02849/0.06668  MAE   39.4/  52.6m  lr 5.88e-05  12.2s
+2026-04-29 14:33:34  INFO   Fold 0  Ep  65/80  loss 0.02893/0.07096  MAE   37.7/  53.9m  lr 5.40e-05  10.8s
+2026-04-29 14:33:45  INFO   Fold 0  Ep  66/80  loss 0.02970/0.06497  MAE   40.2/  50.2m  lr 4.95e-05  11.0s
+2026-04-29 14:33:58  INFO   Fold 0  Ep  67/80  loss 0.02612/0.06411  MAE   37.1/  50.6m  lr 4.53e-05  12.7s
+2026-04-29 14:34:08  INFO   Fold 0  Ep  68/80  loss 0.02404/0.06706  MAE   36.1/  51.9m  lr 4.14e-05  10.4s
+2026-04-29 14:34:19  INFO   Fold 0  Ep  69/80  loss 0.02555/0.06708  MAE   35.3/  52.4m  lr 3.78e-05  10.6s
+2026-04-29 14:34:31  INFO   Fold 0  Ep  70/80  loss 0.02776/0.06627  MAE   38.6/  51.7m  lr 3.44e-05  12.4s
+2026-04-29 14:34:42  INFO   Fold 0  Ep  71/80  loss 0.02802/0.06665  MAE   38.3/  52.9m  lr 3.14e-05  10.5s
+2026-04-29 14:34:52  INFO   Fold 0  Ep  72/80  loss 0.02665/0.06947  MAE   38.0/  52.1m  lr 2.87e-05  10.6s
+2026-04-29 14:35:04  INFO   Fold 0  Ep  73/80  loss 0.02724/0.06696  MAE   39.8/  51.4m  lr 2.63e-05  12.3s
+2026-04-29 14:35:15  INFO   Fold 0  Ep  74/80  loss 0.02451/0.06763  MAE   35.1/  52.4m  lr 2.42e-05  10.4s
+2026-04-29 14:35:25  INFO   Fold 0  Ep  75/80  loss 0.02652/0.06769  MAE   37.4/  52.2m  lr 2.24e-05  10.2s
+2026-04-29 14:35:37  INFO   Fold 0  Ep  76/80  loss 0.02786/0.06764  MAE   39.9/  53.0m  lr 2.09e-05  12.3s
+2026-04-29 14:35:48  INFO   Fold 0  Ep  77/80  loss 0.02366/0.06449  MAE   34.8/  51.1m  lr 1.98e-05  10.5s
+2026-04-29 14:35:58  INFO   Fold 0  Ep  78/80  loss 0.02644/0.06679  MAE   38.4/  51.9m  lr 1.90e-05  10.4s
+2026-04-29 14:36:11  INFO   Fold 0  Ep  79/80  loss 0.02333/0.06583  MAE   35.5/  51.2m  lr 1.85e-05  12.2s
+2026-04-29 14:36:21  INFO   Fold 0  Ep  80/80  loss 0.02736/0.06748  MAE   38.8/  52.2m  lr 1.83e-05  10.6s
+2026-04-29 14:36:21  INFO   Fold 0 complete -- best val MAE: 49.38 min 
+2026-04-29 14:36:24  INFO   ====================  FOLD 2/5  ====================
+2026-04-29 14:36:42  INFO   Compiling model with torch.compile() ...
+2026-04-29 14:36:42  INFO   Fold 1 | trainable params: 402,626
+2026-04-29 14:36:42  INFO   Using bitsandbytes 8-bit AdamW
+2026-04-29 14:37:59  INFO   Fold 1  Ep   1/80  loss 0.30137/0.26635  MAE  195.8/ 161.9m  lr 4.42e-04  77.6s  * best
+2026-04-29 14:38:00  INFO   Checkpoint saved -> checkpoints/best_fold1.pt
+2026-04-29 14:38:27  INFO   Fold 1  Ep   2/80  loss 0.21383/0.22405  MAE  147.1/ 129.1m  lr 4.41e-04  26.0s  * best
+2026-04-29 14:38:27  INFO   Checkpoint saved -> checkpoints/best_fold1.pt
+2026-04-29 14:38:50  INFO   Fold 1  Ep   3/80  loss 0.18433/0.20460  MAE  131.8/ 128.4m  lr 4.41e-04  22.8s  * best
+2026-04-29 14:38:51  INFO   Checkpoint saved -> checkpoints/best_fold1.pt
+2026-04-29 14:39:16  INFO   Fold 1  Ep   4/80  loss 0.16606/0.18185  MAE  120.9/ 119.8m  lr 4.39e-04  25.1s  * best
+2026-04-29 14:39:17  INFO   Checkpoint saved -> checkpoints/best_fold1.pt
+2026-04-29 14:39:41  INFO   Fold 1  Ep   5/80  loss 0.15374/0.16725  MAE  113.0/ 106.6m  lr 4.38e-04  23.8s  * best
+2026-04-29 14:39:42  INFO   Checkpoint saved -> checkpoints/best_fold1.pt
+2026-04-29 14:40:01  INFO   Fold 1  Ep   6/80  loss 0.13338/0.15395  MAE   98.4/  97.8m  lr 4.36e-04  19.4s  * best
+2026-04-29 14:40:02  INFO   Checkpoint saved -> checkpoints/best_fold1.pt
+2026-04-29 14:40:23  INFO   Fold 1  Ep   7/80  loss 0.11845/0.14213  MAE   94.6/  92.5m  lr 4.34e-04  21.4s  * best
+2026-04-29 14:40:24  INFO   Checkpoint saved -> checkpoints/best_fold1.pt
+2026-04-29 14:40:41  INFO   Fold 1  Ep   8/80  loss 0.11394/0.13667  MAE   90.8/  90.1m  lr 4.32e-04  16.6s  * best
+2026-04-29 14:40:41  INFO   Checkpoint saved -> checkpoints/best_fold1.pt
+2026-04-29 14:40:59  INFO   Fold 1  Ep   9/80  loss 0.10444/0.14351  MAE   85.6/  94.2m  lr 4.29e-04  18.0s
+2026-04-29 14:41:18  INFO   Fold 1  Ep  10/80  loss 0.10537/0.12603  MAE   84.3/  87.5m  lr 4.26e-04  18.6s  * best
+2026-04-29 14:41:19  INFO   Checkpoint saved -> checkpoints/best_fold1.pt
+2026-04-29 14:41:36  INFO   Fold 1  Ep  11/80  loss 0.09624/0.12361  MAE   80.3/  82.9m  lr 4.23e-04  16.8s  * best
+2026-04-29 14:41:37  INFO   Checkpoint saved -> checkpoints/best_fold1.pt
+2026-04-29 14:41:52  INFO   Fold 1  Ep  12/80  loss 0.09535/0.11257  MAE   82.9/  81.9m  lr 4.19e-04  15.3s  * best
+2026-04-29 14:41:53  INFO   Checkpoint saved -> checkpoints/best_fold1.pt
+2026-04-29 14:42:07  INFO   Fold 1  Ep  13/80  loss 0.08935/0.11675  MAE   78.0/  79.1m  lr 4.15e-04  13.9s  * best
+2026-04-29 14:42:08  INFO   Checkpoint saved -> checkpoints/best_fold1.pt
+2026-04-29 14:42:24  INFO   Fold 1  Ep  14/80  loss 0.08166/0.10012  MAE   70.6/  71.4m  lr 4.11e-04  16.1s  * best
+2026-04-29 14:42:25  INFO   Checkpoint saved -> checkpoints/best_fold1.pt
+2026-04-29 14:42:39  INFO   Fold 1  Ep  15/80  loss 0.08145/0.11753  MAE   71.1/  82.0m  lr 4.06e-04  14.3s
+2026-04-29 14:42:52  INFO   Fold 1  Ep  16/80  loss 0.07602/0.09749  MAE   70.8/  72.8m  lr 4.02e-04  13.3s
+2026-04-29 14:43:07  INFO   Fold 1  Ep  17/80  loss 0.07974/0.11018  MAE   73.3/  77.8m  lr 3.97e-04  15.0s
+2026-04-29 14:43:21  INFO   Fold 1  Ep  18/80  loss 0.07260/0.10891  MAE   67.7/  77.4m  lr 3.91e-04  13.2s
+2026-04-29 14:43:34  INFO   Fold 1  Ep  19/80  loss 0.07328/0.10715  MAE   70.1/  73.8m  lr 3.86e-04  13.6s
+2026-04-29 14:43:46  INFO   Fold 1  Ep  20/80  loss 0.07022/0.10391  MAE   65.9/  74.2m  lr 3.80e-04  11.6s
+2026-04-29 14:43:58  INFO   Fold 1  Ep  21/80  loss 0.07086/0.10175  MAE   67.0/  75.1m  lr 3.74e-04  12.2s
+2026-04-29 14:44:12  INFO   Fold 1  Ep  22/80  loss 0.06587/0.09353  MAE   65.5/  69.2m  lr 3.68e-04  13.6s  * best
+2026-04-29 14:44:12  INFO   Checkpoint saved -> checkpoints/best_fold1.pt
+2026-04-29 14:44:25  INFO   Fold 1  Ep  23/80  loss 0.05960/0.09715  MAE   62.3/  68.8m  lr 3.61e-04  12.1s  * best
+2026-04-29 14:44:25  INFO   Checkpoint saved -> checkpoints/best_fold1.pt
+2026-04-29 14:44:38  INFO   Fold 1  Ep  24/80  loss 0.06428/0.09103  MAE   64.2/  66.8m  lr 3.55e-04  12.3s  * best
+2026-04-29 14:44:39  INFO   Checkpoint saved -> checkpoints/best_fold1.pt
+2026-04-29 14:44:50  INFO   Fold 1  Ep  25/80  loss 0.05282/0.10022  MAE   55.5/  69.3m  lr 3.48e-04  11.2s
+2026-04-29 14:45:02  INFO   Fold 1  Ep  26/80  loss 0.05681/0.11236  MAE   60.3/  75.0m  lr 3.41e-04  11.6s
+2026-04-29 14:45:14  INFO   Fold 1  Ep  27/80  loss 0.05667/0.11404  MAE   58.2/  74.0m  lr 3.34e-04  12.7s
+2026-04-29 14:45:25  INFO   Fold 1  Ep  28/80  loss 0.05856/0.08240  MAE   60.5/  60.8m  lr 3.26e-04  11.0s  * best
+2026-04-29 14:45:26  INFO   Checkpoint saved -> checkpoints/best_fold1.pt
+2026-04-29 14:45:37  INFO   Fold 1  Ep  29/80  loss 0.05302/0.08927  MAE   55.5/  64.2m  lr 3.19e-04  11.5s
+2026-04-29 14:45:50  INFO   Fold 1  Ep  30/80  loss 0.05215/0.08809  MAE   56.0/  64.9m  lr 3.11e-04  12.2s
+2026-04-29 14:46:00  INFO   Fold 1  Ep  31/80  loss 0.05042/0.08756  MAE   55.0/  63.5m  lr 3.03e-04  10.8s
+2026-04-29 14:46:11  INFO   Fold 1  Ep  32/80  loss 0.04962/0.09645  MAE   55.2/  66.3m  lr 2.96e-04  11.1s
+2026-04-29 14:46:24  INFO   Fold 1  Ep  33/80  loss 0.04871/0.09917  MAE   52.3/  66.6m  lr 2.88e-04  12.3s
+2026-04-29 14:46:35  INFO   Fold 1  Ep  34/80  loss 0.04995/0.09241  MAE   55.1/  66.6m  lr 2.80e-04  11.1s
+2026-04-29 14:46:46  INFO   Fold 1  Ep  35/80  loss 0.04135/0.09207  MAE   48.7/  67.5m  lr 2.71e-04  10.9s
+2026-04-29 14:46:58  INFO   Fold 1  Ep  36/80  loss 0.04164/0.09095  MAE   47.3/  61.9m  lr 2.63e-04  11.9s
+2026-04-29 14:47:09  INFO   Fold 1  Ep  37/80  loss 0.04364/0.08825  MAE   47.4/  61.9m  lr 2.55e-04  10.9s
+2026-04-29 14:47:20  INFO   Fold 1  Ep  38/80  loss 0.04161/0.09564  MAE   47.6/  64.7m  lr 2.47e-04  11.0s
+2026-04-29 14:47:32  INFO   Fold 1  Ep  39/80  loss 0.03842/0.09100  MAE   45.9/  62.2m  lr 2.38e-04  12.4s
+2026-04-29 14:47:43  INFO   Fold 1  Ep  40/80  loss 0.03908/0.08336  MAE   45.8/  59.4m  lr 2.30e-04  11.2s  * best
+2026-04-29 14:47:44  INFO   Checkpoint saved -> checkpoints/best_fold1.pt
+2026-04-29 14:47:55  INFO   Fold 1  Ep  41/80  loss 0.03884/0.09090  MAE   47.4/  64.2m  lr 2.22e-04  10.9s
+2026-04-29 14:48:07  INFO   Fold 1  Ep  42/80  loss 0.03688/0.08442  MAE   44.8/  59.3m  lr 2.14e-04  12.4s  * best
+2026-04-29 14:48:08  INFO   Checkpoint saved -> checkpoints/best_fold1.pt
+2026-04-29 14:48:19  INFO   Fold 1  Ep  43/80  loss 0.03818/0.08579  MAE   46.1/  59.9m  lr 2.05e-04  10.9s
+2026-04-29 14:48:30  INFO   Fold 1  Ep  44/80  loss 0.03577/0.08414  MAE   44.0/  60.6m  lr 1.97e-04  10.8s
+2026-04-29 14:48:43  INFO   Fold 1  Ep  45/80  loss 0.03796/0.08070  MAE   47.7/  59.5m  lr 1.89e-04  12.5s
+2026-04-29 14:48:53  INFO   Fold 1  Ep  46/80  loss 0.03714/0.08335  MAE   48.4/  58.7m  lr 1.81e-04  10.6s  * best
+2026-04-29 14:48:54  INFO   Checkpoint saved -> checkpoints/best_fold1.pt
+2026-04-29 14:49:06  INFO   Fold 1  Ep  47/80  loss 0.03634/0.08141  MAE   44.9/  59.4m  lr 1.73e-04  12.5s
+2026-04-29 14:49:17  INFO   Fold 1  Ep  48/80  loss 0.03403/0.08018  MAE   44.1/  56.5m  lr 1.65e-04  10.8s  * best
+2026-04-29 14:49:18  INFO   Checkpoint saved -> checkpoints/best_fold1.pt
+2026-04-29 14:49:29  INFO   Fold 1  Ep  49/80  loss 0.03069/0.07760  MAE   39.5/  56.1m  lr 1.57e-04  10.8s  * best
+2026-04-29 14:49:30  INFO   Checkpoint saved -> checkpoints/best_fold1.pt
+2026-04-29 14:49:43  INFO   Fold 1  Ep  50/80  loss 0.03437/0.07889  MAE   43.0/  57.5m  lr 1.49e-04  12.6s
+2026-04-29 14:49:53  INFO   Fold 1  Ep  51/80  loss 0.03201/0.08405  MAE   43.2/  57.5m  lr 1.41e-04  10.8s
+2026-04-29 14:50:04  INFO   Fold 1  Ep  52/80  loss 0.03306/0.09438  MAE   43.6/  63.5m  lr 1.34e-04  11.1s
+2026-04-29 14:50:17  INFO   Fold 1  Ep  53/80  loss 0.03066/0.07963  MAE   38.7/  57.5m  lr 1.27e-04  12.2s
+2026-04-29 14:50:27  INFO   Fold 1  Ep  54/80  loss 0.03496/0.07845  MAE   43.3/  57.1m  lr 1.19e-04  10.8s
+2026-04-29 14:50:38  INFO   Fold 1  Ep  55/80  loss 0.03417/0.07707  MAE   43.3/  56.1m  lr 1.12e-04  10.9s  * best
+2026-04-29 14:50:39  INFO   Checkpoint saved -> checkpoints/best_fold1.pt
+2026-04-29 14:50:52  INFO   Fold 1  Ep  56/80  loss 0.03238/0.07961  MAE   41.5/  56.7m  lr 1.06e-04  12.2s
+2026-04-29 14:51:02  INFO   Fold 1  Ep  57/80  loss 0.03362/0.08134  MAE   42.8/  57.6m  lr 9.90e-05  10.7s
+2026-04-29 14:51:13  INFO   Fold 1  Ep  58/80  loss 0.03142/0.07699  MAE   42.0/  56.3m  lr 9.26e-05  10.7s
+2026-04-29 14:51:25  INFO   Fold 1  Ep  59/80  loss 0.03280/0.08214  MAE   42.4/  58.1m  lr 8.63e-05  12.2s
+2026-04-29 14:51:36  INFO   Fold 1  Ep  60/80  loss 0.02812/0.08137  MAE   37.5/  58.2m  lr 8.03e-05  10.7s
+2026-04-29 14:51:46  INFO   Fold 1  Ep  61/80  loss 0.02949/0.08297  MAE   40.0/  57.8m  lr 7.46e-05  10.7s
+2026-04-29 14:51:58  INFO   Fold 1  Ep  62/80  loss 0.02759/0.07516  MAE   38.5/  55.3m  lr 6.91e-05  11.8s  * best
+2026-04-29 14:51:59  INFO   Checkpoint saved -> checkpoints/best_fold1.pt
+2026-04-29 14:52:10  INFO   Fold 1  Ep  63/80  loss 0.02713/0.08012  MAE   36.8/  56.4m  lr 6.38e-05  10.4s
+2026-04-29 14:52:20  INFO   Fold 1  Ep  64/80  loss 0.02828/0.07770  MAE   41.2/  56.3m  lr 5.88e-05  10.7s
+2026-04-29 14:52:33  INFO   Fold 1  Ep  65/80  loss 0.02768/0.07663  MAE   37.2/  55.5m  lr 5.40e-05  12.5s
+2026-04-29 14:52:43  INFO   Fold 1  Ep  66/80  loss 0.02893/0.07504  MAE   40.3/  55.0m  lr 4.95e-05  10.4s  * best
+2026-04-29 14:52:44  INFO   Checkpoint saved -> checkpoints/best_fold1.pt
+2026-04-29 14:52:55  INFO   Fold 1  Ep  67/80  loss 0.02793/0.07830  MAE   39.0/  55.3m  lr 4.53e-05  10.5s
+2026-04-29 14:53:07  INFO   Fold 1  Ep  68/80  loss 0.02849/0.07880  MAE   37.8/  55.4m  lr 4.14e-05  12.3s
+2026-04-29 14:53:17  INFO   Fold 1  Ep  69/80  loss 0.02504/0.07601  MAE   36.0/  55.0m  lr 3.78e-05  10.2s
+2026-04-29 14:53:27  INFO   Fold 1  Ep  70/80  loss 0.02893/0.07716  MAE   41.1/  55.5m  lr 3.44e-05  10.3s
+2026-04-29 14:53:40  INFO   Fold 1  Ep  71/80  loss 0.02591/0.07548  MAE   36.9/  55.1m  lr 3.14e-05  12.8s
+2026-04-29 14:53:51  INFO   Fold 1  Ep  72/80  loss 0.02516/0.07652  MAE   35.3/  55.2m  lr 2.87e-05  10.4s
+2026-04-29 14:54:00  INFO   Fold 1  Ep  73/80  loss 0.02572/0.07465  MAE   36.4/  54.0m  lr 2.63e-05  9.9s  * best
+2026-04-29 14:54:01  INFO   Checkpoint saved -> checkpoints/best_fold1.pt
+2026-04-29 14:54:14  INFO   Fold 1  Ep  74/80  loss 0.02527/0.07652  MAE   35.4/  54.8m  lr 2.42e-05  12.7s
+2026-04-29 14:54:24  INFO   Fold 1  Ep  75/80  loss 0.03075/0.07456  MAE   40.7/  53.9m  lr 2.24e-05  10.3s  * best
+2026-04-29 14:54:25  INFO   Checkpoint saved -> checkpoints/best_fold1.pt
+2026-04-29 14:54:35  INFO   Fold 1  Ep  76/80  loss 0.02455/0.07693  MAE   36.1/  54.6m  lr 2.09e-05  10.1s
+2026-04-29 14:54:48  INFO   Fold 1  Ep  77/80  loss 0.02467/0.07656  MAE   34.6/  55.5m  lr 1.98e-05  12.9s
+2026-04-29 14:54:59  INFO   Fold 1  Ep  78/80  loss 0.02484/0.07660  MAE   37.2/  55.2m  lr 1.90e-05  10.8s
+2026-04-29 14:55:09  INFO   Fold 1  Ep  79/80  loss 0.02869/0.07500  MAE   40.1/  54.5m  lr 1.85e-05  10.3s
+2026-04-29 14:55:22  INFO   Fold 1  Ep  80/80  loss 0.02383/0.07442  MAE   35.3/  53.9m  lr 1.83e-05  13.1s
+2026-04-29 14:55:22  INFO   Fold 1 complete -- best val MAE: 53.93 min 
+2026-04-29 14:55:25  INFO   ====================  FOLD 3/5  ====================
+2026-04-29 14:55:44  INFO   Compiling model with torch.compile() ...
+2026-04-29 14:55:44  INFO   Fold 2 | trainable params: 402,626
+2026-04-29 14:55:44  INFO   Using bitsandbytes 8-bit AdamW
+2026-04-29 14:57:08  INFO   Fold 2  Ep   1/80  loss 0.30063/0.34372  MAE  193.8/ 204.4m  lr 4.42e-04  83.4s  * best
+2026-04-29 14:57:09  INFO   Checkpoint saved -> checkpoints/best_fold2.pt
+2026-04-29 14:57:34  INFO   Fold 2  Ep   2/80  loss 0.22202/0.18783  MAE  150.2/ 121.6m  lr 4.41e-04  25.6s  * best
+2026-04-29 14:57:37  INFO   Checkpoint saved -> checkpoints/best_fold2.pt
+2026-04-29 14:58:00  INFO   Fold 2  Ep   3/80  loss 0.18906/0.22501  MAE  133.0/ 130.8m  lr 4.41e-04  23.2s
+2026-04-29 14:58:25  INFO   Fold 2  Ep   4/80  loss 0.15865/0.21427  MAE  115.0/ 127.7m  lr 4.39e-04  24.4s
+2026-04-29 14:58:47  INFO   Fold 2  Ep   5/80  loss 0.14643/0.17273  MAE  107.1/ 108.8m  lr 4.38e-04  22.2s  * best
+2026-04-29 14:58:48  INFO   Checkpoint saved -> checkpoints/best_fold2.pt
+2026-04-29 14:59:07  INFO   Fold 2  Ep   6/80  loss 0.12747/0.13957  MAE  101.4/  93.0m  lr 4.36e-04  18.9s  * best
+2026-04-29 14:59:07  INFO   Checkpoint saved -> checkpoints/best_fold2.pt
+2026-04-29 14:59:28  INFO   Fold 2  Ep   7/80  loss 0.13071/0.18599  MAE   99.6/ 110.6m  lr 4.34e-04  20.9s
+2026-04-29 14:59:46  INFO   Fold 2  Ep   8/80  loss 0.11063/0.16765  MAE   87.3/ 104.8m  lr 4.32e-04  17.7s
+2026-04-29 15:00:04  INFO   Fold 2  Ep   9/80  loss 0.10897/0.13203  MAE   85.8/  90.0m  lr 4.29e-04  18.3s  * best
+2026-04-29 15:00:05  INFO   Checkpoint saved -> checkpoints/best_fold2.pt
+2026-04-29 15:00:21  INFO   Fold 2  Ep  10/80  loss 0.09780/0.10738  MAE   82.3/  81.6m  lr 4.26e-04  15.6s  * best
+2026-04-29 15:00:21  INFO   Checkpoint saved -> checkpoints/best_fold2.pt
+2026-04-29 15:00:39  INFO   Fold 2  Ep  11/80  loss 0.09666/0.13991  MAE   81.5/  90.8m  lr 4.23e-04  17.8s
+2026-04-29 15:00:55  INFO   Fold 2  Ep  12/80  loss 0.09196/0.12783  MAE   76.8/  84.0m  lr 4.19e-04  15.4s
+2026-04-29 15:01:11  INFO   Fold 2  Ep  13/80  loss 0.08698/0.11954  MAE   74.3/  84.1m  lr 4.15e-04  16.2s
+2026-04-29 15:01:25  INFO   Fold 2  Ep  14/80  loss 0.08162/0.12460  MAE   71.2/  91.8m  lr 4.11e-04  14.4s
+2026-04-29 15:01:41  INFO   Fold 2  Ep  15/80  loss 0.08066/0.10799  MAE   73.3/  77.2m  lr 4.06e-04  15.9s  * best
+2026-04-29 15:01:42  INFO   Checkpoint saved -> checkpoints/best_fold2.pt
+2026-04-29 15:01:57  INFO   Fold 2  Ep  16/80  loss 0.07474/0.11574  MAE   68.9/  81.1m  lr 4.02e-04  14.7s
+2026-04-29 15:02:12  INFO   Fold 2  Ep  17/80  loss 0.07769/0.11162  MAE   70.9/  84.3m  lr 3.97e-04  15.9s
+2026-04-29 15:02:26  INFO   Fold 2  Ep  18/80  loss 0.07156/0.10224  MAE   65.8/  75.7m  lr 3.91e-04  13.8s  * best
+2026-04-29 15:02:27  INFO   Checkpoint saved -> checkpoints/best_fold2.pt
+2026-04-29 15:02:41  INFO   Fold 2  Ep  19/80  loss 0.06663/0.10522  MAE   63.5/  74.4m  lr 3.86e-04  13.9s  * best
+2026-04-29 15:02:43  INFO   Checkpoint saved -> checkpoints/best_fold2.pt
+2026-04-29 15:02:56  INFO   Fold 2  Ep  20/80  loss 0.06320/0.11867  MAE   60.2/  85.2m  lr 3.80e-04  13.0s
+2026-04-29 15:03:09  INFO   Fold 2  Ep  21/80  loss 0.07016/0.10392  MAE   65.1/  73.2m  lr 3.74e-04  12.8s  * best
+2026-04-29 15:03:10  INFO   Checkpoint saved -> checkpoints/best_fold2.pt
+2026-04-29 15:03:24  INFO   Fold 2  Ep  22/80  loss 0.06135/0.11258  MAE   60.6/  80.8m  lr 3.68e-04  14.1s
+2026-04-29 15:03:37  INFO   Fold 2  Ep  23/80  loss 0.05761/0.11803  MAE   55.9/  76.3m  lr 3.61e-04  12.4s
+2026-04-29 15:03:49  INFO   Fold 2  Ep  24/80  loss 0.05938/0.10026  MAE   60.8/  72.0m  lr 3.55e-04  12.1s  * best
+2026-04-29 15:03:51  INFO   Checkpoint saved -> checkpoints/best_fold2.pt
+2026-04-29 15:04:03  INFO   Fold 2  Ep  25/80  loss 0.05417/0.10271  MAE   54.9/  70.9m  lr 3.48e-04  11.5s  * best
+2026-04-29 15:04:04  INFO   Checkpoint saved -> checkpoints/best_fold2.pt
+2026-04-29 15:04:16  INFO   Fold 2  Ep  26/80  loss 0.06097/0.09825  MAE   61.8/  70.8m  lr 3.41e-04  11.6s  * best
+2026-04-29 15:04:17  INFO   Checkpoint saved -> checkpoints/best_fold2.pt
+2026-04-29 15:04:30  INFO   Fold 2  Ep  27/80  loss 0.05189/0.10450  MAE   52.6/  72.2m  lr 3.34e-04  13.4s
+2026-04-29 15:04:42  INFO   Fold 2  Ep  28/80  loss 0.05261/0.09194  MAE   54.7/  66.8m  lr 3.26e-04  11.8s  * best
+2026-04-29 15:04:43  INFO   Checkpoint saved -> checkpoints/best_fold2.pt
+2026-04-29 15:04:54  INFO   Fold 2  Ep  29/80  loss 0.05257/0.08943  MAE   54.7/  67.4m  lr 3.19e-04  11.3s
+2026-04-29 15:05:08  INFO   Fold 2  Ep  30/80  loss 0.05401/0.09668  MAE   56.9/  71.7m  lr 3.11e-04  13.6s
+2026-04-29 15:05:19  INFO   Fold 2  Ep  31/80  loss 0.04620/0.10392  MAE   50.0/  72.5m  lr 3.03e-04  11.3s
+2026-04-29 15:05:31  INFO   Fold 2  Ep  32/80  loss 0.05078/0.09550  MAE   54.7/  71.4m  lr 2.96e-04  11.7s
+2026-04-29 15:05:44  INFO   Fold 2  Ep  33/80  loss 0.05211/0.09549  MAE   55.0/  69.1m  lr 2.88e-04  12.9s
+2026-04-29 15:05:55  INFO   Fold 2  Ep  34/80  loss 0.04527/0.08451  MAE   48.6/  62.2m  lr 2.80e-04  11.2s  * best
+2026-04-29 15:05:56  INFO   Checkpoint saved -> checkpoints/best_fold2.pt
+2026-04-29 15:06:09  INFO   Fold 2  Ep  35/80  loss 0.04428/0.08656  MAE   50.4/  65.3m  lr 2.71e-04  13.4s
+2026-04-29 15:06:21  INFO   Fold 2  Ep  36/80  loss 0.04589/0.08697  MAE   51.0/  67.4m  lr 2.63e-04  12.0s
+2026-04-29 15:06:32  INFO   Fold 2  Ep  37/80  loss 0.04453/0.09535  MAE   49.7/  68.6m  lr 2.55e-04  11.3s
+2026-04-29 15:06:46  INFO   Fold 2  Ep  38/80  loss 0.04475/0.08354  MAE   49.0/  61.6m  lr 2.47e-04  13.5s  * best
+2026-04-29 15:06:47  INFO   Checkpoint saved -> checkpoints/best_fold2.pt
+2026-04-29 15:06:58  INFO   Fold 2  Ep  39/80  loss 0.04425/0.08491  MAE   52.0/  60.6m  lr 2.38e-04  11.6s  * best
+2026-04-29 15:06:59  INFO   Checkpoint saved -> checkpoints/best_fold2.pt
+2026-04-29 15:07:11  INFO   Fold 2  Ep  40/80  loss 0.04411/0.08142  MAE   50.9/  61.7m  lr 2.30e-04  11.4s
+2026-04-29 15:07:24  INFO   Fold 2  Ep  41/80  loss 0.03946/0.08397  MAE   45.5/  61.0m  lr 2.22e-04  13.2s
+2026-04-29 15:07:35  INFO   Fold 2  Ep  42/80  loss 0.03881/0.08973  MAE   46.6/  63.0m  lr 2.14e-04  11.5s
+2026-04-29 15:07:47  INFO   Fold 2  Ep  43/80  loss 0.03691/0.09064  MAE   46.1/  63.0m  lr 2.05e-04  11.3s
+2026-04-29 15:08:00  INFO   Fold 2  Ep  44/80  loss 0.03973/0.09067  MAE   46.4/  63.8m  lr 1.97e-04  13.2s
+2026-04-29 15:08:11  INFO   Fold 2  Ep  45/80  loss 0.03662/0.08498  MAE   45.4/  64.1m  lr 1.89e-04  11.2s
+2026-04-29 15:08:23  INFO   Fold 2  Ep  46/80  loss 0.03754/0.07907  MAE   43.9/  59.4m  lr 1.81e-04  11.5s  * best
+2026-04-29 15:08:25  INFO   Checkpoint saved -> checkpoints/best_fold2.pt
+2026-04-29 15:08:37  INFO   Fold 2  Ep  47/80  loss 0.03639/0.08322  MAE   45.3/  62.6m  lr 1.73e-04  11.3s
+2026-04-29 15:08:48  INFO   Fold 2  Ep  48/80  loss 0.03342/0.08362  MAE   42.9/  62.0m  lr 1.65e-04  11.4s
+2026-04-29 15:09:02  INFO   Fold 2  Ep  49/80  loss 0.03207/0.08535  MAE   42.3/  62.8m  lr 1.57e-04  13.7s
+2026-04-29 15:09:13  INFO   Fold 2  Ep  50/80  loss 0.03265/0.08143  MAE   41.7/  59.7m  lr 1.49e-04  11.4s
+2026-04-29 15:09:24  INFO   Fold 2  Ep  51/80  loss 0.03371/0.08189  MAE   43.4/  61.5m  lr 1.41e-04  11.0s
+2026-04-29 15:09:37  INFO   Fold 2  Ep  52/80  loss 0.03293/0.07650  MAE   43.1/  56.8m  lr 1.34e-04  12.7s  * best
+2026-04-29 15:09:38  INFO   Checkpoint saved -> checkpoints/best_fold2.pt
+2026-04-29 15:09:49  INFO   Fold 2  Ep  53/80  loss 0.03068/0.08083  MAE   40.1/  59.7m  lr 1.27e-04  10.9s
+2026-04-29 15:09:59  INFO   Fold 2  Ep  54/80  loss 0.03342/0.08109  MAE   43.6/  59.7m  lr 1.19e-04  10.5s
+2026-04-29 15:10:12  INFO   Fold 2  Ep  55/80  loss 0.03016/0.07865  MAE   39.9/  58.3m  lr 1.12e-04  12.6s
+2026-04-29 15:10:23  INFO   Fold 2  Ep  56/80  loss 0.02927/0.07901  MAE   40.4/  58.3m  lr 1.06e-04  10.6s
+2026-04-29 15:10:33  INFO   Fold 2  Ep  57/80  loss 0.02747/0.07599  MAE   36.8/  58.1m  lr 9.90e-05  10.8s
+2026-04-29 15:10:47  INFO   Fold 2  Ep  58/80  loss 0.03393/0.08162  MAE   43.7/  59.5m  lr 9.26e-05  13.2s
+2026-04-29 15:10:57  INFO   Fold 2  Ep  59/80  loss 0.02527/0.07877  MAE   35.8/  57.6m  lr 8.63e-05  10.7s
+2026-04-29 15:11:08  INFO   Fold 2  Ep  60/80  loss 0.03012/0.07773  MAE   41.1/  57.2m  lr 8.03e-05  10.7s
+2026-04-29 15:11:21  INFO   Fold 2  Ep  61/80  loss 0.02785/0.07549  MAE   39.3/  56.6m  lr 7.46e-05  13.0s  * best
+2026-04-29 15:11:22  INFO   Checkpoint saved -> checkpoints/best_fold2.pt
+2026-04-29 15:11:33  INFO   Fold 2  Ep  62/80  loss 0.02734/0.07775  MAE   36.6/  58.4m  lr 6.91e-05  10.6s
+2026-04-29 15:11:43  INFO   Fold 2  Ep  63/80  loss 0.02692/0.07763  MAE   36.5/  56.7m  lr 6.38e-05  10.4s
+2026-04-29 15:11:56  INFO   Fold 2  Ep  64/80  loss 0.02799/0.07494  MAE   39.9/  54.8m  lr 5.88e-05  13.2s  * best
+2026-04-29 15:11:57  INFO   Checkpoint saved -> checkpoints/best_fold2.pt
+2026-04-29 15:12:07  INFO   Fold 2  Ep  65/80  loss 0.02558/0.07696  MAE   36.5/  56.6m  lr 5.40e-05  10.2s
+2026-04-29 15:12:17  INFO   Fold 2  Ep  66/80  loss 0.02996/0.07805  MAE   40.8/  57.8m  lr 4.95e-05  10.1s
+2026-04-29 15:12:31  INFO   Fold 2  Ep  67/80  loss 0.02398/0.07756  MAE   35.5/  56.8m  lr 4.53e-05  13.3s
+2026-04-29 15:12:41  INFO   Fold 2  Ep  68/80  loss 0.02586/0.07871  MAE   36.9/  57.3m  lr 4.14e-05  10.3s
+2026-04-29 15:12:51  INFO   Fold 2  Ep  69/80  loss 0.02573/0.07479  MAE   37.1/  54.7m  lr 3.78e-05  10.3s  * best
+2026-04-29 15:12:52  INFO   Checkpoint saved -> checkpoints/best_fold2.pt
+2026-04-29 15:13:06  INFO   Fold 2  Ep  70/80  loss 0.02635/0.07535  MAE   38.2/  55.3m  lr 3.44e-05  13.2s
+2026-04-29 15:13:16  INFO   Fold 2  Ep  71/80  loss 0.02572/0.07613  MAE   34.4/  55.9m  lr 3.14e-05  10.1s
+2026-04-29 15:13:26  INFO   Fold 2  Ep  72/80  loss 0.02606/0.07741  MAE   37.5/  56.8m  lr 2.87e-05  9.9s
+2026-04-29 15:13:39  INFO   Fold 2  Ep  73/80  loss 0.02452/0.07533  MAE   35.6/  55.9m  lr 2.63e-05  12.9s
+2026-04-29 15:13:49  INFO   Fold 2  Ep  74/80  loss 0.02335/0.07585  MAE   33.3/  56.4m  lr 2.42e-05  10.1s
+2026-04-29 15:13:59  INFO   Fold 2  Ep  75/80  loss 0.02332/0.07626  MAE   34.1/  56.7m  lr 2.24e-05  9.9s
+2026-04-29 15:14:12  INFO   Fold 2  Ep  76/80  loss 0.02317/0.07564  MAE   34.7/  56.1m  lr 2.09e-05  13.0s
+2026-04-29 15:14:22  INFO   Fold 2  Ep  77/80  loss 0.02636/0.07489  MAE   36.7/  56.5m  lr 1.98e-05  10.5s
+2026-04-29 15:14:32  INFO   Fold 2  Ep  78/80  loss 0.02560/0.07384  MAE   36.2/  55.1m  lr 1.90e-05  10.3s
+2026-04-29 15:14:46  INFO   Fold 2  Ep  79/80  loss 0.02595/0.07460  MAE   36.6/  56.0m  lr 1.85e-05  13.1s
+2026-04-29 15:14:56  INFO   Fold 2  Ep  80/80  loss 0.02245/0.07498  MAE   32.6/  56.0m  lr 1.83e-05  10.6s
+2026-04-29 15:14:56  INFO   Fold 2 complete -- best val MAE: 54.75 min 
+2026-04-29 15:14:59  INFO   ====================  FOLD 4/5  ====================
+2026-04-29 15:15:21  INFO   Compiling model with torch.compile() ...
+2026-04-29 15:15:21  INFO   Fold 3 | trainable params: 402,626
+2026-04-29 15:15:21  INFO   Using bitsandbytes 8-bit AdamW
+2026-04-29 15:16:39  INFO   Fold 3  Ep   1/80  loss 0.30600/0.26513  MAE  198.4/ 154.0m  lr 4.42e-04  77.6s  * best
+2026-04-29 15:16:39  INFO   Checkpoint saved -> checkpoints/best_fold3.pt
+2026-04-29 15:17:06  INFO   Fold 3  Ep   2/80  loss 0.21854/0.29747  MAE  150.2/ 170.6m  lr 4.41e-04  26.7s
+2026-04-29 15:17:28  INFO   Fold 3  Ep   3/80  loss 0.19913/0.20481  MAE  136.7/ 126.9m  lr 4.41e-04  22.1s  * best
+2026-04-29 15:17:29  INFO   Checkpoint saved -> checkpoints/best_fold3.pt
+2026-04-29 15:17:52  INFO   Fold 3  Ep   4/80  loss 0.16623/0.15916  MAE  119.9/ 104.5m  lr 4.39e-04  22.9s  * best
+2026-04-29 15:17:53  INFO   Checkpoint saved -> checkpoints/best_fold3.pt
+2026-04-29 15:18:15  INFO   Fold 3  Ep   5/80  loss 0.14940/0.16891  MAE  110.0/ 112.5m  lr 4.38e-04  22.0s
+2026-04-29 15:18:33  INFO   Fold 3  Ep   6/80  loss 0.13299/0.14538  MAE  103.0/  98.5m  lr 4.36e-04  18.4s  * best
+2026-04-29 15:18:34  INFO   Checkpoint saved -> checkpoints/best_fold3.pt
+2026-04-29 15:18:54  INFO   Fold 3  Ep   7/80  loss 0.12139/0.15959  MAE   92.4/ 101.3m  lr 4.34e-04  19.8s
+2026-04-29 15:19:11  INFO   Fold 3  Ep   8/80  loss 0.11585/0.17289  MAE   88.4/ 109.7m  lr 4.32e-04  17.0s
+2026-04-29 15:19:29  INFO   Fold 3  Ep   9/80  loss 0.11222/0.13517  MAE   88.7/  95.5m  lr 4.29e-04  18.7s  * best
+2026-04-29 15:19:30  INFO   Checkpoint saved -> checkpoints/best_fold3.pt
+2026-04-29 15:19:46  INFO   Fold 3  Ep  10/80  loss 0.10201/0.12064  MAE   83.3/  86.6m  lr 4.26e-04  15.9s  * best
+2026-04-29 15:19:47  INFO   Checkpoint saved -> checkpoints/best_fold3.pt
+2026-04-29 15:20:04  INFO   Fold 3  Ep  11/80  loss 0.09344/0.13189  MAE   82.0/  88.3m  lr 4.23e-04  16.8s
+2026-04-29 15:20:18  INFO   Fold 3  Ep  12/80  loss 0.08427/0.12560  MAE   73.4/  85.8m  lr 4.19e-04  14.4s  * best
+2026-04-29 15:20:19  INFO   Checkpoint saved -> checkpoints/best_fold3.pt
+2026-04-29 15:20:35  INFO   Fold 3  Ep  13/80  loss 0.09039/0.16326  MAE   76.4/  99.9m  lr 4.15e-04  16.4s
+2026-04-29 15:20:49  INFO   Fold 3  Ep  14/80  loss 0.08566/0.13526  MAE   73.1/  92.8m  lr 4.11e-04  13.8s
+2026-04-29 15:21:06  INFO   Fold 3  Ep  15/80  loss 0.08578/0.11366  MAE   76.8/  83.4m  lr 4.06e-04  16.5s  * best
+2026-04-29 15:21:07  INFO   Checkpoint saved -> checkpoints/best_fold3.pt
+2026-04-29 15:21:20  INFO   Fold 3  Ep  16/80  loss 0.08303/0.11393  MAE   72.9/  81.8m  lr 4.02e-04  13.7s  * best
+2026-04-29 15:21:21  INFO   Checkpoint saved -> checkpoints/best_fold3.pt
+2026-04-29 15:21:37  INFO   Fold 3  Ep  17/80  loss 0.07557/0.09923  MAE   70.9/  72.3m  lr 3.97e-04  15.8s  * best
+2026-04-29 15:21:38  INFO   Checkpoint saved -> checkpoints/best_fold3.pt
+2026-04-29 15:21:52  INFO   Fold 3  Ep  18/80  loss 0.06999/0.11831  MAE   65.4/  80.7m  lr 3.91e-04  13.6s
+2026-04-29 15:22:04  INFO   Fold 3  Ep  19/80  loss 0.07423/0.10468  MAE   68.4/  77.2m  lr 3.86e-04  12.6s
+2026-04-29 15:22:19  INFO   Fold 3  Ep  20/80  loss 0.06298/0.10101  MAE   63.7/  71.6m  lr 3.80e-04  14.7s  * best
+2026-04-29 15:22:20  INFO   Checkpoint saved -> checkpoints/best_fold3.pt
+2026-04-29 15:22:33  INFO   Fold 3  Ep  21/80  loss 0.06538/0.10455  MAE   61.7/  75.9m  lr 3.74e-04  13.0s
+2026-04-29 15:22:48  INFO   Fold 3  Ep  22/80  loss 0.06763/0.11523  MAE   63.7/  78.3m  lr 3.68e-04  14.7s
+2026-04-29 15:23:00  INFO   Fold 3  Ep  23/80  loss 0.06157/0.09824  MAE   57.9/  72.4m  lr 3.61e-04  12.6s
+2026-04-29 15:23:13  INFO   Fold 3  Ep  24/80  loss 0.05976/0.09455  MAE   60.8/  70.7m  lr 3.55e-04  12.5s  * best
+2026-04-29 15:23:14  INFO   Checkpoint saved -> checkpoints/best_fold3.pt
+2026-04-29 15:23:28  INFO   Fold 3  Ep  25/80  loss 0.06098/0.09204  MAE   62.0/  67.9m  lr 3.48e-04  14.0s  * best
+2026-04-29 15:23:29  INFO   Checkpoint saved -> checkpoints/best_fold3.pt
+2026-04-29 15:23:41  INFO   Fold 3  Ep  26/80  loss 0.05692/0.09682  MAE   61.6/  71.2m  lr 3.41e-04  11.9s
+2026-04-29 15:23:55  INFO   Fold 3  Ep  27/80  loss 0.05895/0.10314  MAE   61.3/  73.3m  lr 3.34e-04  13.7s
+2026-04-29 15:24:06  INFO   Fold 3  Ep  28/80  loss 0.05872/0.10347  MAE   60.1/  70.3m  lr 3.26e-04  11.4s
+2026-04-29 15:24:17  INFO   Fold 3  Ep  29/80  loss 0.05401/0.09491  MAE   56.0/  68.0m  lr 3.19e-04  11.3s
+2026-04-29 15:24:31  INFO   Fold 3  Ep  30/80  loss 0.05349/0.10232  MAE   57.7/  70.8m  lr 3.11e-04  13.7s
+2026-04-29 15:24:42  INFO   Fold 3  Ep  31/80  loss 0.05037/0.08870  MAE   53.1/  64.9m  lr 3.03e-04  10.9s  * best
+2026-04-29 15:24:43  INFO   Checkpoint saved -> checkpoints/best_fold3.pt
+2026-04-29 15:24:53  INFO   Fold 3  Ep  32/80  loss 0.05124/0.09688  MAE   55.0/  68.6m  lr 2.96e-04  10.8s
+2026-04-29 15:25:07  INFO   Fold 3  Ep  33/80  loss 0.04543/0.11527  MAE   50.0/  77.0m  lr 2.88e-04  13.2s
+2026-04-29 15:25:18  INFO   Fold 3  Ep  34/80  loss 0.04515/0.09429  MAE   50.8/  66.0m  lr 2.80e-04  10.9s
+2026-04-29 15:25:28  INFO   Fold 3  Ep  35/80  loss 0.04547/0.09835  MAE   51.8/  71.4m  lr 2.71e-04  10.5s
+2026-04-29 15:25:41  INFO   Fold 3  Ep  36/80  loss 0.04510/0.08722  MAE   51.0/  64.0m  lr 2.63e-04  13.1s  * best
+2026-04-29 15:25:42  INFO   Checkpoint saved -> checkpoints/best_fold3.pt
+2026-04-29 15:25:53  INFO   Fold 3  Ep  37/80  loss 0.04450/0.09440  MAE   51.7/  67.7m  lr 2.55e-04  10.6s
+2026-04-29 15:26:03  INFO   Fold 3  Ep  38/80  loss 0.04300/0.11257  MAE   49.3/  77.3m  lr 2.47e-04  10.6s
+2026-04-29 15:26:16  INFO   Fold 3  Ep  39/80  loss 0.04371/0.08691  MAE   50.9/  65.7m  lr 2.38e-04  12.8s
+2026-04-29 15:26:27  INFO   Fold 3  Ep  40/80  loss 0.04140/0.09512  MAE   48.9/  70.6m  lr 2.30e-04  10.9s
+2026-04-29 15:26:38  INFO   Fold 3  Ep  41/80  loss 0.03988/0.09704  MAE   46.8/  70.0m  lr 2.22e-04  10.9s
+2026-04-29 15:26:51  INFO   Fold 3  Ep  42/80  loss 0.04015/0.09293  MAE   49.5/  67.4m  lr 2.14e-04  13.0s
+2026-04-29 15:27:02  INFO   Fold 3  Ep  43/80  loss 0.03992/0.08321  MAE   45.7/  61.2m  lr 2.05e-04  10.5s  * best
+2026-04-29 15:27:03  INFO   Checkpoint saved -> checkpoints/best_fold3.pt
+2026-04-29 15:27:13  INFO   Fold 3  Ep  44/80  loss 0.03522/0.08011  MAE   44.2/  59.3m  lr 1.97e-04  10.8s  * best
+2026-04-29 15:27:14  INFO   Checkpoint saved -> checkpoints/best_fold3.pt
+2026-04-29 15:27:27  INFO   Fold 3  Ep  45/80  loss 0.03739/0.08775  MAE   46.8/  62.6m  lr 1.89e-04  13.0s
+2026-04-29 15:27:39  INFO   Fold 3  Ep  46/80  loss 0.03654/0.08626  MAE   44.9/  63.5m  lr 1.81e-04  11.8s
+2026-04-29 15:27:51  INFO   Fold 3  Ep  47/80  loss 0.03616/0.08470  MAE   44.6/  61.9m  lr 1.73e-04  11.7s
+2026-04-29 15:28:04  INFO   Fold 3  Ep  48/80  loss 0.03763/0.08066  MAE   44.6/  60.1m  lr 1.65e-04  13.1s
+2026-04-29 15:28:15  INFO   Fold 3  Ep  49/80  loss 0.03734/0.08624  MAE   46.9/  64.3m  lr 1.57e-04  11.0s
+2026-04-29 15:28:26  INFO   Fold 3  Ep  50/80  loss 0.03577/0.08869  MAE   44.2/  66.9m  lr 1.49e-04  11.0s
+2026-04-29 15:28:39  INFO   Fold 3  Ep  51/80  loss 0.03417/0.08422  MAE   43.9/  61.3m  lr 1.41e-04  13.2s
+2026-04-29 15:28:50  INFO   Fold 3  Ep  52/80  loss 0.02956/0.09266  MAE   39.4/  68.4m  lr 1.34e-04  11.0s
+2026-04-29 15:29:01  INFO   Fold 3  Ep  53/80  loss 0.03235/0.07939  MAE   42.8/  60.4m  lr 1.27e-04  11.0s
+2026-04-29 15:29:15  INFO   Fold 3  Ep  54/80  loss 0.03393/0.08836  MAE   42.7/  65.9m  lr 1.19e-04  13.6s
+2026-04-29 15:29:26  INFO   Fold 3  Ep  55/80  loss 0.03369/0.07762  MAE   43.0/  59.2m  lr 1.12e-04  10.9s  * best
+2026-04-29 15:29:27  INFO   Checkpoint saved -> checkpoints/best_fold3.pt
+2026-04-29 15:29:40  INFO   Fold 3  Ep  56/80  loss 0.03340/0.08539  MAE   42.1/  61.8m  lr 1.06e-04  13.2s
+2026-04-29 15:29:51  INFO   Fold 3  Ep  57/80  loss 0.03082/0.07775  MAE   40.0/  57.7m  lr 9.90e-05  11.2s  * best
+2026-04-29 15:29:52  INFO   Checkpoint saved -> checkpoints/best_fold3.pt
+2026-04-29 15:30:03  INFO   Fold 3  Ep  58/80  loss 0.03072/0.07842  MAE   41.3/  57.2m  lr 9.26e-05  11.1s  * best
+2026-04-29 15:30:04  INFO   Checkpoint saved -> checkpoints/best_fold3.pt
+2026-04-29 15:30:17  INFO   Fold 3  Ep  59/80  loss 0.02803/0.07604  MAE   39.5/  57.3m  lr 8.63e-05  13.5s
+2026-04-29 15:30:29  INFO   Fold 3  Ep  60/80  loss 0.02809/0.07609  MAE   37.7/  56.8m  lr 8.03e-05  11.2s  * best
+2026-04-29 15:30:30  INFO   Checkpoint saved -> checkpoints/best_fold3.pt
+2026-04-29 15:30:40  INFO   Fold 3  Ep  61/80  loss 0.03011/0.07399  MAE   41.0/  56.4m  lr 7.46e-05  10.8s  * best
+2026-04-29 15:30:41  INFO   Checkpoint saved -> checkpoints/best_fold3.pt
+2026-04-29 15:30:55  INFO   Fold 3  Ep  62/80  loss 0.02838/0.07692  MAE   40.4/  57.1m  lr 6.91e-05  13.7s
+2026-04-29 15:31:06  INFO   Fold 3  Ep  63/80  loss 0.02434/0.07363  MAE   37.4/  55.0m  lr 6.38e-05  10.9s  * best
+2026-04-29 15:31:07  INFO   Checkpoint saved -> checkpoints/best_fold3.pt
+2026-04-29 15:31:18  INFO   Fold 3  Ep  64/80  loss 0.02445/0.07468  MAE   35.4/  56.1m  lr 5.88e-05  11.4s
+2026-04-29 15:31:31  INFO   Fold 3  Ep  65/80  loss 0.02512/0.07710  MAE   36.9/  57.6m  lr 5.40e-05  13.1s
+2026-04-29 15:31:42  INFO   Fold 3  Ep  66/80  loss 0.03015/0.07618  MAE   41.2/  56.7m  lr 4.95e-05  10.8s
+2026-04-29 15:31:53  INFO   Fold 3  Ep  67/80  loss 0.02758/0.07768  MAE   37.7/  58.2m  lr 4.53e-05  11.2s
+2026-04-29 15:32:06  INFO   Fold 3  Ep  68/80  loss 0.02819/0.08076  MAE   39.1/  57.6m  lr 4.14e-05  13.1s
+2026-04-29 15:32:17  INFO   Fold 3  Ep  69/80  loss 0.02713/0.07671  MAE   36.7/  56.8m  lr 3.78e-05  10.9s
+2026-04-29 15:32:30  INFO   Fold 3  Ep  70/80  loss 0.02407/0.07564  MAE   35.1/  56.1m  lr 3.44e-05  13.3s
+2026-04-29 15:32:42  INFO   Fold 3  Ep  71/80  loss 0.02684/0.07727  MAE   39.3/  56.1m  lr 3.14e-05  11.2s
+2026-04-29 15:32:52  INFO   Fold 3  Ep  72/80  loss 0.02438/0.07500  MAE   35.4/  55.5m  lr 2.87e-05  10.6s
+2026-04-29 15:33:05  INFO   Fold 3  Ep  73/80  loss 0.02806/0.07465  MAE   38.8/  55.0m  lr 2.63e-05  13.0s  * best
+2026-04-29 15:33:06  INFO   Checkpoint saved -> checkpoints/best_fold3.pt
+2026-04-29 15:33:18  INFO   Fold 3  Ep  74/80  loss 0.02779/0.07417  MAE   37.5/  54.8m  lr 2.42e-05  11.3s  * best
+2026-04-29 15:33:19  INFO   Checkpoint saved -> checkpoints/best_fold3.pt
+2026-04-29 15:33:30  INFO   Fold 3  Ep  75/80  loss 0.02620/0.07433  MAE   37.8/  55.4m  lr 2.24e-05  11.2s
+2026-04-29 15:33:44  INFO   Fold 3  Ep  76/80  loss 0.02457/0.07476  MAE   36.0/  55.6m  lr 2.09e-05  14.0s
+2026-04-29 15:33:55  INFO   Fold 3  Ep  77/80  loss 0.02578/0.07481  MAE   35.6/  56.4m  lr 1.98e-05  11.1s
+2026-04-29 15:34:05  INFO   Fold 3  Ep  78/80  loss 0.02610/0.07433  MAE   36.0/  56.0m  lr 1.90e-05  10.4s
+2026-04-29 15:34:20  INFO   Fold 3  Ep  79/80  loss 0.02758/0.07512  MAE   38.1/  55.7m  lr 1.85e-05  14.3s
+2026-04-29 15:34:31  INFO   Fold 3  Ep  80/80  loss 0.02454/0.07549  MAE   36.1/  55.7m  lr 1.83e-05  11.2s
+2026-04-29 15:34:31  INFO   Fold 3 complete -- best val MAE: 54.83 min 
+2026-04-29 15:34:33  INFO   ====================  FOLD 5/5  ====================
+2026-04-29 15:34:56  INFO   Compiling model with torch.compile() ...
+2026-04-29 15:34:56  INFO   Fold 4 | trainable params: 402,626
+2026-04-29 15:34:56  INFO   Using bitsandbytes 8-bit AdamW
+2026-04-29 15:36:16  INFO   Fold 4  Ep   1/80  loss 0.28597/0.25159  MAE  187.3/ 148.5m  lr 4.42e-04  80.1s  * best
+2026-04-29 15:36:16  INFO   Checkpoint saved -> checkpoints/best_fold4.pt
+2026-04-29 15:36:44  INFO   Fold 4  Ep   2/80  loss 0.21776/0.21495  MAE  151.2/ 129.5m  lr 4.41e-04  27.2s  * best
+2026-04-29 15:36:45  INFO   Checkpoint saved -> checkpoints/best_fold4.pt
+2026-04-29 15:37:10  INFO   Fold 4  Ep   3/80  loss 0.18943/0.18079  MAE  131.4/ 115.9m  lr 4.41e-04  25.9s  * best
+2026-04-29 15:37:11  INFO   Checkpoint saved -> checkpoints/best_fold4.pt
+2026-04-29 15:37:33  INFO   Fold 4  Ep   4/80  loss 0.15746/0.20848  MAE  114.0/ 126.2m  lr 4.39e-04  21.5s
+2026-04-29 15:37:55  INFO   Fold 4  Ep   5/80  loss 0.14092/0.14761  MAE  101.0/  97.7m  lr 4.38e-04  22.4s  * best
+2026-04-29 15:37:56  INFO   Checkpoint saved -> checkpoints/best_fold4.pt
+2026-04-29 15:38:17  INFO   Fold 4  Ep   6/80  loss 0.11770/0.15499  MAE   94.6/  98.3m  lr 4.36e-04  21.4s
+2026-04-29 15:38:35  INFO   Fold 4  Ep   7/80  loss 0.11677/0.15905  MAE   91.1/ 102.2m  lr 4.34e-04  17.3s
+2026-04-29 15:38:55  INFO   Fold 4  Ep   8/80  loss 0.11813/0.15542  MAE   93.3/  96.7m  lr 4.32e-04  20.0s  * best
+2026-04-29 15:38:55  INFO   Checkpoint saved -> checkpoints/best_fold4.pt
+2026-04-29 15:39:11  INFO   Fold 4  Ep   9/80  loss 0.11013/0.14867  MAE   90.1/  96.2m  lr 4.29e-04  15.8s  * best
+2026-04-29 15:39:12  INFO   Checkpoint saved -> checkpoints/best_fold4.pt
+2026-04-29 15:39:31  INFO   Fold 4  Ep  10/80  loss 0.10774/0.14689  MAE   87.8/  94.6m  lr 4.26e-04  18.7s  * best
+2026-04-29 15:39:32  INFO   Checkpoint saved -> checkpoints/best_fold4.pt
+2026-04-29 15:39:47  INFO   Fold 4  Ep  11/80  loss 0.09864/0.14290  MAE   83.6/  86.9m  lr 4.23e-04  14.8s  * best
+2026-04-29 15:39:47  INFO   Checkpoint saved -> checkpoints/best_fold4.pt
+2026-04-29 15:40:05  INFO   Fold 4  Ep  12/80  loss 0.08735/0.13613  MAE   76.5/  87.5m  lr 4.19e-04  17.8s
+2026-04-29 15:40:20  INFO   Fold 4  Ep  13/80  loss 0.08252/0.14509  MAE   74.4/  88.7m  lr 4.15e-04  14.6s
+2026-04-29 15:40:37  INFO   Fold 4  Ep  14/80  loss 0.08230/0.15254  MAE   73.4/  94.1m  lr 4.11e-04  17.5s
+2026-04-29 15:40:52  INFO   Fold 4  Ep  15/80  loss 0.07462/0.13166  MAE   68.6/  85.6m  lr 4.06e-04  14.3s  * best
+2026-04-29 15:40:52  INFO   Checkpoint saved -> checkpoints/best_fold4.pt
+2026-04-29 15:41:10  INFO   Fold 4  Ep  16/80  loss 0.07404/0.12326  MAE   68.7/  83.5m  lr 4.02e-04  17.2s  * best
+2026-04-29 15:41:11  INFO   Checkpoint saved -> checkpoints/best_fold4.pt
+2026-04-29 15:41:25  INFO   Fold 4  Ep  17/80  loss 0.08031/0.12291  MAE   72.4/  81.9m  lr 3.97e-04  14.2s  * best
+2026-04-29 15:41:26  INFO   Checkpoint saved -> checkpoints/best_fold4.pt
+2026-04-29 15:41:42  INFO   Fold 4  Ep  18/80  loss 0.07550/0.11552  MAE   69.7/  77.9m  lr 3.91e-04  15.7s  * best
+2026-04-29 15:41:42  INFO   Checkpoint saved -> checkpoints/best_fold4.pt
+2026-04-29 15:41:56  INFO   Fold 4  Ep  19/80  loss 0.06505/0.12454  MAE   61.6/  83.1m  lr 3.86e-04  13.8s
+2026-04-29 15:42:09  INFO   Fold 4  Ep  20/80  loss 0.06054/0.13976  MAE   62.6/  90.7m  lr 3.80e-04  12.9s
+2026-04-29 15:42:24  INFO   Fold 4  Ep  21/80  loss 0.06061/0.12133  MAE   60.0/  78.6m  lr 3.74e-04  14.7s
+2026-04-29 15:42:37  INFO   Fold 4  Ep  22/80  loss 0.05433/0.12091  MAE   54.8/  80.8m  lr 3.68e-04  12.8s
+2026-04-29 15:42:52  INFO   Fold 4  Ep  23/80  loss 0.06262/0.11730  MAE   61.2/  79.5m  lr 3.61e-04  14.9s
+2026-04-29 15:43:04  INFO   Fold 4  Ep  24/80  loss 0.06503/0.10721  MAE   63.6/  72.1m  lr 3.55e-04  12.1s  * best
+2026-04-29 15:43:05  INFO   Checkpoint saved -> checkpoints/best_fold4.pt
+2026-04-29 15:43:16  INFO   Fold 4  Ep  25/80  loss 0.05958/0.11662  MAE   60.9/  76.5m  lr 3.48e-04  11.4s
+2026-04-29 15:43:30  INFO   Fold 4  Ep  26/80  loss 0.05314/0.10726  MAE   56.1/  70.6m  lr 3.41e-04  13.5s  * best
+2026-04-29 15:43:31  INFO   Checkpoint saved -> checkpoints/best_fold4.pt
+2026-04-29 15:43:42  INFO   Fold 4  Ep  27/80  loss 0.05759/0.11812  MAE   61.5/  76.5m  lr 3.34e-04  11.7s
+2026-04-29 15:43:54  INFO   Fold 4  Ep  28/80  loss 0.04985/0.09503  MAE   54.5/  70.8m  lr 3.26e-04  11.7s
+2026-04-29 15:44:07  INFO   Fold 4  Ep  29/80  loss 0.05161/0.10386  MAE   53.5/  70.2m  lr 3.19e-04  13.5s  * best
+2026-04-29 15:44:08  INFO   Checkpoint saved -> checkpoints/best_fold4.pt
+2026-04-29 15:44:20  INFO   Fold 4  Ep  30/80  loss 0.04970/0.10409  MAE   52.4/  70.3m  lr 3.11e-04  11.5s
+2026-04-29 15:44:31  INFO   Fold 4  Ep  31/80  loss 0.04865/0.11523  MAE   51.4/  76.6m  lr 3.03e-04  11.4s
+2026-04-29 15:44:45  INFO   Fold 4  Ep  32/80  loss 0.04979/0.09810  MAE   55.9/  68.1m  lr 2.96e-04  13.8s  * best
+2026-04-29 15:44:46  INFO   Checkpoint saved -> checkpoints/best_fold4.pt
+2026-04-29 15:44:56  INFO   Fold 4  Ep  33/80  loss 0.04387/0.10366  MAE   50.0/  69.6m  lr 2.88e-04  10.9s
+2026-04-29 15:45:10  INFO   Fold 4  Ep  34/80  loss 0.04660/0.10359  MAE   50.5/  76.3m  lr 2.80e-04  13.4s
+2026-04-29 15:45:21  INFO   Fold 4  Ep  35/80  loss 0.04382/0.10552  MAE   50.2/  68.8m  lr 2.71e-04  11.4s
+2026-04-29 15:45:33  INFO   Fold 4  Ep  36/80  loss 0.04080/0.10050  MAE   47.6/  68.8m  lr 2.63e-04  11.4s
+2026-04-29 15:45:47  INFO   Fold 4  Ep  37/80  loss 0.04112/0.10769  MAE   48.9/  68.9m  lr 2.55e-04  13.9s
+2026-04-29 15:45:58  INFO   Fold 4  Ep  38/80  loss 0.04585/0.09851  MAE   52.2/  67.4m  lr 2.47e-04  11.2s  * best
+2026-04-29 15:45:59  INFO   Checkpoint saved -> checkpoints/best_fold4.pt
+2026-04-29 15:46:09  INFO   Fold 4  Ep  39/80  loss 0.04404/0.10099  MAE   53.7/  70.2m  lr 2.38e-04  10.8s
+2026-04-29 15:46:22  INFO   Fold 4  Ep  40/80  loss 0.03828/0.09654  MAE   46.8/  66.5m  lr 2.30e-04  12.8s  * best
+2026-04-29 15:46:23  INFO   Checkpoint saved -> checkpoints/best_fold4.pt
+2026-04-29 15:46:34  INFO   Fold 4  Ep  41/80  loss 0.03655/0.09872  MAE   45.3/  66.1m  lr 2.22e-04  10.7s  * best
+2026-04-29 15:46:35  INFO   Checkpoint saved -> checkpoints/best_fold4.pt
+2026-04-29 15:46:45  INFO   Fold 4  Ep  42/80  loss 0.03815/0.10992  MAE   46.6/  71.9m  lr 2.14e-04  10.8s
+2026-04-29 15:46:58  INFO   Fold 4  Ep  43/80  loss 0.03662/0.09887  MAE   45.7/  67.5m  lr 2.05e-04  13.0s
+2026-04-29 15:47:09  INFO   Fold 4  Ep  44/80  loss 0.03295/0.09996  MAE   44.7/  67.7m  lr 1.97e-04  10.6s
+2026-04-29 15:47:20  INFO   Fold 4  Ep  45/80  loss 0.03734/0.09706  MAE   44.6/  65.3m  lr 1.89e-04  10.9s  * best
+2026-04-29 15:47:21  INFO   Checkpoint saved -> checkpoints/best_fold4.pt
+2026-04-29 15:47:33  INFO   Fold 4  Ep  46/80  loss 0.03357/0.10172  MAE   42.3/  68.6m  lr 1.81e-04  12.4s
+2026-04-29 15:47:44  INFO   Fold 4  Ep  47/80  loss 0.03550/0.10040  MAE   45.9/  67.6m  lr 1.73e-04  10.6s
+2026-04-29 15:47:55  INFO   Fold 4  Ep  48/80  loss 0.03264/0.09793  MAE   40.9/  66.1m  lr 1.65e-04  10.6s
+2026-04-29 15:48:07  INFO   Fold 4  Ep  49/80  loss 0.03663/0.09566  MAE   46.3/  64.7m  lr 1.57e-04  12.8s  * best
+2026-04-29 15:48:08  INFO   Checkpoint saved -> checkpoints/best_fold4.pt
+2026-04-29 15:48:19  INFO   Fold 4  Ep  50/80  loss 0.03471/0.09655  MAE   45.4/  68.5m  lr 1.49e-04  10.6s
+2026-04-29 15:48:29  INFO   Fold 4  Ep  51/80  loss 0.03542/0.10350  MAE   43.5/  67.8m  lr 1.41e-04  10.5s
+2026-04-29 15:48:42  INFO   Fold 4  Ep  52/80  loss 0.03229/0.09943  MAE   40.9/  64.8m  lr 1.34e-04  12.7s
+2026-04-29 15:48:52  INFO   Fold 4  Ep  53/80  loss 0.02929/0.09495  MAE   40.0/  65.0m  lr 1.27e-04  10.6s
+2026-04-29 15:49:03  INFO   Fold 4  Ep  54/80  loss 0.03114/0.09714  MAE   41.3/  64.4m  lr 1.19e-04  10.4s  * best
+2026-04-29 15:49:04  INFO   Checkpoint saved -> checkpoints/best_fold4.pt
+2026-04-29 15:49:17  INFO   Fold 4  Ep  55/80  loss 0.03082/0.09410  MAE   40.1/  63.7m  lr 1.12e-04  12.9s  * best
+2026-04-29 15:49:18  INFO   Checkpoint saved -> checkpoints/best_fold4.pt
+2026-04-29 15:49:28  INFO   Fold 4  Ep  56/80  loss 0.03022/0.09256  MAE   39.4/  62.7m  lr 1.06e-04  10.6s  * best
+2026-04-29 15:49:29  INFO   Checkpoint saved -> checkpoints/best_fold4.pt
+2026-04-29 15:49:40  INFO   Fold 4  Ep  57/80  loss 0.03215/0.08917  MAE   41.7/  61.9m  lr 9.90e-05  10.7s  * best
+2026-04-29 15:49:41  INFO   Checkpoint saved -> checkpoints/best_fold4.pt
+2026-04-29 15:49:54  INFO   Fold 4  Ep  58/80  loss 0.02979/0.09210  MAE   40.9/  63.4m  lr 9.26e-05  12.9s
+2026-04-29 15:50:04  INFO   Fold 4  Ep  59/80  loss 0.02714/0.09454  MAE   39.1/  64.8m  lr 8.63e-05  10.5s
+2026-04-29 15:50:15  INFO   Fold 4  Ep  60/80  loss 0.02974/0.09275  MAE   39.9/  63.6m  lr 8.03e-05  11.2s
+2026-04-29 15:50:28  INFO   Fold 4  Ep  61/80  loss 0.02973/0.09628  MAE   38.8/  66.0m  lr 7.46e-05  12.6s
+2026-04-29 15:50:39  INFO   Fold 4  Ep  62/80  loss 0.02541/0.09430  MAE   36.0/  63.5m  lr 6.91e-05  10.7s
+2026-04-29 15:50:50  INFO   Fold 4  Ep  63/80  loss 0.02720/0.09484  MAE   37.9/  65.2m  lr 6.38e-05  10.7s
+2026-04-29 15:51:01  INFO   Fold 4  Ep  64/80  loss 0.02730/0.09524  MAE   37.8/  63.1m  lr 5.88e-05  11.3s
+2026-04-29 15:51:16  INFO   Fold 4  Ep  65/80  loss 0.02339/0.09070  MAE   34.7/  61.6m  lr 5.40e-05  14.7s  * best
+2026-04-29 15:51:17  INFO   Checkpoint saved -> checkpoints/best_fold4.pt
+2026-04-29 15:51:28  INFO   Fold 4  Ep  66/80  loss 0.02889/0.09417  MAE   40.1/  62.8m  lr 4.95e-05  11.6s
+2026-04-29 15:51:38  INFO   Fold 4  Ep  67/80  loss 0.02535/0.09424  MAE   35.7/  63.1m  lr 4.53e-05  10.2s
+2026-04-29 15:51:49  INFO   Fold 4  Ep  68/80  loss 0.02419/0.09457  MAE   36.0/  63.5m  lr 4.14e-05  10.2s
+2026-04-29 15:51:59  INFO   Fold 4  Ep  69/80  loss 0.02443/0.09350  MAE   35.2/  62.7m  lr 3.78e-05  10.5s
+2026-04-29 15:52:11  INFO   Fold 4  Ep  70/80  loss 0.02600/0.09320  MAE   37.4/  63.0m  lr 3.44e-05  11.3s
+2026-04-29 15:52:22  INFO   Fold 4  Ep  71/80  loss 0.02603/0.09295  MAE   37.3/  61.8m  lr 3.14e-05  11.1s
+2026-04-29 15:52:33  INFO   Fold 4  Ep  72/80  loss 0.02498/0.09429  MAE   37.4/  62.3m  lr 2.87e-05  11.1s
+2026-04-29 15:52:44  INFO   Fold 4  Ep  73/80  loss 0.02730/0.09351  MAE   38.9/  62.6m  lr 2.63e-05  11.0s
+2026-04-29 15:52:56  INFO   Fold 4  Ep  74/80  loss 0.02506/0.09092  MAE   37.0/  60.9m  lr 2.42e-05  12.2s  * best
+2026-04-29 15:52:57  INFO   Checkpoint saved -> checkpoints/best_fold4.pt
+2026-04-29 15:53:07  INFO   Fold 4  Ep  75/80  loss 0.02304/0.09240  MAE   33.7/  61.9m  lr 2.24e-05  10.3s
+2026-04-29 15:53:18  INFO   Fold 4  Ep  76/80  loss 0.02207/0.09099  MAE   34.1/  61.9m  lr 2.09e-05  10.7s
+2026-04-29 15:53:31  INFO   Fold 4  Ep  77/80  loss 0.02658/0.09316  MAE   38.1/  61.4m  lr 1.98e-05  13.0s
+2026-04-29 15:53:41  INFO   Fold 4  Ep  78/80  loss 0.02382/0.09227  MAE   36.3/  61.6m  lr 1.90e-05  10.2s
+2026-04-29 15:53:52  INFO   Fold 4  Ep  79/80  loss 0.02403/0.09010  MAE   35.0/  60.2m  lr 1.85e-05  10.6s  * best
+2026-04-29 15:53:53  INFO   Checkpoint saved -> checkpoints/best_fold4.pt
+2026-04-29 15:54:05  INFO   Fold 4  Ep  80/80  loss 0.02368/0.09034  MAE   37.0/  60.8m  lr 1.83e-05  12.5s
+2026-04-29 15:54:05  INFO   Fold 4 complete -- best val MAE: 60.18 min 
+2026-04-29 15:54:07  INFO   ============================================================
+2026-04-29 15:54:07  INFO   Cross-validation results
+2026-04-29 15:54:07  INFO     Fold 0: 49.38 min
+2026-04-29 15:54:07  INFO     Fold 1: 53.93 min
+2026-04-29 15:54:07  INFO     Fold 2: 54.75 min
+2026-04-29 15:54:07  INFO     Fold 3: 54.83 min
+2026-04-29 15:54:07  INFO     Fold 4: 60.18 min
+2026-04-29 15:54:07  INFO     Mean MAE: 54.61 min
+2026-04-29 15:54:07  INFO   ============================================================
