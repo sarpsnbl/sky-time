@@ -42,7 +42,7 @@ from main import (
     build_and_compile_model
 )
 
-SUPPORTED_MODELS = ["convnext_tiny"]
+SUPPORTED_MODELS = ["convnext_tiny", "swin_t"]
 
 # ---------------------------------------------------------------------------
 # Tqdm-safe logging
@@ -77,29 +77,27 @@ log = logging.getLogger("tune")
 # Search space
 # ---------------------------------------------------------------------------
 def get_search_space(trial: optuna.Trial, model_name: str) -> dict:
-    # LR anchored around 3e-4, but bounded to prevent instability
-    lr           = trial.suggest_float("lr",           1.5e-4, 4.5e-4, log=True)
-    
-    # Shifted up: Previous best was 0.038, let it explore heavier regularization
-    weight_decay = trial.suggest_float("weight_decay", 1.5e-2, 6.5e-2, log=True)
-    
-    # Standard cosine annealing minimums
-    eta_min      = trial.suggest_float("eta_min",      5.0e-6, 2.0e-5, log=True)
-    
-    # Widened slightly: 512px might need a bit more dropout than 448px
-    dropout      = trial.suggest_float("dropout", 0.1, 0.25)
-    
-    # Shifted up: It loved noise in the 448px run
-    label_noise = trial.suggest_float("label_noise", 0.02, 0.05)
+    if model_name == "swin_t":
+        # SwinT search space (Transformers often need lower LR and different regularization)
+        lr           = trial.suggest_float("lr",           5.0e-5, 2.0e-4, log=True)
+        weight_decay = trial.suggest_float("weight_decay", 1.0e-2, 5.0e-2, log=True)
+        eta_min      = trial.suggest_float("eta_min",      1.0e-6, 1.0e-5, log=True)
+        dropout      = trial.suggest_float("dropout",      0.05, 0.2)
+        label_noise  = trial.suggest_float("label_noise",  0.01, 0.04)
+        mixup_alpha  = trial.suggest_float("mixup_alpha",  0.05, 0.2)
+        aug_magnitude = trial.suggest_categorical("aug_magnitude", ["moderate", "heavy"])
+        freeze_until = trial.suggest_categorical("freeze_until", ["features.4", "features.6"])
+    else:
+        # ConvNeXt search space (original)
+        lr           = trial.suggest_float("lr",           1.5e-4, 4.5e-4, log=True)
+        weight_decay = trial.suggest_float("weight_decay", 1.5e-2, 6.5e-2, log=True)
+        eta_min      = trial.suggest_float("eta_min",      5.0e-6, 2.0e-5, log=True)
+        dropout      = trial.suggest_float("dropout",      0.1, 0.25)
+        label_noise  = trial.suggest_float("label_noise",  0.02, 0.05)
+        mixup_alpha  = trial.suggest_float("mixup_alpha",  0.1, 0.3)
+        aug_magnitude = trial.suggest_categorical("aug_magnitude", ["moderate", "heavy"])
+        freeze_until = trial.suggest_categorical("freeze_until", ["features.4", "features.6"])
 
-    mixup_alpha = trial.suggest_float("mixup_alpha", 0.1, 0.3)
-
-    aug_magnitude = trial.suggest_categorical("aug_magnitude", ["moderate", "heavy"])
-
-    # Let Optuna decide how deep to train the backbone
-    freeze_until = trial.suggest_categorical("freeze_until", ["features.4", "features.6"])
-
-    # Fixed parameters
     hidden_dim    = 384
 
     return {
@@ -256,8 +254,12 @@ def objective(
 # ---------------------------------------------------------------------------
 def run_study(device: torch.device, model_list: list) -> None:
     os.makedirs(cfg.OUTPUT_DIR, exist_ok=True)
-    study_name   = "tod_hpo_convnext"
-    storage_path = os.path.join(cfg.OUTPUT_DIR, "optuna_convnext.db")
+    if len(model_list) == 1:
+        study_name   = f"tod_hpo_{model_list[0]}"
+        storage_path = os.path.join(cfg.OUTPUT_DIR, f"optuna_{model_list[0]}.db")
+    else:
+        study_name   = "tod_hpo_multi"
+        storage_path = os.path.join(cfg.OUTPUT_DIR, "optuna_multi.db")
     storage_url  = f"sqlite:///{storage_path}"
     optuna.logging.set_verbosity(optuna.logging.WARNING)
 
@@ -323,7 +325,7 @@ def _retrain_best(params: dict, device: torch.device) -> None:
     scheduler = get_scheduler(optimizer, epochs=cfg.EPOCHS, eta_min=params["eta_min"])
     scaler = torch.amp.GradScaler('cuda') if (cfg.USE_AMP and device.type == "cuda") else None
 
-    best_val_mae, best_ckpt = float("inf"), os.path.join(cfg.OUTPUT_DIR, "optuna_best_convnext.pt")
+    best_val_mae, best_ckpt = float("inf"), os.path.join(cfg.OUTPUT_DIR, f"optuna_best_{cfg.MODEL}.pt")
     total_batches = len(train_loader) + len(val_loader)
 
     for epoch in range(cfg.EPOCHS):
@@ -349,10 +351,10 @@ def _retrain_best(params: dict, device: torch.device) -> None:
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Optuna HPO -- ConvNeXt")
-    parser.add_argument("--model", choices=SUPPORTED_MODELS, default=None)
+    parser.add_argument("--model", choices=SUPPORTED_MODELS, required=True, help="Model to optimize")
     args = parser.parse_args()
 
-    model_list = [args.model] if args.model else SUPPORTED_MODELS
+    model_list = [args.model]
     if mp.get_start_method(allow_none=True) != "spawn": mp.set_start_method("spawn", force=True)
 
     torch.manual_seed(cfg.SEED)

@@ -38,6 +38,7 @@ try:
     from torchvision.models import (
         ConvNeXt_Tiny_Weights,
         ConvNeXt_Small_Weights,
+        Swin_T_Weights,
     )
     _TORCHVISION_AVAILABLE = True
 except ImportError:
@@ -166,6 +167,9 @@ class TimeOfDayModel(nn.Module):
         elif name == "convnext_small":
             weights  = ConvNeXt_Small_Weights.IMAGENET1K_V1 if pretrained else None
             backbone = models.convnext_small(weights=weights)
+        elif name == "swin_t":
+            weights  = Swin_T_Weights.IMAGENET1K_V1 if pretrained else None
+            backbone = models.swin_t(weights=weights)
         else:
             raise ValueError(f"Unsupported model '{cfg.MODEL}'")
         self.encoder = nn.Sequential(*list(backbone.children())[:-1])
@@ -467,7 +471,7 @@ def build_and_compile_model(device: torch.device, params: dict = None) -> TimeOf
 # Single-fold training
 # ---------------------------------------------------------------------------
 def train_fold(fold: int, device: torch.device) -> float:
-    jsonl_path = os.path.join(cfg.OUTPUT_DIR, "train_log.jsonl")
+    jsonl_path = os.path.join(cfg.OUTPUT_DIR, f"train_log_{cfg.MODEL}.jsonl")
 
     train_dataset = TimeOfDayDataset(
         image_dir=cfg.IMAGE_DIR,
@@ -497,7 +501,7 @@ def train_fold(fold: int, device: torch.device) -> float:
         start_epoch = load_checkpoint(cfg.CHECKPOINT, model, optimizer, scheduler, device)
 
     best_val_mae = float("inf")
-    best_ckpt    = os.path.join(cfg.OUTPUT_DIR, f"best_fold{fold}.pt")
+    best_ckpt    = os.path.join(cfg.OUTPUT_DIR, f"best_{cfg.MODEL}_fold{fold}.pt")
 
     n_train_batches = len(train_loader)
     n_val_batches   = len(val_loader)
@@ -554,6 +558,13 @@ def train_fold(fold: int, device: torch.device) -> float:
 # Main entry point
 # ---------------------------------------------------------------------------
 def main() -> None:
+    import argparse
+    parser = argparse.ArgumentParser(description="Train Time-of-Day Model")
+    parser.add_argument("--model", type=str, required=True, help="Model to train")
+    args, unknown = parser.parse_known_args()
+    
+    cfg.MODEL = args.model
+
     setup_logging(cfg.OUTPUT_DIR)
 
     torch.manual_seed(cfg.SEED)
