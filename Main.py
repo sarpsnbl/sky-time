@@ -453,9 +453,9 @@ def _log_images(log_path, image_paths, pred_mins, actual_mins):
 def build_and_compile_model(device: torch.device, params: dict = None) -> TimeOfDayModel:
     model = TimeOfDayModel(
         pretrained=cfg.PRETRAINED,
-        freeze_until=params["freeze_until"] if params else cfg.FREEZE_UNTIL,
-        hidden_dim=params["hidden_dim"] if params else cfg.HIDDEN_DIM,
-        dropout=params["dropout"] if params else cfg.DROPOUT,
+        freeze_until=params.get("freeze_until", cfg.FREEZE_UNTIL) if params else cfg.FREEZE_UNTIL,
+        hidden_dim=params.get("hidden_dim", cfg.HIDDEN_DIM) if params else cfg.HIDDEN_DIM,
+        dropout=params.get("dropout", cfg.DROPOUT) if params else cfg.DROPOUT,
     ).to(device)
     
     if cfg.USE_CHANNELS_LAST:

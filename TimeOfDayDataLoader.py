@@ -303,6 +303,17 @@ class TimeOfDayDataset(Dataset):
         if not self.samples:
             raise RuntimeError("No valid images with EXIF data found.")
 
+        if cfg.USE_IMAGE_FEATURES:
+            print("Pre-computing handcrafted image features...")
+            from tqdm import tqdm
+            for path, _ in tqdm(self.samples, desc="Extracting features"):
+                if path not in self._feature_cache:
+                    try:
+                        with Image.open(path).convert("RGB") as img:
+                            self._feature_cache[path] = ImageFeatureExtractor.extract(img)
+                    except Exception as e:
+                        print(f"Error extracting features for {path}: {e}")
+
     def _is_valid_file(self, filename: str) -> bool:
         ext = os.path.splitext(filename.lower())[1]
         if ext in {".heic", ".heif"} and not _HEIC_SUPPORTED:

@@ -20,11 +20,11 @@ class Config:
     USE_IMAGE_FEATURES = True
 
     # --- Model ----------------------------------------------------------------
-    MODEL        = "convnext_tiny"
+    MODEL        = "swin_t"
     PRETRAINED   = True
     FREEZE_UNTIL = "features.4"
     HIDDEN_DIM   = 384
-    DROPOUT      = 0.1555
+    DROPOUT      = 0.029274015233555814
 
     # --- Training & Hardware Optimizations ------------------------------------
     EPOCHS           = 80
@@ -38,16 +38,16 @@ class Config:
     USE_CHANNELS_LAST = True   # NHWC memory format for Tensor Core speedup
     USE_8BIT_OPTIM    = True   # bitsandbytes 8-bit AdamW to save VRAM
     
-    LR               = 4.42e-04
-    ETA_MIN          = 1.83e-05
-    WEIGHT_DECAY     = 0.0373
+    LR               = 1.46e-04
+    ETA_MIN          = 3.77e-06
+    WEIGHT_DECAY     = 4.32e-03
     NUM_WORKERS      = 8
     WEIGHTED_SAMPLER = True
 
     # --- Augmentation ---------------------------------------------------------
-    AUG_MAGNITUDE   = "heavy"
-    MIXUP_ALPHA     = 0.1776
-    LABEL_NOISE_STD = 0.0437
+    AUG_MAGNITUDE   = "moderate"
+    MIXUP_ALPHA     = 0.14411297399224515
+    LABEL_NOISE_STD = 0.03142830830721105
 
     # --- Test-Time Augmentation -----------------------------------------------
     TTA_ENABLED = False

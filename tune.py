@@ -79,10 +79,10 @@ log = logging.getLogger("tune")
 def get_search_space(trial: optuna.Trial, model_name: str) -> dict:
     if model_name == "swin_t":
         # SwinT search space (Transformers often need lower LR and different regularization)
-        lr           = trial.suggest_float("lr",           5.0e-5, 2.0e-4, log=True)
-        weight_decay = trial.suggest_float("weight_decay", 1.0e-2, 5.0e-2, log=True)
+        lr           = trial.suggest_float("lr",           1.0e-4, 1.0e-3, log=True)
+        weight_decay = trial.suggest_float("weight_decay", 1.0e-3, 5.0e-2, log=True)
         eta_min      = trial.suggest_float("eta_min",      1.0e-6, 1.0e-5, log=True)
-        dropout      = trial.suggest_float("dropout",      0.05, 0.2)
+        dropout      = trial.suggest_float("dropout",      0.0, 0.15)
         label_noise  = trial.suggest_float("label_noise",  0.01, 0.04)
         mixup_alpha  = trial.suggest_float("mixup_alpha",  0.05, 0.2)
         aug_magnitude = trial.suggest_categorical("aug_magnitude", ["moderate", "heavy"])
