@@ -79,7 +79,7 @@ $^{1}$Department of Computer Engineering, İzmir Katip Çelebi University, İzmi
 \vspace{2pt}
 
 {\small
-Modern digital galleries often sort outdoor photos by time of day using basic brightness metrics, which leads to systematic misclassification under artificial lighting or heavy cloud cover. This paper presents a hybrid deep learning framework that estimates capture time from a single sky image by fusing visual features with cyclically encoded EXIF calendar metadata. Two backbone architectures are evaluated in the Python/PyTorch pipeline: ConvNeXt-Tiny and Swin-T, each paired with a metadata-fusion MLP operating on 77 handcrafted photometric descriptors. A cyclic sine--cosine target encoding models the circular topology of the 24-hour clock, eliminating discontinuities at the midnight boundary. The training pipeline incorporates Mixup augmentation, label noise injection, cosine annealing, and weighted sampling to handle temporal imbalance. A parallel MATLAB pipeline based on SqueezeNet and a purely statistical ensemble combining Support Vector Regression, Gradient Boosted Trees, and Random Forest on handcrafted features provide structured baselines, enabling a comprehensive four-way comparison across deep and shallow learning approaches.
+Modern digital galleries often sort outdoor photos by time of day using basic brightness metrics, which leads to systematic misclassification under artificial lighting or heavy cloud cover. This paper presents a hybrid deep learning framework that estimates capture time from a single sky image by fusing visual features with cyclically encoded EXIF calendar metadata. The dataset consists of 2,483 consumer smartphone photographs collected under diverse conditions spanning dawn, midday, dusk, and artificial-light scenes. Two backbone architectures are evaluated in the Python/PyTorch pipeline: ConvNeXt-Tiny and Swin-T, each paired with a metadata-fusion MLP operating on 77 handcrafted photometric descriptors. A cyclic sine--cosine target encoding models the circular topology of the 24-hour clock, eliminating discontinuities at the midnight boundary. The training pipeline incorporates Mixup augmentation, label noise injection, cosine annealing, and weighted sampling to handle temporal imbalance. A parallel MATLAB pipeline based on SqueezeNet and a purely statistical ensemble combining Support Vector Regression, Gradient Boosted Trees, and Random Forest on handcrafted features provide structured baselines, enabling a comprehensive four-way comparison across deep and shallow learning approaches. Swin-T achieves the best performance with a mean cyclic MAE of 52.45 minutes across five-fold cross-validation, outperforming all baselines and demonstrating the value of fusing learned visual representations with calendar metadata.
 }
 \vspace{4pt}
 
@@ -96,24 +96,29 @@ Modern digital galleries often sort outdoor photos by time of day using basic br
 %  1. INTRODUCTION
 % ========================================================================
 \section{Introduction}
-The estimation of time of day from a single outdoor photograph is a challenging problem at the meeting point of computer vision, digital image processing and environmental sensing. Modern mobile operating systems and cloud storage services attempt to semantically organize landscape photographs, yet their algorithms frequently produce unreliable temporal classifications due to an over-reliance on basic brightness metrics [1].
+The estimation of time of day from a single outdoor photograph is a challenging problem at the intersection of computer vision, digital image processing, and environmental sensing. Modern mobile operating systems and cloud storage services attempt to organize landscape photographs semantically, yet their algorithms frequently produce unreliable temporal classifications due to an over-reliance on simplistic brightness metrics [1].
 
-There are two main reasons for these mistakes that drive this research. First, nighttime images containing strong artificial light sources such as street lamps, stadium floodlights, or illuminated building facades are routinely misclassified as ``Daylight'' or ``Sunny'' because high localized luminance inflates the average pixel intensity and the bright spots trick the system into thinking the whole image is bright . Second, midday photographs captured under heavy cloud cover or in deeply shaded areas are often mislabeled as ``Night'' or ``Twilight'' due to globally suppressed light levels that mislead intensity-based classifiers meaning that the overall low light levels confuse classifiers that only look at intensity. 
+Two principal failure modes motivate this research. First, nighttime images containing strong artificial light sources---such as street lamps or illuminated building facades---are routinely misclassified as ``Daylight'' because high localized luminance inflates average pixel intensity. Second, midday photographs under heavy cloud cover are often mislabeled as ``Night'' or ``Twilight'' due to globally suppressed light levels. These errors underscore a fundamental limitation: average brightness alone is an insufficient proxy for solar position.
 
-These systematic errors underscore a fundamental limitation: average brightness alone is an insufficient proxy for solar position. A robust estimator must instead analyze complex visual cues including shadow geometry, atmospheric color temperature shifts from blue to warm orange, sky gradient profiles, and textural patterns in cloud formations to replicate the human cognitive ability to distinguish natural from artificial illumination [2].
-
-A foundational study by Lalonde et al. [1] introduced the concept of utilizing ``weak cues'' extracted from various image segments which are the sky region, vertical surfaces, and the ground plane to estimate sun position and visibility. Their work demonstrated that while any single visual feature in isolation may be uninformative, the probabilistic integration of multiple complementary cues leads to a robust estimate of the sky dome's appearance. The present project adopts this multi-cue philosophy by analyzing both sky gradients and color temperatures to identify solar characteristics, extending the concept to a learned feature-fusion framework.
-
-The ``Photo Sundial'' system proposed by Wu et al. [3] explicitly addressed the issue of unreliable EXIF timestamps in consumer photography. The authors developed a framework that utilizes astronomical theory, linking the sun's apparent position and the camera's viewing direction to calculate the exact time of capture. This study is particularly relevant to the forensic image analysis motivation of the present work and the correction of mislabeled gallery metadata.
-
-Recent advancements by Hold-Geoffroy et al. [2] shifted the paradigm from analytical parametric models to learned high dynamic range (HDR) sky representations. They pointed out that old-school parametric models (e.g. the Hosek--Wilkie model) have a hard time representing anything other than a perfectly clear sky, such as overcast or partly cloudy weather. By training a convolutional neural network (CNN) to learn sky representations directly from data, they achieved superior results under diverse meteorological conditions.
-
-Unlike previous studies that often treat the date of capture as a static categorical label or ignore it entirely, this project integrates the calendar date directly into the model's feature vector through cyclic encoding. This allows the system to distinguish between identical lighting conditions that occur at different solar angles during the winter and summer solstices. The purpose of this study is to develop a hybrid deep learning framework that transcends simple luminance metrics, combining visual feature extraction with temporal metadata integration for robust, continuous time-of-day regression from consumer sky photographs. By combining visual features with time-based metadata, we aim to create a reliable hybrid deep learning framework that can predict the exact time of day,  transcends simple luminance metrics, combining visual feature extraction with temporal metadata integration for robust, continuous time-of-day regression from everyday sky photos.
-
+A robust estimator must instead analyze complex visual cues---shadow geometry, atmospheric color temperature shifts, sky gradient profiles, and cloud texture---to distinguish natural from artificial illumination [2]. Unlike previous studies that treat the capture date as a static label or ignore it entirely, this work integrates the calendar date into the model's feature vector through cyclic encoding, allowing the system to distinguish identical lighting conditions that arise at different solar angles across the seasons. The aim of this study is to develop a hybrid deep learning framework combining visual feature extraction with temporal metadata integration for robust, continuous time-of-day regression from consumer sky photographs.
 
 
 % ========================================================================
-%  2. MATERIALS AND METHODS
+%  2. LITERATURE REVIEW
+% ========================================================================
+\section{Literature Review}
+
+A foundational study by Lalonde et al.~[1] introduced the concept of using ``weak cues'' extracted from distinct image segments---sky region, vertical surfaces, and ground plane---to estimate sun position and visibility. They demonstrated that the probabilistic integration of multiple complementary cues produces a robust estimate of sky-dome appearance, even when any single feature in isolation is uninformative. The present work adopts this multi-cue philosophy, extending it to a learned feature-fusion framework.
+
+The Photo Sundial system by Wu et al.~[3] addressed unreliable EXIF timestamps in consumer photography by linking the sun's apparent position and camera viewing direction to the exact time of capture via astronomical theory. This forensic motivation is directly relevant to the metadata correction goal of the present study.
+
+Hold-Geoffroy et al.~[2] shifted the paradigm from analytical parametric sky models to data-driven HDR representations, showing that a CNN learning directly from images outperforms parametric models (e.g., the Hosek--Wilkie model) under overcast or partially cloudy conditions---conditions that are common in our dataset.
+
+These studies share a common limitation: they either rely on manually engineered sky models, require specialized equipment (e.g., HDR cameras or GPS-linked sensors), or treat the calendar date as auxiliary information at best. None fuses cyclically encoded calendar metadata with both learned deep features and handcrafted photometric descriptors within a unified regression framework evaluated across multiple architectures. This gap motivates the four-way comparative study presented here.
+
+
+% ========================================================================
+%  3. MATERIALS AND METHODS
 % ========================================================================
 \section{Materials and Methods}
 
@@ -449,6 +454,7 @@ Decoding                & \texttt{atan2} \\
 %  4. RESULTS
 % ========================================================================
 \section{Results}
+\label{sec:results}
 
 \subsection{Python Pipeline Results}
 
@@ -474,7 +480,8 @@ Table~\ref{tab:python_results} reports the per-fold validation MAE for both Pyth
 \end{tabular}
 \end{table}
 
-Both models converge consistently across folds. Swin-T's window-based attention appears to pick up on structured sky-region gradients more effectively in some folds, while ConvNeXt-Tiny's depthwise convolutions are more uniformly stable. Neither model suffers catastrophic divergence on any fold, indicating robust training under the shared augmentation and sampling regime.
+Both models converge consistently across folds. Neither model suffers catastrophic divergence on any fold.
+
 
 \subsection{MATLAB Pipeline Results}
 
@@ -549,10 +556,44 @@ Figures~\ref{fig:4m_bar} and~\ref{fig:4m_scatter} provide a visual breakdown of 
   \label{fig:4m_scatter}
 \end{figure}
 
+\subsection{Example Predictions}
+
+Figures~\ref{fig:example1} and~\ref{fig:example2} show representative sky images from the dataset together with their EXIF ground-truth times and model predictions extracted from the logs. Figure~\ref{fig:example1} shows an image (\texttt{IMG\_3477.jpg}) predicted by the ConvNeXt-Tiny model, while Figure~\ref{fig:example2} shows an image (\texttt{DSCF0269.jpg}) predicted by the Swin-T model. Both examples demonstrate the models' ability to accurately estimate the time of day within a small margin of error.
+
+\begin{figure}[H]
+  \centering
+  \begin{minipage}[b]{0.48\linewidth}
+    \centering
+    \includegraphics[width=\linewidth]{predict1.jpg}
+    \caption{Example prediction 1 (ConvNeXt-Tiny): Ground truth 20:02 (1202 min) vs.\ Predicted 19:44 (1184 min).}
+    \label{fig:example1}
+  \end{minipage}
+  \hfill
+  \begin{minipage}[b]{0.48\linewidth}
+    \centering
+    \includegraphics[width=\linewidth, angle=90]{predict2.jpg}
+    \caption{Example prediction 2 (Swin-T): Ground truth 14:09 (849 min) vs.\ Predicted 14:13 (853 min).}
+    \label{fig:example2}
+  \end{minipage}
+\end{figure}
+
 
 
 % ========================================================================
-%  5. CONCLUSIONS
+%  6. DISCUSSION
+% ========================================================================
+\section{Discussion}
+
+The results confirm that higher-resolution inputs and larger pretrained backbones are the dominant factors in performance. Both Python models, operating at $512\times512$ with Optuna-tuned training, achieve markedly lower MAE than the MATLAB counterparts running at $224\times224$. The gap between Swin-T and ConvNeXt-Tiny (2.16 min, 4.0\% relative) is modest, suggesting that the two architectures are broadly comparable for this task; Swin-T's window-based self-attention may offer a slight advantage on structured sky gradients, while ConvNeXt's depthwise convolutions provide more uniform stability across folds.
+
+The finding that the purely statistical ensemble (77.75 min) outperforms SqueezeNet CNN (81.16 min) is noteworthy. It implies that, at low resolution and with limited fine-tuning, a carefully engineered 186-dimensional photometric feature vector can match or exceed a lightweight frozen backbone. This is consistent with the literature on classical feature engineering for sky analysis~[1], and suggests that CNN-based approaches require sufficient resolution and end-to-end tuning to fully realize their advantage.
+
+Compared with the prior work of Lalonde et al.~[1] and Hold-Geoffroy et al.~[2], which rely on parametric sky models or specialized HDR capture, our framework achieves competitive time localization using only consumer smartphone images and their existing EXIF metadata. The cyclic sine--cosine encoding---applied to both the regression target and the calendar features---proved essential for smooth optimization across the midnight and year boundaries.
+
+This study has several limitations. The dataset is geographically constrained to a single location (İzmir, Turkey), limiting generalization across different latitudes, climates, and seasonal light patterns. The time coverage is also uneven: early morning and late evening hours are underrepresented, which may inflate error for those periods despite weighted sampling. Additionally, the MATLAB pipeline was trained at a lower resolution and with fewer epochs than the Python models, so the comparison is not fully controlled for compute budget.
+
+% ========================================================================
+%  7. CONCLUSIONS
 % ========================================================================
 \section{Conclusions}
 

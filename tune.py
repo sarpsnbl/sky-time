@@ -2,7 +2,6 @@
 tune.py
 =======
 Optuna hyperparameter optimisation for Time-of-Day Estimation.
-Searches over convnext_tiny and convnext_small only.
 """
 import os
 os.environ["MKL_THREADING_LAYER"] = "GNU"
@@ -19,12 +18,9 @@ import torch._dynamo
 torch._dynamo.config.cache_size_limit = 32
 from tqdm import tqdm
 
-try:
-    import optuna
-    from optuna.samplers import TPESampler
-    from optuna.pruners import MedianPruner
-except ImportError:
-    raise ImportError("Install optuna:  pip install optuna")
+import optuna
+from optuna.samplers import TPESampler
+from optuna.pruners import MedianPruner
 
 from config import Config as cfg
 from TimeOfDayDataLoader import (
@@ -78,7 +74,7 @@ log = logging.getLogger("tune")
 # ---------------------------------------------------------------------------
 def get_search_space(trial: optuna.Trial, model_name: str) -> dict:
     if model_name == "swin_t":
-        # SwinT search space (Transformers often need lower LR and different regularization)
+        # SwinT search space
         lr           = trial.suggest_float("lr",           1.0e-4, 1.0e-3, log=True)
         weight_decay = trial.suggest_float("weight_decay", 1.0e-3, 5.0e-2, log=True)
         eta_min      = trial.suggest_float("eta_min",      1.0e-6, 1.0e-5, log=True)
@@ -88,7 +84,7 @@ def get_search_space(trial: optuna.Trial, model_name: str) -> dict:
         aug_magnitude = trial.suggest_categorical("aug_magnitude", ["moderate", "heavy"])
         freeze_until = trial.suggest_categorical("freeze_until", ["features.4", "features.6"])
     else:
-        # ConvNeXt search space (original)
+        # ConvNeXt search space
         lr           = trial.suggest_float("lr",           1.5e-4, 4.5e-4, log=True)
         weight_decay = trial.suggest_float("weight_decay", 1.5e-2, 6.5e-2, log=True)
         eta_min      = trial.suggest_float("eta_min",      5.0e-6, 2.0e-5, log=True)

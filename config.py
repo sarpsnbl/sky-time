@@ -1,8 +1,7 @@
 """
 config.py
 =========
-Central configuration for Time-of-Day Estimation — ConvNeXt backbones only.
-Adjust these parameters before running main.py or tune.py.
+Central configuration for Time-of-Day Estimation
 """
 
 class Config:
@@ -25,7 +24,7 @@ class Config:
     FREEZE_UNTIL = "features.4"
     HIDDEN_DIM   = 384
     
-    # --- Best Optuna Parameters for both models ---
+    # --- Best Optuna Parameters ---
     PARAMS_CONVNEXT_TINY = {
         "dropout": 0.1555,
         "lr": 4.42e-04,
