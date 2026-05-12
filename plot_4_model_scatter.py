@@ -1,38 +1,54 @@
 import os
 import matplotlib.pyplot as plt
 import numpy as np
+import json
+import csv
 
 os.makedirs('figures', exist_ok=True)
 
-# Generate dummy data - TODO: Load actual prediction data from your logs/CSVs
-np.random.seed(42)
-n_samples = 500
-actual_times = np.random.uniform(0, 24, n_samples)
+def load_python_data(file_path):
+    actuals = []
+    preds = []
+    with open(file_path, 'r') as f:
+        for line in f:
+            record = json.loads(line)
+            if record.get('type') == 'image':
+                actuals.append(record['actual_min'] / 60.0)
+                preds.append(record['pred_min'] / 60.0)
+    return np.array(actuals), np.array(preds)
 
-# Simulate predictions with varying noise based on model MAEs
-pred_swint = actual_times + np.random.normal(0, 52/60, n_samples)
-pred_convnext = actual_times + np.random.normal(0, 55/60, n_samples)
-pred_squeezenet = actual_times + np.random.normal(0, 81/60, n_samples)
-pred_statml = actual_times + np.random.normal(0, 95/60, n_samples)
+def load_matlab_data(file_path):
+    actuals = []
+    preds = []
+    with open(file_path, 'r') as f:
+        reader = csv.DictReader(f)
+        for row in reader:
+            def hhmm_to_hours(s):
+                parts = s.split(':')
+                return float(parts[0]) + float(parts[1]) / 60.0
+            actuals.append(hhmm_to_hours(row['Actual']))
+            preds.append(hhmm_to_hours(row['Guess']))
+    return np.array(actuals), np.array(preds)
 
-# Wrap around 24 hours
-for arr in [pred_swint, pred_convnext, pred_squeezenet, pred_statml]:
-    arr[arr < 0] += 24
-    arr[arr >= 24] -= 24
+# Load actual prediction data
+actual_swint, pred_swint = load_python_data('checkpoints/train_log_swin_t.jsonl')
+actual_convnext, pred_convnext = load_python_data('checkpoints/train_log_convnext_tiny.jsonl')
+actual_squeezenet, pred_squeezenet = load_matlab_data('matlab_method/results/cnn_results.csv')
+actual_statml, pred_statml = load_matlab_data('matlab_method/results/ml_results.csv')
 
 models = [
-    ('Python Swin-T', pred_swint),
-    ('Python ConvNeXt-Tiny', pred_convnext),
-    ('MATLAB SqueezeNet', pred_squeezenet),
-    ('MATLAB Statistical ML', pred_statml)
+    ('Python Swin-T', actual_swint, pred_swint),
+    ('Python ConvNeXt-Tiny', actual_convnext, pred_convnext),
+    ('MATLAB SqueezeNet', actual_squeezenet, pred_squeezenet),
+    ('MATLAB Statistical ML', actual_statml, pred_statml)
 ]
 
 fig, axes = plt.subplots(2, 2, figsize=(12, 10))
 axes = axes.flatten()
 
-for i, (name, preds) in enumerate(models):
+for i, (name, actuals, preds) in enumerate(models):
     ax = axes[i]
-    ax.scatter(actual_times, preds, alpha=0.3, s=15, c='blue', edgecolors='none')
+    ax.scatter(actuals, preds, alpha=0.3, s=15, c='blue', edgecolors='none')
     ax.plot([0, 24], [0, 24], 'r--', lw=2) # Perfect prediction line
     
     # Optional: plot the +/- 1 hour margin

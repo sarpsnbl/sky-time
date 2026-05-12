@@ -416,7 +416,8 @@ def load_checkpoint(path, model, optimizer=None, scheduler=None,
     if any(k.startswith("_orig_mod.") for k in state_dict):
         state_dict = {k.replace("_orig_mod.", "", 1): v for k, v in state_dict.items()}
     
-    model.load_state_dict(state_dict)
+    raw_model = model._orig_mod if hasattr(model, '_orig_mod') else model
+    raw_model.load_state_dict(state_dict)
     if optimizer and "optimizer" in ckpt:
         optimizer.load_state_dict(ckpt["optimizer"])
     if scheduler and "scheduler" in ckpt:
@@ -553,6 +554,14 @@ def train_fold(fold: int, device: torch.device) -> float:
         if is_best:
             best_val_mae = val_mae
             save_checkpoint(model, optimizer, scheduler, epoch + 1, val_mae, best_ckpt)
+
+    # Load best checkpoint and log image diagnostics
+    load_checkpoint(best_ckpt, model, device=device)
+    val_loss, val_mae, image_paths, pred_mins, actual_mins = evaluate_with_log(
+        model, val_loader, criterion, device, use_tta=cfg.TTA_ENABLED, tta_passes=cfg.TTA_FLIPS
+    )
+    _log_images(jsonl_path, image_paths, pred_mins, actual_mins)
+    log.info(f"Per-image diagnostics logged -> {jsonl_path}")
 
     log.info(f"Fold {fold} complete -- best val MAE: {best_val_mae:.2f} min ")
     return best_val_mae
