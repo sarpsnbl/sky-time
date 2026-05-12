@@ -1,7 +1,7 @@
 """
 plot_matlab_convergence.py
 ==========================
-Reads the fold_N_convergence.csv files from matlab_method/results/ and
+Reads the fold_N_convergence.csv files from matlab_method/figures/ and
 produces a figure showing training and validation RMSE across all five folds.
 
 Output: figures/matlab_convergence.png  (upload to Overleaf as matlab_convergence.png)
@@ -18,7 +18,7 @@ matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 import numpy as np
 
-RESULTS_DIR = os.path.join("matlab_method", "results")
+RESULTS_DIR = os.path.join("matlab_method", "figures")
 OUT_PATH    = "figures/matlab_convergence.png"
 
 FOLD_COLOURS = ["#4C8EDA", "#e64a19", "#2ca02c", "#9467bd", "#8c564b"]

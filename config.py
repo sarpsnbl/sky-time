@@ -24,7 +24,27 @@ class Config:
     PRETRAINED   = True
     FREEZE_UNTIL = "features.4"
     HIDDEN_DIM   = 384
-    DROPOUT      = 0.029274015233555814
+    
+    # --- Best Optuna Parameters for both models ---
+    PARAMS_CONVNEXT_TINY = {
+        "dropout": 0.1555,
+        "lr": 4.42e-04,
+        "eta_min": 1.83e-05,
+        "weight_decay": 0.0373,
+        "aug_magnitude": "heavy",
+        "mixup_alpha": 0.1776,
+        "label_noise": 0.0437,
+    }
+    
+    PARAMS_SWIN_T = {
+        "dropout": 0.029274015233555814,
+        "lr": 1.46e-04,
+        "eta_min": 3.77e-06,
+        "weight_decay": 4.32e-03,
+        "aug_magnitude": "moderate",
+        "mixup_alpha": 0.14411297399224515,
+        "label_noise": 0.03142830830721105,
+    }
 
     # --- Training & Hardware Optimizations ------------------------------------
     EPOCHS           = 80
@@ -37,17 +57,10 @@ class Config:
     USE_COMPILE       = True   # torch.compile() for graph optimization (PT 2.0+)
     USE_CHANNELS_LAST = True   # NHWC memory format for Tensor Core speedup
     USE_8BIT_OPTIM    = True   # bitsandbytes 8-bit AdamW to save VRAM
-    
-    LR               = 1.46e-04
-    ETA_MIN          = 3.77e-06
-    WEIGHT_DECAY     = 4.32e-03
     NUM_WORKERS      = 8
     WEIGHTED_SAMPLER = True
 
     # --- Augmentation ---------------------------------------------------------
-    AUG_MAGNITUDE   = "moderate"
-    MIXUP_ALPHA     = 0.14411297399224515
-    LABEL_NOISE_STD = 0.03142830830721105
 
     # --- Test-Time Augmentation -----------------------------------------------
     TTA_ENABLED = False

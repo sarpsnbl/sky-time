@@ -10,10 +10,10 @@ Reads the JSONL log written by main.py during training and produces:
 Usage
 -----
     python visualize_training.py
-    python visualize_training.py --log results/train_log.jsonl
-    python visualize_training.py --log results/train_log.jsonl \\
-                                 --out results/training_report.png \\
-                                 --predictions-out results/predictions.png
+    python visualize_training.py --log figures/train_log.jsonl
+    python visualize_training.py --log figures/train_log.jsonl \\
+                                 --out figures/training_report.png \\
+                                 --predictions-out figures/predictions.png
 """
 
 import argparse
@@ -336,14 +336,14 @@ def main():
         description="Visualize training curves and per-image diagnostics."
     )
     parser.add_argument(
-        "--log", default=os.path.join("results", "train_log.jsonl"),
-        help="Path to the JSONL log (default: results/train_log.jsonl)"
+        "--log", default=os.path.join("figures", "train_log.jsonl"),
+        help="Path to the JSONL log (default: figures/train_log.jsonl)"
     )
-    parser.add_argument("--out", default="results/training_report.png")
+    parser.add_argument("--out", default="figures/training_report.png")
     parser.add_argument(
-        "--predictions-out", default="results/predictions.png",
+        "--predictions-out", default="figures/predictions.png",
         help="Path to save the standalone scatter plot (Figure 10). "
-             "Default: results/predictions.png"
+             "Default: figures/predictions.png"
     )
     args = parser.parse_args()
 

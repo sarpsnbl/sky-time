@@ -455,7 +455,7 @@ def build_and_compile_model(device: torch.device, params: dict = None) -> TimeOf
         pretrained=cfg.PRETRAINED,
         freeze_until=params.get("freeze_until", cfg.FREEZE_UNTIL) if params else cfg.FREEZE_UNTIL,
         hidden_dim=params.get("hidden_dim", cfg.HIDDEN_DIM) if params else cfg.HIDDEN_DIM,
-        dropout=params.get("dropout", cfg.DROPOUT) if params else cfg.DROPOUT,
+        dropout=params.get("dropout", 0.0) if params else 0.0,
     ).to(device)
     
     if cfg.USE_CHANNELS_LAST:
@@ -471,11 +471,14 @@ def build_and_compile_model(device: torch.device, params: dict = None) -> TimeOf
 # Single-fold training
 # ---------------------------------------------------------------------------
 def train_fold(fold: int, device: torch.device) -> float:
+    # Load model-specific parameters
+    params = cfg.PARAMS_SWIN_T if cfg.MODEL == "swin_t" else cfg.PARAMS_CONVNEXT_TINY
+    
     jsonl_path = os.path.join(cfg.OUTPUT_DIR, f"train_log_{cfg.MODEL}.jsonl")
 
     train_dataset = TimeOfDayDataset(
         image_dir=cfg.IMAGE_DIR,
-        transform=get_transforms(augment=True, magnitude=cfg.AUG_MAGNITUDE),
+        transform=get_transforms(augment=True, magnitude=params["aug_magnitude"]),
     )
     val_dataset = TimeOfDayDataset(
         image_dir=cfg.IMAGE_DIR,
@@ -488,12 +491,12 @@ def train_fold(fold: int, device: torch.device) -> float:
         val_ratio=cfg.VAL_RATIO, use_weighted_sampler=cfg.WEIGHTED_SAMPLER,
     )
 
-    model = build_and_compile_model(device)
+    model = build_and_compile_model(device, params)
     log.info(f"Fold {fold} | trainable params: {model.count_trainable_params():,}")
 
     criterion = CyclicMSELoss()
-    optimizer = get_optimizer(model, cfg.LR, cfg.WEIGHT_DECAY)
-    scheduler = get_scheduler(optimizer, epochs=cfg.EPOCHS, eta_min=cfg.ETA_MIN)
+    optimizer = get_optimizer(model, params["lr"], params["weight_decay"])
+    scheduler = get_scheduler(optimizer, epochs=cfg.EPOCHS, eta_min=params["eta_min"])
     scaler = torch.amp.GradScaler('cuda') if (cfg.USE_AMP and device.type == "cuda") else None
 
     start_epoch = 0
@@ -514,8 +517,8 @@ def train_fold(fold: int, device: torch.device) -> float:
             # We must access the original uncompiled model's method if it was compiled
             raw_model = model._orig_mod if hasattr(model, '_orig_mod') else model
             raw_model.unfreeze_all()
-            optimizer = get_optimizer(model, cfg.LR * 0.1, cfg.WEIGHT_DECAY)
-            scheduler = get_scheduler(optimizer, epochs=cfg.EPOCHS - epoch, eta_min=cfg.ETA_MIN)
+            optimizer = get_optimizer(model, params["lr"] * 0.1, params["weight_decay"])
+            scheduler = get_scheduler(optimizer, epochs=cfg.EPOCHS - epoch, eta_min=params["eta_min"])
             log.info(f"Backbone unfrozen at epoch {epoch + 1} (LR x 0.1)")
 
         desc = f"Fold {fold}  Ep {epoch+1:>3}/{cfg.EPOCHS}"
@@ -523,7 +526,7 @@ def train_fold(fold: int, device: torch.device) -> float:
             pbar.set_description(f"{desc} [train]")
             train_loss, train_mae = train_one_epoch(
                 model, train_loader, optimizer, criterion, device, scaler,
-                mixup_alpha=cfg.MIXUP_ALPHA, label_noise=cfg.LABEL_NOISE_STD, pbar=pbar, accum_steps=cfg.ACCUM_STEPS
+                mixup_alpha=params["mixup_alpha"], label_noise=params["label_noise"], pbar=pbar, accum_steps=cfg.ACCUM_STEPS
             )
             pbar.set_description(f"{desc} [val]  ")
             val_loss, val_mae = evaluate(
