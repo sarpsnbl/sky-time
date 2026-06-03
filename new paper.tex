@@ -79,11 +79,11 @@ $^{1}$Department of Computer Engineering, İzmir Katip Çelebi University, İzmi
 \vspace{2pt}
 
 {\small
-Modern digital galleries often sort outdoor photos by time of day using basic brightness metrics, which leads to systematic misclassification under artificial lighting or heavy cloud cover. This paper presents a hybrid deep learning framework that estimates capture time from a single sky image by fusing visual features with cyclically encoded EXIF calendar metadata. The dataset consists of 2,483 consumer smartphone photographs collected under diverse conditions spanning dawn, midday, dusk, and artificial-light scenes. Two backbone architectures are evaluated in the Python/PyTorch pipeline: ConvNeXt-Tiny and Swin-T, each paired with a metadata-fusion MLP operating on 77 handcrafted photometric descriptors. A cyclic sine--cosine target encoding models the circular topology of the 24-hour clock, eliminating discontinuities at the midnight boundary. The training pipeline incorporates Mixup augmentation, label noise injection, cosine annealing, and weighted sampling to handle temporal imbalance. A parallel MATLAB pipeline based on SqueezeNet and a purely statistical ensemble combining Support Vector Regression, Gradient Boosted Trees, and Random Forest on handcrafted features provide structured baselines, enabling a comprehensive four-way comparison across deep and shallow learning approaches. Swin-T achieves the best performance with a mean cyclic MAE of 52.45 minutes across five-fold cross-validation, outperforming all baselines and demonstrating the value of fusing learned visual representations with calendar metadata.
+Modern digital galleries often sort outdoor photos by time of day using basic brightness metrics, which leads to systematic misclassification under artificial lighting or heavy cloud cover. This paper presents a hybrid deep learning framework that estimates capture time from a single sky image by fusing visual features with cyclically encoded EXIF calendar metadata. The dataset consists of 2,483 consumer smartphone photographs collected under diverse conditions spanning dawn, midday, dusk, and artificial-light scenes. The proposed pipeline leverages a Swin Transformer (Swin-T) backbone paired with a metadata-fusion MLP operating on 77 handcrafted photometric descriptors. A cyclic sine--cosine target encoding models the circular topology of the 24-hour clock, eliminating discontinuities at the midnight boundary. The training pipeline incorporates Mixup augmentation, label noise injection, cosine annealing, and weighted sampling to handle temporal imbalance. Evaluated across five-fold cross-validation, the proposed Swin-T framework achieves a mean cyclic MAE of 52.45 minutes, demonstrating the value of fusing learned visual representations with calendar metadata for robust continuous time-of-day regression.
 }
 \vspace{4pt}
 
-{\small\bfseries Keywords:} {\small time-of-day estimation, convolutional neural networks, ConvNeXt, Swin Transformer, EXIF metadata, cyclic regression, sky image analysis, feature fusion, gradient boosting, ensemble learning}
+{\small\bfseries Keywords:} {\small time-of-day estimation, Swin Transformer, EXIF metadata, cyclic regression, sky image analysis, feature fusion}
 
 \vspace{6pt}
 \rule{\textwidth}{0.4pt}
@@ -114,7 +114,7 @@ The Photo Sundial system by Wu et al.~[3] addressed unreliable EXIF timestamps i
 
 Hold-Geoffroy et al.~[2] shifted the paradigm from analytical parametric sky models to data-driven HDR representations, showing that a CNN learning directly from images outperforms parametric models (e.g., the Hosek--Wilkie model) under overcast or partially cloudy conditions---conditions that are common in our dataset.
 
-These studies share a common limitation: they either rely on manually engineered sky models, require specialized equipment (e.g., HDR cameras or GPS-linked sensors), or treat the calendar date as auxiliary information at best. None fuses cyclically encoded calendar metadata with both learned deep features and handcrafted photometric descriptors within a unified regression framework evaluated across multiple architectures. This gap motivates the four-way comparative study presented here.
+These studies share a common limitation: they either rely on manually engineered sky models, require specialized equipment (e.g., HDR cameras or GPS-linked sensors), or treat the calendar date as auxiliary information at best. None fuses cyclically encoded calendar metadata with both learned deep features and handcrafted photometric descriptors within a unified regression framework. This study addresses this gap by presenting a hybrid deep learning framework based on a Swin Transformer backbone paired with a metadata fusion MLP.
 
 
 % ========================================================================
@@ -122,7 +122,7 @@ These studies share a common limitation: they either rely on manually engineered
 % ========================================================================
 \section{Materials and Methods}
 
-This section describes the complete pipeline for time-of-day estimation, covering data collection, preprocessing, feature extraction, model architecture, training strategy, and evaluation protocol. Two parallel implementations were developed: a primary Python/PyTorch pipeline that evaluates two backbone architectures (ConvNeXt-Tiny and Swin-T) with a shared metadata-fusion head, and a secondary MATLAB pipeline using SqueezeNet with classical machine learning baselines.
+This section describes the complete pipeline for time-of-day estimation, covering data collection, preprocessing, feature extraction, model architecture, training strategy, and evaluation protocol. The proposed framework is implemented in Python/PyTorch and utilizes a Swin Transformer (Swin-T) backbone paired with a metadata-fusion multilayer perceptron (MLP) head.
 
 \subsection{Dataset Construction and Preprocessing}
 
@@ -130,7 +130,7 @@ The dataset comprises outdoor sky photographs collected from the personal galler
 
 For each image, the following metadata fields are extracted from the EXIF header using a dual-library strategy (\texttt{exifread} as the primary parser, with Pillow as a fallback): (i) capture time, parsed from \texttt{DateTimeOriginal}, \texttt{DateTime}, or \texttt{DateTimeDigitized} tags and converted to minutes since midnight ($t \in [0, 1440)$); (ii) calendar date (month, day, year) used to compute the day of year ($d \in [1, 366]$); and (iii) GPS coordinates (latitude and longitude), normalized to $[-1, 1]$. Images lacking valid temporal EXIF data are excluded.
 
-All images are preprocessed through a resolution-standardization pipeline. Original images are downscaled to a maximum dimension of 512 pixels using Lanczos resampling while preserving the aspect ratio. Downscaled images are saved as JPEG files at 90\% quality with EXIF metadata preserved using the \texttt{piexif} library. At training time, images are further processed through a letterbox resize to a fixed $512 \times 512$ canvas with black padding and normalized using ImageNet statistics ($\mu = [0.485, 0.456, 0.406]$, $\sigma = [0.229, 0.224, 0.225]$), a standard preprocessing scheme for deep convolutional neural networks trained on large-scale datasets [7,8]. For the MATLAB pipeline, images are resized to $224 \times 224$ pixels.
+All images are preprocessed through a resolution-standardization pipeline. Original images are downscaled to a maximum dimension of 512 pixels using Lanczos resampling while preserving the aspect ratio. Downscaled images are saved as JPEG files at 90\% quality with EXIF metadata preserved using the \texttt{piexif} library. At training time, images are further processed through a letterbox resize to a fixed $512 \times 512$ canvas with black padding and normalized using ImageNet statistics ($\mu = [0.485, 0.456, 0.406]$, $\sigma = [0.229, 0.224, 0.225]$), a standard preprocessing scheme for deep convolutional neural networks trained on large-scale datasets [6,7].
 
 \subsection{Feature Engineering}
 
@@ -138,7 +138,7 @@ All images are preprocessed through a resolution-standardization pipeline. Origi
 
 A comprehensive set of 77 handcrafted image features is extracted from each photograph. These features are organized as follows: RGB channel statistics (mean and standard deviation per channel, 6 dims), HSV channel statistics (6 dims), CIELAB channel statistics normalized (6 dims), RGB histograms with 8 bins per channel (24 dims), HSV histograms with 8 bins per channel (24 dims), sky-region luminance computed as mean and standard deviation of the value channel in the top third of the frame (2 dims), vertical luminance gradient (1 dim), color temperature proxy as the R/B channel ratio (1 dim), global luminance with mean, standard deviation, and entropy (3 dims), saturation statistics (2 dims), Canny edge density (1 dim), and Laplacian variance as a cloud texture measure (1 dim).
 
-Color space conversions are performed using the \texttt{scikit-image} library. Edge detection is implemented using the Canny operator [9], which provides robust gradient-based edge localization under varying noise conditions.
+Color space conversions are performed using the \texttt{scikit-image} library. Edge detection is implemented using the Canny operator [8], which provides robust gradient-based edge localization under varying noise conditions.
 
 \subsubsection{Calendar Metadata Encoding}
 
@@ -159,45 +159,35 @@ Temporal metadata is encoded using cyclic trigonometric transformations to prese
 }
 \end{equation}
 
-This encoding ensures that December and January are treated as adjacent months and avoids discontinuities inherent in linear representations of periodic variables. Such sine--cosine encodings are a standard technique for representing cyclical features in machine learning. The complete metadata vector has dimensionality $d_{\text{meta}} = 6 + 77 = 83$ when image features are enabled.
+This encoding ensures that December and January are treated as adjacent months and avoids discontinuities inherent in linear representations of periodic variables. Such sine--cosine encodings are a standard technique for representing cyclical features in machine learning.
 
 \subsection{Target Encoding}
 
 The regression target is encoded as a unit-circle representation to respect the circular topology of the 24-hour clock:
 
 \begin{equation}
-\mathbf{y} = \left[\sin\!\left(\frac{2\pi t}{1440}\right),\;
-\cos\!\left(\frac{2\pi t}{1440}\right)\right]^T
+\mathbf{y = \left[\sin\!\left(\frac{2\pi t}{1440}\right),\;
+\cos\!\left(\frac{2\pi t}{1440}\right)\right]^T}
 \end{equation}
 
 where $t$ is the time in minutes since midnight. Decoding is performed via $\hat{t} = \frac{\text{atan2}(\hat{y}_{\sin}, \hat{y}_{\cos}) \bmod 2\pi}{2\pi} \times 1440$. This encoding eliminates discontinuities at midnight and ensures smooth gradients across the temporal boundary.
 
-\subsection{Python Implementation: ConvNeXt-Tiny and Swin-T with Metadata Fusion}
+\subsection{Proposed Architecture: Swin-T with Metadata Fusion}
 
-The primary Python/PyTorch pipeline evaluates two backbone architectures—ConvNeXt-Tiny and Swin-T—under an identical metadata-fusion head and training regime. Figure~\ref{fig:python_arch} illustrates the shared architecture.
+The proposed pipeline consists of a Swin Transformer (Swin-T) backbone [17] coupled with a metadata-fusion MLP head. Figure~\ref{fig:swint_arch} illustrates the model architecture.
 
 \begin{figure}[H]
   \centering
-  \includegraphics[width=0.8\linewidth]{python_arch.png}
-  \caption{Python pipeline: ConvNeXt-Tiny / Swin-T backbone with metadata fusion MLP.}
-  \label{fig:python_arch}
+  \includegraphics[width=0.8\linewidth]{swint_arch.png}
+  \caption{Proposed pipeline: Swin-T backbone with metadata fusion MLP.}
+  \label{fig:swint_arch}
 \end{figure}
 
 \subsubsection{Model Architecture}
 
-The ConvNeXt-Tiny backbone [4] produces a 768-dimensional feature vector after global average pooling. All stages up to \texttt{features.4} are frozen during training. The 768-dimensional image feature is concatenated with the 83-dimensional metadata vector to form an 851-dimensional input to a three-layer MLP with hidden dimension 384, GELU activations, layer normalization, and dropout (rate 0.156):
+The Swin Transformer Tiny (Swin-T) [17] is a hierarchical vision transformer that partitions feature maps into non-overlapping local windows and applies self-attention within each window. Shifted windows in alternating layers establish cross-window connections without the quadratic cost of global attention. Swin-T produces a 768-dimensional feature vector after its adaptive average pooling stage. Early stages (patch embedding and first two transformer stages) are frozen, while the final two stages are fine-tuned end-to-end together with the fusion head.
 
-\begin{equation}
-\begin{aligned}
-\mathbf{h}_1 &= \text{Drop}\!\left(\text{GELU}\!\left(
-    \text{LN}\!\left(\mathbf{W}_1 [\mathbf{f}_{\text{img}};
-    \mathbf{m}] + \mathbf{b}_1\right)\right)\right) \\
-\mathbf{h}_2 &= \text{Drop}\!\left(\text{GELU}\!\left(
-    \text{LN}\!\left(\mathbf{W}_2 \mathbf{h}_1 +
-    \mathbf{b}_2\right)\right)\right) \\
-\hat{\mathbf{y}} &= \mathbf{W}_3 \mathbf{h}_2 + \mathbf{b}_3
-\end{aligned}
-\end{equation}
+The 768-dimensional image feature ($\mathbf{f}_{\text{img}}$) is concatenated with the 83-dimensional metadata vector ($\mathbf{m}$) to form an 851-dimensional input to a three-layer MLP with hidden dimension 384, GELU activations, layer normalization, and dropout (rate 0.0293).
 
 \subsubsection{Loss Function and Evaluation Metric}
 
@@ -217,7 +207,7 @@ The primary evaluation metric is cyclic MAE in minutes:
 
 \subsubsection{Training and Optimization}
 
-A heavy augmentation regime is employed: random resized crop, horizontal flipping, RandAugment [10], random erasing [11], and Mixup [12]. The optimizer is 8-bit AdamW [5] combined with cosine annealing [14]. Hyperparameters are found via Optuna [6] Bayesian search over 15 trials. A weighted random sampler handles the non-uniform distribution of capture times [15].
+A heavy augmentation regime is employed: random resized crop, horizontal flipping, RandAugment [9], random erasing [10], and Mixup [11]. The optimizer is 8-bit AdamW [4] combined with Decoupled Weight Decay [12] and cosine annealing [13]. Hyperparameters are found via Optuna [5] Bayesian search over 15 trials. A weighted random sampler handles the non-uniform distribution of capture times [14].
 
 \subsubsection{Ensemble Inference}
 
@@ -230,80 +220,14 @@ Predictions from all five fold checkpoints are averaged in sine--cosine space an
     {\|\hat{\mathbf{y}}_{\text{ens}}\|_2}
 \end{equation}
 
-This ensemble strategy reduces prediction variance across random fold splits [16].
-
-\subsubsection{Swin-T Architecture}
-
-The Swin Transformer Tiny (Swin-T) [21] is a hierarchical vision transformer that partitions feature maps into non-overlapping local windows and applies self-attention within each window. Shifted windows in alternating layers establish cross-window connections without the quadratic cost of global attention. Swin-T produces a 768-dimensional feature vector after its adaptive average pooling stage, identical in dimensionality to ConvNeXt-Tiny, and is therefore fully compatible with the same metadata-fusion MLP head, loss function, and training pipeline. Early stages (patch embedding and first two transformer stages) are frozen, while the final two stages are fine-tuned end-to-end together with the fusion head.
-
-
-\subsection{MATLAB Implementation: SqueezeNet with Classical Baselines}
-
-The MATLAB pipeline provides a parallel, computationally lighter implementation using MATLAB's Deep Learning Toolbox. Figure~\ref{fig:matlab_arch} shows the multi-input architecture.
-
-\begin{figure}[H]
-  \centering
-  \includegraphics[width=0.8\linewidth]{matlab_arch.png}
-  \caption{MATLAB pipeline: multi-input SqueezeNet with a date encoding branch.}
-  \label{fig:matlab_arch}
-\end{figure}
-
-\subsubsection{Multi-Input CNN Architecture}
-
-The image branch uses SqueezeNet [17] with fire modules fire1--fire6 frozen and fire7--fire9 fine-tuned, producing a 512-dimensional feature vector. A parallel date branch encodes the four cyclic calendar features through two fully connected layers, yielding a 64-dimensional vector. Both branches are concatenated and passed through the following head:
-\begin{itemize}[noitemsep,topsep=2pt]
-  \item FC(256) $\to$ BN $\to$ ReLU $\to$ Dropout(0.4)
-  \item FC(64) $\to$ ReLU $\to$ FC(1) $\to$ RegressionLayer
-\end{itemize}
-The network is trained for 30 epochs using Adam with MSE loss on time in fractional hours.
-
-\subsubsection{Classical Baselines}
-
-Two classical baselines are trained on the 145-dimensional handcrafted feature vector plus the 4-dimensional date encoding. The \textit{Random Forest} uses 100 decision trees via \texttt{TreeBagger} [18]. The \textit{Support Vector Regressor} uses an RBF kernel via \texttt{fitrsvm} with automatic feature scaling [19]. Both baselines provide lower-bound reference points for the CNN.
-
-\subsection{Purely Statistical Ensemble Baseline }
-
-A third baseline is developed that operates entirely without a convolutional
-backbone, relying solely on handcrafted visual and calendar features. The
-182-dimensional feature vector is formed by concatenating the global
-photometric descriptors of Section~2.2.1 with two additional spatial
-feature groups: a $3\times3$ cell grid computed over the top half of the
-image, from which per-cell RGB and HSV channel means are extracted to
-capture lateral sky colour gradients (54 dims), and a brightest-pixel
-sun-position proxy encoded as normalised horizontal and vertical
-coordinates together with peak luminance value (3 dims). This vector is
-further augmented with the 4-dimensional cyclic calendar encoding of
-Section~2.2.2, yielding a 186-dimensional input per sample.
-
-\begin{figure}[H]
-  \centering
-  \includegraphics[width=0.8\linewidth]{m2_architecture.png}
-  \caption{Statistical pipeline: handcrafted feature extraction feeding three
-    parallel regressors (SVR, GBT, RF) whose sine--cosine outputs are
-    averaged before \texttt{atan2} decoding to produce the final time
-    estimate.}
-  \label{fig:m2_architecture}
-\end{figure}
-
-Features are standardised per fold using z-score normalisation derived
-exclusively from training data; zero-variance dimensions are clamped to
-unit scale to avoid division by zero. Three independent regressors are
-trained on the sine and cosine components of the cyclic time target. A
-Support Vector Regressor with a Gaussian (RBF) kernel and automatic kernel
-scale selection (\texttt{fitrsvm}) serves as a margin-based model suited to
-high-dimensional, non-linear feature spaces. A Gradient Boosted Tree
-ensemble of 500 LSBoost cycles, learning rate 0.05, and minimum leaf size 5
-(\texttt{fitrensemble}) provides a strong sequential learner. A 500-tree
-Random Forest with the same leaf constraint (\texttt{TreeBagger}) contributes
-a parallel bagging estimator whose decorrelated trees reduce prediction
-variance.
+This ensemble strategy reduces prediction variance across random fold splits [15].
 
 \subsection{Cross-Validation Protocol}
 
-Both pipelines use 5-fold cross-validation with stratified random shuffling and a fixed seed (42). This provides robust performance estimation and reduces variance from a single train-test split [20].
+The proposed model is evaluated using 5-fold cross-validation with stratified random shuffling and a fixed seed (42). This provides robust performance estimation and reduces variance from a single train-test split [16].
 
 % ========================================================================
-%  3. EXPERIMENTAL SETUP
+%  4. EXPERIMENTAL SETUP
 % ========================================================================
 \section{Experimental Setup}
 
@@ -325,8 +249,7 @@ Formats             & JPEG, HEIC, PNG, DNG \\
 Time span           & 03:00--23:25 \\
 Capture period      & 2023--2026 \\
 Cross-val folds     & 5 \\
-Python resolution   & $512\times512$ (letterboxed) \\
-MATLAB resolution   & $224\times224$ \\
+Image resolution    & $512\times512$ (letterboxed) \\
 \bottomrule
 \end{tabular}
 \end{table}
@@ -347,263 +270,115 @@ Figures~\ref{fig:dataset_temporal} and~\ref{fig:dataset_calendar} show the tempo
   \label{fig:dataset_calendar}
 \end{figure}
 
+\subsection{Model Hyperparameters}
 
-
-\subsection{Python Pipeline Parameters}
-
-The hyperparameters for both Python backbones were selected via independent Optuna Bayesian searches. Table~\ref{tab:python_params} lists the final configurations.
+The hyperparameters for the Swin-T model were selected via an Optuna Bayesian search. Table~\ref{tab:python_params} lists the final configuration.
 
 \begin{table}[H]
 \centering
 \footnotesize
-\caption{Python/PyTorch hyperparameters for both backbones.}
+\caption{Hyperparameters for the Swin-T framework.}
 \label{tab:python_params}
-\begin{tabular}{lcc}
-\toprule
-\textbf{Parameter} & \textbf{ConvNeXt-Tiny} & \textbf{Swin-T} \\
-\midrule
-Feature dim         & 768 & 768 \\
-Frozen stages       & \texttt{features.1--4} & Stages 1--2 \\
-MLP hidden dim      & 384 & 384 \\
-Dropout             & 0.1555 & 0.0293 \\
-Epochs              & 80 & 80 \\
-Batch size          & 8 & 8 \\
-Learning rate       & $4.42\times10^{-4}$ & $1.46\times10^{-4}$ \\
-LR minimum          & $1.83\times10^{-5}$ & $3.77\times10^{-6}$ \\
-Weight decay        & 0.0373 & 0.0043 \\
-Optimizer           & \multicolumn{2}{c}{8-bit AdamW} \\
-Schedule            & \multicolumn{2}{c}{Cosine annealing} \\
-Mixup $\alpha$      & 0.1776 & 0.1441 \\
-Label noise std     & 0.0437 & 0.0314 \\
-Augmentation        & Heavy & Moderate \\
-\bottomrule
-\end{tabular}
-\end{table}
-
-
-\subsection{MATLAB Pipeline Parameters}
-
-Table~\ref{tab:matlab_params} lists the MATLAB training configuration. The CNN is trained for 30 epochs; the Random Forest and SVR use default MATLAB settings with the parameters below.
-
-\begin{table}[H]
-\centering
-\footnotesize
-\caption{MATLAB pipeline parameters.}
-\label{tab:matlab_params}
 \begin{tabular}{lc}
 \toprule
 \textbf{Parameter} & \textbf{Value} \\
 \midrule
-Backbone            & SqueezeNet \\
-Frozen layers       & fire1--fire6 \\
-Epochs              & 30 \\
-Optimizer           & Adam \\
-Initial LR          & $10^{-3}$ \\
-Dropout             & 0.4 \\
-Date branch dim     & 64 \\
-Classical feat.\ dim & 145 \\
-RF trees            & 100 \\
-SVR kernel          & RBF \\
-\bottomrule
-\end{tabular}
-\end{table}
-
-\subsection{Method 2 Parameters}
-
-Table~\ref{tab:m2_params} lists the configuration for the purely
-statistical ensemble pipeline. All three regressors share the same
-186-dimensional input and are trained independently on the sine and cosine
-projections of the cyclic time target.
-
-\begin{table}[H]
-\centering
-\footnotesize
-\caption{Method 2 statistical ensemble parameters.}
-\label{tab:m2_params}
-\begin{tabular}{lc}
-\toprule
-\textbf{Parameter} & \textbf{Value} \\
-\midrule
-Classical feature dim.  & 182 \\
-Calendar encoding dim.  & 4   \\
-Total input dim.        & 186 \\
-Feature standardisation & Z-score (per fold) \\
-\midrule
-\multicolumn{2}{l}{\textit{SVR}} \\
-Kernel                  & Gaussian (RBF) \\
-Kernel scale            & Auto \\
-\midrule
-\multicolumn{2}{l}{\textit{Gradient Boosted Trees}} \\
-Method                  & LSBoost \\
-Boosting cycles         & 500 \\
-Learning rate           & 0.05 \\
-Min.\ leaf size         & 5 \\
-\midrule
-\multicolumn{2}{l}{\textit{Random Forest}} \\
-Number of trees         & 500 \\
-Min.\ leaf size         & 5 \\
-\midrule
-\multicolumn{2}{l}{\textit{Ensemble}} \\
-Combination             & Mean of sin/cos outputs \\
-Decoding                & \texttt{atan2} \\
+Feature dim         & 768 \\
+Frozen stages       & Stages 1--2 \\
+MLP hidden dim      & 384 \\
+Dropout             & 0.0293 \\
+Epochs              & 80 \\
+Batch size          & 8 \\
+Learning rate       & $1.46\times10^{-4}$ \\
+LR minimum          & $3.77\times10^{-6}$ \\
+Weight decay        & 0.0043 \\
+Optimizer           & 8-bit AdamW \\
+Schedule            & Cosine annealing \\
+Mixup $\alpha$      & 0.1441 \\
+Label noise std     & 0.0314 \\
+Augmentation        & Moderate \\
 \bottomrule
 \end{tabular}
 \end{table}
 
 % ========================================================================
-%  4. RESULTS
+%  5. PERFORMANCE EVALUATION
 % ========================================================================
-\section{Results}
+\section{Performance Evaluation}
 \label{sec:results}
 
-\subsection{Python Pipeline Results}
+\subsection{Swin-T Model Results}
 
-Table~\ref{tab:python_results} reports the per-fold validation MAE for both Python backbones. Swin-T achieves a mean of 52.45 min (best fold: 47.76 min at fold 4), narrowly outperforming ConvNeXt-Tiny at 54.61 min (best fold: 49.38 min at fold 1). Both models converge at late epochs consistent with cosine annealing behaviour.
+Table~\ref{tab:python_results} reports the per-fold validation MAE for the Swin-T model. The framework achieves a mean MAE of 52.45 minutes across the five folds (with the best fold achieving 47.76 minutes on fold 4). The training process converges consistently across folds without catastrophic divergence, indicating the stability of the optimized configuration.
 
 \begin{table}[H]
 \centering
 \footnotesize
-\caption{Python pipeline: per-fold validation MAE (minutes).}
+\caption{Validation MAE (minutes) per cross-validation fold.}
 \label{tab:python_results}
-\begin{tabular}{lccc}
+\begin{tabular}{lc}
 \toprule
-\textbf{Fold} & \textbf{ConvNeXt-Tiny} & \textbf{Swin-T} \\
+\textbf{Fold} & \textbf{Swin-T MAE} \\
 \midrule
-1 & 49.38 & 51.98 \\
-2 & 53.93 & 51.61 \\
-3 & 54.75 & 55.31 \\
-4 & 54.83 & 47.76 \\
-5 & 60.18 & 55.60 \\
+1 & 51.98 \\
+2 & 51.61 \\
+3 & 55.31 \\
+4 & 47.76 \\
+5 & 55.60 \\
 \midrule
-\textbf{Mean} & \textbf{54.61} & \textbf{52.45} \\
+\textbf{Mean} & \textbf{52.45} \\
 \bottomrule
 \end{tabular}
 \end{table}
 
-Both models converge consistently across folds. Neither model suffers catastrophic divergence on any fold.
-
-
-\subsection{MATLAB Pipeline Results}
-
-Table~\ref{tab:matlab_results} presents the test MAE per fold for the MATLAB SqueezeNet CNN, together with the final training and validation RMSE in fractional hours as recorded in the convergence logs.
-
-\begin{table}[H]
-\centering
-\footnotesize
-\caption{MATLAB SqueezeNet CNN: per-fold results.}
-\label{tab:matlab_results}
-\begin{tabular}{lccc}
-\toprule
-\textbf{Fold} & \textbf{Tr.RMSE (h)} & \textbf{Val.RMSE (h)} & \textbf{MAE (min)} \\
-\midrule
-1 & 0.338 & 0.560 & 87.59 \\
-2 & 0.292 & 0.562 & 82.86 \\
-3 & 0.271 & 0.545 & 82.11 \\
-4 & 0.290 & 0.549 & 74.22 \\
-5 & 0.266 & 0.560 & 79.02 \\
-\midrule
-\textbf{Mean} & & & \textbf{81.16} \\
-\bottomrule
-\end{tabular}
-\end{table}
-
-
-
-The MATLAB CNN converges from an initial RMSE of approximately 1.0--1.3 h to below 0.60 h within the first 10 epochs across all five folds.
-
-\subsection{Statistical Pipeline Results}
-
-The ensemble prediction averages the sine and cosine outputs of all three regressors (SVR, GBT, RF) before applying \texttt{atan2} decoding. This exploits the complementary inductive biases of margin-based, boosting, and bagging models without a separate meta-learner. The ensemble achieves 77.75 min mean MAE, slightly better than both individual SVR and RF components, confirming the benefit of output-space averaging. Full per-fold breakdowns and scatter plots are presented alongside the other three models in Section~\ref{sec:comparison}.
-
-
-\subsection{Comparative Analysis}
-\label{sec:comparison}
-
-Table~\ref{tab:comparison} summarises the four-way performance comparison. Swin-T achieves the lowest mean MAE at 52.45 min, edging out ConvNeXt-Tiny (54.61 min) by 2.16 min (4.0\% relative). Both Python models comfortably outperform the MATLAB baselines. The purely statistical ensemble (77.75 min) still marginally beats SqueezeNet CNN (81.16 min), reinforcing the finding that carefully engineered photometric features can rival a lightweight frozen backbone at low input resolution.
-
-\begin{table}[H]
-\centering
-\footnotesize
-\caption{Four-way cross-pipeline comparison (5-fold mean MAE).}
-\label{tab:comparison}
-\resizebox{\columnwidth}{!}{%
-\begin{tabular}{llcc}
-\toprule
-\textbf{Method} & \textbf{Backbone} & \textbf{Resolution} & \textbf{MAE (min)} \\
-\midrule
-SqueezeNet CNN (MATLAB)       & SqueezeNet    & $224\times224$ & 81.16 \\
-Statistical Ensemble (MATLAB) & None          & --             & 77.75 \\
-ConvNeXt-Tiny + MLP (Python)  & ConvNeXt-Tiny & $512\times512$ & 54.61 \\
-Swin-T + MLP (Python)         & Swin-T        & $512\times512$ & \textbf{52.45} \\
-\bottomrule
-\end{tabular}%
-}
-\end{table}
-
-Figures~\ref{fig:4m_bar} and~\ref{fig:4m_scatter} provide a visual breakdown of the four-way comparison. The grouped bar chart (Figure~\ref{fig:4m_bar}) shows per-fold MAE for all models, while the scatter plots (Figure~\ref{fig:4m_scatter}) characterize prediction quality across models.
+Figures~\ref{fig:swint_fold_mae} and~\ref{fig:swint_scatter} provide a visual breakdown of the Swin-T model's performance. The bar chart (Figure~\ref{fig:swint_fold_mae}) shows the validation MAE across individual folds, while the scatter plot (Figure~\ref{fig:swint_scatter}) details the predicted vs. actual capture times.
 
 \begin{figure}[H]
   \centering
-  \includegraphics[width=0.9\linewidth]{comparison_4models_barchart.png}
-  \caption{Grouped bar chart of per-fold validation MAE for all four models.}
-  \label{fig:4m_bar}
+  \includegraphics[width=0.9\linewidth]{swint_fold_mae.png}
+  \caption{Validation MAE of the proposed Swin-T model across the 5 cross-validation folds. The horizontal dashed line denotes the mean MAE of 52.45 minutes.}
+  \label{fig:swint_fold_mae}
 \end{figure}
 
 \begin{figure}[H]
   \centering
-  \includegraphics[width=0.9\linewidth]{comparison_4models_scatter.png}
-  \caption{Predicted vs.\ actual capture time ($2\times2$ grid). Each subplot corresponds to one model; the red dashed diagonal indicates perfect prediction and the green dotted lines mark the $\pm$1-hour margin.}
-  \label{fig:4m_scatter}
+  \includegraphics[width=0.9\linewidth]{swint_scatter.png}
+  \caption{Predicted vs. actual capture times for the Swin-T model. The red dashed diagonal line indicates perfect prediction, and the green dotted lines mark the $\pm$1-hour margins of error.}
+  \label{fig:swint_scatter}
 \end{figure}
 
 \subsection{Example Predictions}
 
-Figures~\ref{fig:example1} and~\ref{fig:example2} show representative sky images from the dataset together with their EXIF ground-truth times and model predictions extracted from the logs. Figure~\ref{fig:example1} shows an image (\texttt{IMG\_3477.jpg}) predicted by the ConvNeXt-Tiny model, while Figure~\ref{fig:example2} shows an image (\texttt{DSCF0269.jpg}) predicted by the Swin-T model. Both examples demonstrate the models' ability to accurately estimate the time of day within a small margin of error.
+Figure~\ref{fig:swint_examples} shows representative sky images from the dataset together with their EXIF ground-truth times and model predictions. These examples demonstrate the model's capability to accurately estimate the capture time under different natural lighting conditions within a small margin of error.
 
 \begin{figure}[H]
   \centering
-  \begin{minipage}[b]{0.48\linewidth}
-    \centering
-    \includegraphics[width=\linewidth]{predict1.jpg}
-    \caption{Example prediction 1 (ConvNeXt-Tiny): Ground truth 20:02 (1202 min) vs.\ Predicted 19:44 (1184 min).}
-    \label{fig:example1}
-  \end{minipage}
-  \hfill
-  \begin{minipage}[b]{0.48\linewidth}
-    \centering
-    \includegraphics[width=\linewidth, angle=90]{predict2.jpg}
-    \caption{Example prediction 2 (Swin-T): Ground truth 14:09 (849 min) vs.\ Predicted 14:13 (853 min).}
-    \label{fig:example2}
-  \end{minipage}
+  \includegraphics[width=0.9\linewidth]{swint_examples.png}
+  \caption{Representative predictions from the Swin-T model under different lighting conditions compared against their EXIF ground-truth times.}
+  \label{fig:swint_examples}
 \end{figure}
-
-
 
 % ========================================================================
 %  6. DISCUSSION
 % ========================================================================
 \section{Discussion}
 
-The results confirm that higher-resolution inputs and larger pretrained backbones are the dominant factors in performance. Both Python models, operating at $512\times512$ with Optuna-tuned training, achieve markedly lower MAE than the MATLAB counterparts running at $224\times224$. The gap between Swin-T and ConvNeXt-Tiny (2.16 min, 4.0\% relative) is modest, suggesting that the two architectures are broadly comparable for this task; Swin-T's window-based self-attention may offer a slight advantage on structured sky gradients, while ConvNeXt's depthwise convolutions provide more uniform stability across folds.
+The experimental results confirm that combining deep visual features with temporal metadata enables highly accurate time-of-day regression from single sky photographs. In particular, the Swin Transformer backbone's window-based self-attention mechanism is well-suited for modeling the continuous sky gradients and color transitions that occur across different times of the day. Fine-tuning the deeper transformer stages while keeping early layers frozen allows the model to leverage robust pre-trained representations while adapting to the specific photometric distributions of our dataset.
 
-The finding that the purely statistical ensemble (77.75 min) outperforms SqueezeNet CNN (81.16 min) is noteworthy. It implies that, at low resolution and with limited fine-tuning, a carefully engineered 186-dimensional photometric feature vector can match or exceed a lightweight frozen backbone. This is consistent with the literature on classical feature engineering for sky analysis~[1], and suggests that CNN-based approaches require sufficient resolution and end-to-end tuning to fully realize their advantage.
+Compared with prior work by Lalonde et al. [1] and Hold-Geoffroy et al. [2], which often rely on complex parametric sky models, multi-segment image cues, or specialized HDR imaging hardware, our proposed framework achieves competitive time-of-day estimation using standard consumer smartphone photographs and their standard EXIF metadata. The integration of cyclic sine--cosine encoding for both the 24-hour regression target and the calendar features is central to this success. By mapping periodic variables onto a unit circle, we prevent optimization discontinuities at midnight and year boundaries, enabling smooth gradient updates during training.
 
-Compared with the prior work of Lalonde et al.~[1] and Hold-Geoffroy et al.~[2], which rely on parametric sky models or specialized HDR capture, our framework achieves competitive time localization using only consumer smartphone images and their existing EXIF metadata. The cyclic sine--cosine encoding---applied to both the regression target and the calendar features---proved essential for smooth optimization across the midnight and year boundaries.
-
-This study has several limitations. The dataset is geographically constrained to a single location (İzmir, Turkey), limiting generalization across different latitudes, climates, and seasonal light patterns. The time coverage is also uneven: early morning and late evening hours are underrepresented, which may inflate error for those periods despite weighted sampling. Additionally, the MATLAB pipeline was trained at a lower resolution and with fewer epochs than the Python models, so the comparison is not fully controlled for compute budget.
+This study has several limitations. First, the dataset is geographically constrained to a single location (İzmir, Turkey), which may limit generalization across different latitudes, climates, and seasonal light patterns. Second, the temporal coverage is non-uniform: early morning and late evening hours are underrepresented in personal photo libraries. While a weighted random sampler was employed to mitigate this issue, prediction errors may still be higher during these underrepresented periods.
 
 % ========================================================================
 %  7. CONCLUSIONS
 % ========================================================================
 \section{Conclusions}
 
-This paper presented a four-way comparative framework for estimating the time of day from single sky photographs by fusing deep visual features with handcrafted photometric descriptors and cyclically encoded calendar metadata. The approach addresses the core limitations of brightness-based heuristics by incorporating multi-modal cues---color temperature, sky gradients, edge density, and seasonal solar geometry---into a unified regression pipeline.
+This paper presented a deep learning framework for estimating the time of day from single sky photographs by fusing deep visual features with handcrafted photometric descriptors and cyclically encoded calendar metadata. The proposed architecture addresses the limitations of simplistic brightness-based heuristics by incorporating multi-modal cues---including color temperature, vertical sky gradients, edge density, and seasonal solar geometry---into a unified regression pipeline based on the Swin Transformer (Swin-T).
 
-The cyclic sine--cosine encoding applied to both the time target and date metadata was central to the design. By representing the 24-hour clock and annual calendar as unit circles, the model avoids the artificial discontinuities at midnight and year boundaries that plague linear time representations. The combination of 77 handcrafted features with a high-capacity backbone consistently outperformed either component used in isolation.
+The cyclic sine--cosine encoding applied to both the temporal regression target and the calendar metadata is central to the design, ensuring smooth gradient propagation across midnight and year boundaries. The fusion of pre-trained visual representations with 77 handcrafted photometric features allows the model to achieve a mean cyclic MAE of 52.45 minutes under 5-fold cross-validation.
 
-Among the four evaluated configurations, Swin-T achieves the best overall performance at 52.45 min mean MAE, slightly ahead of ConvNeXt-Tiny (54.61 min). Both transformers operate at $512\times512$ resolution with full Optuna-tuned training pipelines, while the MATLAB baselines at $224\times224$ provide useful reference points. The purely statistical ensemble (77.75 min) still outperforms the SqueezeNet CNN (81.16 min), underscoring that a large, well-engineered feature vector can rival a lightweight frozen backbone at low resolution.
-
-Future work could explore fine-tuning deeper transformer stages, integrating GPS-aware solar angle priors as auxiliary targets, expanding the dataset to cover diverse geographic regions and climatic zones, and packaging the best-performing model as a mobile application for real-time image metadata correction.
+Future work could explore integrating GPS-aware solar angle calculations as auxiliary training targets, expanding the dataset to cover diverse geographic latitudes and climates, and packaging the model for real-time metadata correction on mobile devices.
 
 % ========================================================================
 %  REFERENCES
@@ -617,8 +392,6 @@ Future work could explore fine-tuning deeper transformer stages, integrating GPS
 \item Hold-Geoffroy, Y., Sunkavalli, K., Hadap, S., Gambaretto, E., Lalonde, J.-F. 2017. Deep Outdoor Illumination Estimation. \textit{Proc.\ IEEE CVPR}, pp.~7312--7321. DOI: 10.1109/CVPR.2017.774
 
 \item Wu, L., Ganesh, A., Shi, B., Matsushita, Y., Wang, Y., Ma, Y. 2010. Robust Photometric Stereo via Low-Rank Matrix Completion and Recovery. \textit{Proc.\ 10th Asian Conference on Computer Vision (ACCV)}, pp.~703--717. DOI: 10.1007/978-3-642-19318-7\_55
-
-\item Liu, Z., Mao, H., Wu, C.-Y., Feichtenhofer, C., Darrell, T., Xie, S. 2022. A ConvNet for the 2020s. \textit{Proc.\ IEEE/CVF CVPR}, pp.~11976--11986. DOI: 10.1109/CVPR52688.2022.01167
 
 \item Dettmers, T., Lewis, M., Belkada, Y., Zettlemoyer, L. 2022. 8-bit Optimizers via Block-wise Quantization. \textit{Proc.\ ICLR}. arXiv:2110.02861
 
@@ -643,12 +416,6 @@ Future work could explore fine-tuning deeper transformer stages, integrating GPS
 \item Buda, M., Maki, A., Mazurowski, M.A. 2018. A Systematic Study of the Class Imbalance Problem in Convolutional Neural Networks. \textit{Neural Networks}, 106, pp.~249--259. DOI: 10.1016/j.neunet.2018.07.011
 
 \item Zhou, Z.-H. 2012. Ensemble Methods: Foundations and Algorithms. CRC Press.
-
-\item Iandola, F.N., Han, S., Moskewicz, M.W., Ashraf, K., Dally, W.J., Keutzer, K. 2016. SqueezeNet: AlexNet-level accuracy with 50x fewer parameters and less than 0.5MB model size. arXiv:1602.07360.
-
-\item Breiman, L. 2001. Random Forests. \textit{Machine Learning}, 45(1), pp.~5--32. DOI: 10.1023/A:1010933404324
-
-\item Smola, A.J., Scholkopf, B. 2004. A Tutorial on Support Vector Regression. \textit{Statistics and Computing}, 14(3), pp.~199--222. DOI: 10.1023/B:STCO.0000035301.49549.88
 
 \item Arlot, S., Celisse, A. 2010. A Survey of Cross-Validation Procedures for Model Selection. \textit{Statistics Surveys}, 4, pp.~40--79. DOI: 10.1214/09-SS054
 
