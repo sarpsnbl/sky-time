@@ -14,8 +14,9 @@ def get_top_hardest_images(log_filepath, source_folder, dest_folder, x=10):
                 pred_min = data['pred_min']
                 actual_min = data['actual_min']
                 
-                # Calculate the absolute error
-                error = abs(pred_min - actual_min)
+                # Calculate the cyclic absolute error on the 24-hour clock
+                diff = abs(pred_min - actual_min)
+                error = min(diff, 1440.0 - diff)
                 
                 # Extract just the filename (e.g., 'DSCF2073.jpg' from 'dataset_512/DSCF2073.jpg')
                 filename = os.path.basename(data['path'])

@@ -23,6 +23,8 @@ class Config:
     PRETRAINED   = True
     FREEZE_UNTIL = "features.4"
     HIDDEN_DIM   = 384
+    USE_FILM     = True    # Feature-wise Linear Modulation for metadata conditioning
+    USE_ANGULAR_LOSS = True # Von Mises / Angular Cosine Loss for cyclic regression
     
     # --- Best Optuna Parameters ---
     PARAMS_CONVNEXT_TINY = {
@@ -62,7 +64,7 @@ class Config:
     # --- Augmentation ---------------------------------------------------------
 
     # --- Test-Time Augmentation -----------------------------------------------
-    TTA_ENABLED = False
+    TTA_ENABLED = True
     TTA_FLIPS   = 2
 
     # --- I/O & Execution ------------------------------------------------------

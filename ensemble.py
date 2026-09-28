@@ -33,6 +33,7 @@ from config import Config as cfg
 from main import (
     TimeOfDayModel,
     CyclicMSELoss,
+    AngularCosineLoss,
     cyclic_mae_minutes,
     load_checkpoint,
 )
@@ -120,7 +121,7 @@ def run_eval(args, device):
         val_ratio=cfg.VAL_RATIO,
     )
 
-    criterion = CyclicMSELoss()
+    criterion = AngularCosineLoss() if getattr(cfg, "USE_ANGULAR_LOSS", True) else CyclicMSELoss()
     total_loss = total_mae = 0.0
 
     for images, metadata, targets in val_loader:

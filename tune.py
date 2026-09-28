@@ -30,6 +30,7 @@ from TimeOfDayDataLoader import (
 )
 from main import (
     CyclicMSELoss,
+    AngularCosineLoss,
     train_one_epoch,
     evaluate,
     save_checkpoint,
@@ -158,7 +159,7 @@ def objective(
             log.info(f"  ✗ Trial {trial.number}: model build failed ({exc}), pruning.")
             raise optuna.exceptions.TrialPruned()
 
-        criterion = CyclicMSELoss()
+        criterion = AngularCosineLoss() if getattr(cfg, "USE_ANGULAR_LOSS", True) else CyclicMSELoss()
         optimizer = get_optimizer(model, params["lr"], params["weight_decay"])
         scheduler = get_scheduler(optimizer, epochs=cfg.OPTUNA_EPOCHS, eta_min=params["eta_min"])
         scaler = torch.amp.GradScaler('cuda') if (cfg.USE_AMP and device.type == "cuda") else None
@@ -316,7 +317,7 @@ def _retrain_best(params: dict, device: torch.device) -> None:
     )
 
     model = build_and_compile_model(device, params)
-    criterion = CyclicMSELoss()
+    criterion = AngularCosineLoss() if getattr(cfg, "USE_ANGULAR_LOSS", True) else CyclicMSELoss()
     optimizer = get_optimizer(model, params["lr"], params["weight_decay"])
     scheduler = get_scheduler(optimizer, epochs=cfg.EPOCHS, eta_min=params["eta_min"])
     scaler = torch.amp.GradScaler('cuda') if (cfg.USE_AMP and device.type == "cuda") else None

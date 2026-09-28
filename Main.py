@@ -106,11 +106,76 @@ def get_optimizer(model: nn.Module, lr: float, weight_decay: float) -> torch.opt
 # ---------------------------------------------------------------------------
 # Model
 # ---------------------------------------------------------------------------
+class FiLMFusionHead(nn.Module):
+    """
+    Feature-wise Linear Modulation (FiLM) Fusion Head:
+    Modulates visual representation via affine scaling gamma(m) and shift beta(m)
+    conditioned on rich multi-tier physical and astronomical metadata.
+    """
+    def __init__(
+        self,
+        image_feat_dim: int   = 768,
+        metadata_dim:   int   = 108,
+        hidden_dim:     int   = 256,
+        dropout:        float = 0.3,
+    ):
+        super().__init__()
+        # FiLM generator: predicts per-feature gamma and beta
+        self.film_generator = nn.Sequential(
+            nn.Linear(metadata_dim, hidden_dim),
+            nn.LayerNorm(hidden_dim),
+            nn.GELU(),
+            nn.Dropout(dropout),
+            nn.Linear(hidden_dim, image_feat_dim * 2),
+        )
+        
+        # Direct metadata embedding path
+        self.meta_proj = nn.Sequential(
+            nn.Linear(metadata_dim, hidden_dim // 2),
+            nn.LayerNorm(hidden_dim // 2),
+            nn.GELU(),
+        )
+        
+        # Visual feature normalization before modulation
+        self.img_norm = nn.LayerNorm(image_feat_dim)
+        
+        # Final prediction head
+        combined_dim = image_feat_dim + (hidden_dim // 2)
+        self.head = nn.Sequential(
+            nn.Linear(combined_dim, hidden_dim),
+            nn.LayerNorm(hidden_dim),
+            nn.GELU(),
+            nn.Dropout(dropout),
+            nn.Linear(hidden_dim, hidden_dim // 2),
+            nn.LayerNorm(hidden_dim // 2),
+            nn.GELU(),
+            nn.Dropout(dropout),
+            nn.Linear(hidden_dim // 2, 2),
+        )
+
+    def forward(self, image_feats: torch.Tensor, metadata: torch.Tensor) -> torch.Tensor:
+        # Generate FiLM parameters
+        film_params = self.film_generator(metadata)
+        gamma, beta = torch.chunk(film_params, 2, dim=-1)
+        # Bounded scale around 1.0 for training stability
+        gamma = 1.0 + torch.tanh(gamma)
+        
+        # Modulate visual features
+        norm_img = self.img_norm(image_feats)
+        modulated = gamma * norm_img + beta
+        
+        # Project metadata directly
+        meta_emb = self.meta_proj(metadata)
+        
+        # Concatenate modulated vision features and metadata embeddings
+        combined = torch.cat([modulated, meta_emb], dim=-1)
+        return self.head(combined)
+
 class MetadataFusionMLP(nn.Module):
     def __init__(
         self,
         image_feat_dim: int   = 768,
-        metadata_dim:   int   = 6,
+        metadata_dim:   int   = 108,
         hidden_dim:     int   = 256,
         dropout:        float = 0.3,
     ):
@@ -141,6 +206,7 @@ class TimeOfDayModel(nn.Module):
         hidden_dim:   int   = 256,
         dropout:      float = 0.3,
         metadata_dim: Optional[int] = None,
+        use_film:     Optional[bool] = None,
     ):
         super().__init__()
         if not _TORCHVISION_AVAILABLE:
@@ -149,15 +215,26 @@ class TimeOfDayModel(nn.Module):
         if metadata_dim is None:
             metadata_dim = get_metadata_dim()
 
+        if use_film is None:
+            use_film = getattr(cfg, "USE_FILM", True)
+
         self._build_encoder(pretrained)
         self._freeze_layers(freeze_until)
 
-        self.fusion = MetadataFusionMLP(
-            image_feat_dim=self._FEAT_DIM,
-            metadata_dim=metadata_dim,
-            hidden_dim=hidden_dim,
-            dropout=dropout,
-        )
+        if use_film:
+            self.fusion = FiLMFusionHead(
+                image_feat_dim=self._FEAT_DIM,
+                metadata_dim=metadata_dim,
+                hidden_dim=hidden_dim,
+                dropout=dropout,
+            )
+        else:
+            self.fusion = MetadataFusionMLP(
+                image_feat_dim=self._FEAT_DIM,
+                metadata_dim=metadata_dim,
+                hidden_dim=hidden_dim,
+                dropout=dropout,
+            )
 
     def _build_encoder(self, pretrained: bool) -> None:
         name = cfg.MODEL.lower()
@@ -187,7 +264,9 @@ class TimeOfDayModel(nn.Module):
 
     def forward(self, images: torch.Tensor, metadata: torch.Tensor) -> torch.Tensor:
         x = self.encoder(images).flatten(start_dim=1)
-        return self.fusion(x, metadata)
+        raw_out = self.fusion(x, metadata)
+        # Unit-circle projection ensures stable S1 spherical output
+        return nn.functional.normalize(raw_out, p=2, dim=-1)
 
     def count_trainable_params(self) -> int:
         return sum(p.numel() for p in self.parameters() if p.requires_grad)
@@ -195,6 +274,23 @@ class TimeOfDayModel(nn.Module):
 # ---------------------------------------------------------------------------
 # Loss & metrics
 # ---------------------------------------------------------------------------
+class AngularCosineLoss(nn.Module):
+    """
+    Cyclic Angular Cosine Loss on the unit circle S^1:
+        L(y_pred, y_true) = 1 - <y_pred_norm, y_true_norm> = 1 - cos(theta_pred - theta_true)
+    Smoothly and continuously penalizes circular deviation across the 24-hour / midnight boundary.
+    """
+    def __init__(self, eps: float = 1e-8):
+        super().__init__()
+        self.eps = eps
+
+    def forward(self, pred: torch.Tensor, target: torch.Tensor) -> torch.Tensor:
+        pred_norm   = nn.functional.normalize(pred, p=2, dim=-1, eps=self.eps)
+        target_norm = nn.functional.normalize(target, p=2, dim=-1, eps=self.eps)
+        cosine_sim  = (pred_norm * target_norm).sum(dim=-1)
+        loss = 1.0 - cosine_sim
+        return loss.mean()
+
 class CyclicMSELoss(nn.Module):
     def __init__(self):
         super().__init__()
@@ -222,16 +318,27 @@ def mixup_batch(
         return images, metadata, targets
     lam = float(torch.distributions.Beta(alpha, alpha).sample())
     idx = torch.randperm(images.size(0), device=images.device)
+    mixed_targets = lam * targets + (1 - lam) * targets[idx]
+    # Re-normalize onto unit circle S^1 to preserve cyclic coordinate manifold
+    mixed_targets = nn.functional.normalize(mixed_targets, p=2, dim=-1)
     return (
         lam * images   + (1 - lam) * images[idx],
         lam * metadata + (1 - lam) * metadata[idx],
-        lam * targets  + (1 - lam) * targets[idx],
+        mixed_targets,
     )
 
 def add_label_noise(targets: torch.Tensor, std: float = 0.02) -> torch.Tensor:
+    """
+    Applies circular angular perturbation (von Mises / wrapped normal)
+    directly to angle theta = atan2(sin, cos) in radians, preserving ||y||_2 = 1.
+    """
     if std <= 0.0:
         return targets
-    return targets + torch.randn_like(targets) * std
+    theta = torch.atan2(targets[:, 0], targets[:, 1])
+    noise_rad = torch.randn_like(theta) * (std * 2.0 * torch.pi)
+    noisy_theta = theta + noise_rad
+    return torch.stack([torch.sin(noisy_theta), torch.cos(noisy_theta)], dim=-1)
+
 
 # ---------------------------------------------------------------------------
 # Training & evaluation
@@ -457,6 +564,7 @@ def build_and_compile_model(device: torch.device, params: dict = None) -> TimeOf
         freeze_until=params.get("freeze_until", cfg.FREEZE_UNTIL) if params else cfg.FREEZE_UNTIL,
         hidden_dim=params.get("hidden_dim", cfg.HIDDEN_DIM) if params else cfg.HIDDEN_DIM,
         dropout=params.get("dropout", 0.0) if params else 0.0,
+        use_film=getattr(cfg, "USE_FILM", True),
     ).to(device)
     
     if cfg.USE_CHANNELS_LAST:
@@ -495,7 +603,7 @@ def train_fold(fold: int, device: torch.device) -> float:
     model = build_and_compile_model(device, params)
     log.info(f"Fold {fold} | trainable params: {model.count_trainable_params():,}")
 
-    criterion = CyclicMSELoss()
+    criterion = AngularCosineLoss() if getattr(cfg, "USE_ANGULAR_LOSS", True) else CyclicMSELoss()
     optimizer = get_optimizer(model, params["lr"], params["weight_decay"])
     scheduler = get_scheduler(optimizer, epochs=cfg.EPOCHS, eta_min=params["eta_min"])
     scaler = torch.amp.GradScaler('cuda') if (cfg.USE_AMP and device.type == "cuda") else None
@@ -609,7 +717,7 @@ def main() -> None:
         )
         model = build_and_compile_model(device)
         load_checkpoint(cfg.CHECKPOINT, model, device=device)
-        criterion = CyclicMSELoss()
+        criterion = AngularCosineLoss() if getattr(cfg, "USE_ANGULAR_LOSS", True) else CyclicMSELoss()
         val_loss, val_mae = evaluate(
             model, val_loader, criterion, device,
             use_tta=cfg.TTA_ENABLED, tta_passes=cfg.TTA_FLIPS,
