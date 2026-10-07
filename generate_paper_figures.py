@@ -44,7 +44,7 @@ def load_python_data(file_path):
 def generate_swint_arch():
     """Generates swint_arch.png (Figure 1 in the paper)."""
     print("Generating Figure 1: swint_arch.png...")
-    fig, ax = plt.subplots(figsize=(8, 10))
+    fig, ax = plt.subplots(figsize=(8.5, 11))
     ax.set_xlim(0, 10)
     ax.set_ylim(-1, 12)
     ax.axis('off')
@@ -53,22 +53,23 @@ def generate_swint_arch():
 
     nodes = {
         'img': (2.5, 11, 'Sky Image\n(512×512×3)', '#ffffe0'),
-        'meta': (7.5, 11, 'Calendar Metadata\n(83 dims)', '#ffffe0'),
+        'meta': (7.5, 11, 'Multi-Tier Metadata\n(108 dims)', '#ffffe0'),
         'swin_t': (2.5, 9, 'Swin-T\nBackbone', '#f08080'),
+        'film_gen': (7.5, 9, 'FiLM Generator\nLinear → LN → GELU', '#ffe4b5'),
         'pool': (2.5, 7, 'Global Average Pooling\n(768 dims)', '#add8e6'),
-        'concat': (5, 5, 'Concatenate\n(851 dims)', '#d3d3d3'),
+        'film_mod': (5, 5, 'FiLM Modulation Layer\n(1 + γ) ⊙ x + β', '#e6e6fa'),
         'mlp1': (5, 3.2, 'FC(384) → LN → GELU → Dropout', '#90ee90'),
-        'mlp2': (5, 1.6, 'FC(384) → LN → GELU → Dropout', '#90ee90'),
-        'out': (5, 0, 'FC(2) → Regression Layer\n[sin, cos]', '#ffffe0')
+        'mlp2': (5, 1.6, 'FC(192) → LN → GELU → Dropout', '#90ee90'),
+        'out': (5, 0, 'S¹ Unit-Circle Normalization\n[sin(θ), cos(θ)]', '#ffffe0')
     }
 
     for name, (x, y, text, color) in nodes.items():
-        node_w = 5.5 if name in ['mlp1', 'mlp2'] else w
+        node_w = 6.2 if name in ['film_mod', 'mlp1', 'mlp2', 'out'] else (4.2 if name == 'film_gen' else w)
         box = patches.FancyBboxPatch((x - node_w/2, y - h/2), node_w, h,
                                      boxstyle="round,pad=0.1,rounding_size=0.2",
                                      edgecolor="black", facecolor=color, zorder=2)
         ax.add_patch(box)
-        ax.text(x, y, text, ha='center', va='center', fontsize=11, zorder=3, fontweight='bold')
+        ax.text(x, y, text, ha='center', va='center', fontsize=10, zorder=3, fontweight='bold')
 
     def draw_arrow(n1, n2):
         x1, y1 = nodes[n1][0], nodes[n1][1] - h/2 - 0.1
@@ -78,9 +79,10 @@ def generate_swint_arch():
 
     draw_arrow('img', 'swin_t')
     draw_arrow('swin_t', 'pool')
-    draw_arrow('pool', 'concat')
-    draw_arrow('meta', 'concat')
-    draw_arrow('concat', 'mlp1')
+    draw_arrow('meta', 'film_gen')
+    draw_arrow('pool', 'film_mod')
+    draw_arrow('film_gen', 'film_mod')
+    draw_arrow('film_mod', 'mlp1')
     draw_arrow('mlp1', 'mlp2')
     draw_arrow('mlp2', 'out')
 
@@ -100,8 +102,8 @@ def generate_swint_fold_mae():
     """Generates swint_fold_mae.png (Figure 4 in the paper)."""
     print("Generating Figure 4: swint_fold_mae.png...")
     folds = ['Fold 1', 'Fold 2', 'Fold 3', 'Fold 4', 'Fold 5']
-    maes = [51.98, 51.61, 55.31, 47.76, 55.60]
-    mean_mae = 52.45
+    maes = [36.52, 34.38, 37.17, 36.46, 41.51]
+    mean_mae = 37.21
 
     fig, ax = plt.subplots(figsize=(8, 5.5))
     bars = ax.bar(folds, maes, color=PALETTE["accent"], alpha=0.85, width=0.45, edgecolor='black', linewidth=1)
@@ -118,7 +120,7 @@ def generate_swint_fold_mae():
     
     ax.set_ylabel('Validation MAE (minutes)', fontsize=11, fontweight='bold')
     ax.set_title('Swin-T Validation MAE by Fold', fontsize=13, fontweight='bold', pad=15)
-    ax.set_ylim(0, 65)
+    ax.set_ylim(0, 50)
     ax.grid(axis='y', linestyle='--', alpha=0.5)
     ax.set_axisbelow(True)
     ax.legend(loc='upper right', fontsize=10)

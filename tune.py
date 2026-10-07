@@ -14,6 +14,8 @@ from typing import Optional
 
 import numpy as np
 import torch
+if torch.cuda.is_available():
+    torch.set_float32_matmul_precision("high")
 import torch._dynamo
 torch._dynamo.config.cache_size_limit = 32
 from tqdm import tqdm
@@ -28,7 +30,7 @@ from TimeOfDayDataLoader import (
     create_dataloaders,
     get_transforms,
 )
-from main import (
+from Main import (
     CyclicMSELoss,
     AngularCosineLoss,
     train_one_epoch,
@@ -142,6 +144,7 @@ def objective(
     log.info("\n" + "\n".join(lines))
 
     fold_maes = []
+    train_dataset.transform = get_transforms(augment=True, magnitude=params["aug_magnitude"])
 
     for fold_idx in range(cfg.OPTUNA_CV_FOLDS):
         log.info(f"  Fold {fold_idx}  |  building dataloaders …")
@@ -281,7 +284,7 @@ def run_study(device: torch.device, model_list: list) -> None:
     log.info(f"Optimizers    : Compile={cfg.USE_COMPILE}, 8-bit={cfg.USE_8BIT_OPTIM}, NHWC={cfg.USE_CHANNELS_LAST}")
     log.info("=" * 60)
 
-    train_dataset = TimeOfDayDataset(image_dir=cfg.IMAGE_DIR, transform=get_transforms(augment=True, magnitude=cfg.AUG_MAGNITUDE))
+    train_dataset = TimeOfDayDataset(image_dir=cfg.IMAGE_DIR, transform=get_transforms(augment=True, magnitude=getattr(cfg, "AUG_MAGNITUDE", "moderate")))
     val_dataset   = TimeOfDayDataset(image_dir=cfg.IMAGE_DIR, transform=get_transforms(augment=False))
 
     if remaining > 0:
@@ -300,6 +303,9 @@ def run_study(device: torch.device, model_list: list) -> None:
     log.info("=" * 60)
     log.info(f"Best trial    : #{best.number}")
     log.info(f"Val MAE       : {best.value:.2f} min")
+    log.info("Best Parameters:")
+    for k, v in best.params.items():
+        log.info(f"    {k}: {v}")
     log.info("=" * 60)
     _retrain_best(best.params, device)
 
@@ -331,7 +337,8 @@ def _retrain_best(params: dict, device: torch.device) -> None:
             pbar.set_description(f"{desc} [train]")
             _, train_mae = train_one_epoch(
                 model, train_loader, optimizer, criterion, device, scaler,
-                mixup_alpha=params.get("mixup_alpha", cfg.MIXUP_ALPHA), label_noise=params.get("label_noise", cfg.LABEL_NOISE_STD), 
+                mixup_alpha=params.get("mixup_alpha", getattr(cfg, "MIXUP_ALPHA", 0.15)),
+                label_noise=params.get("label_noise", getattr(cfg, "LABEL_NOISE_STD", 0.02)), 
                 pbar=pbar, accum_steps=params.get("accum_steps", cfg.ACCUM_STEPS)
             )
             pbar.set_description(f"{desc} [val]  ")

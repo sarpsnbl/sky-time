@@ -21,7 +21,7 @@ class Config:
     # --- Model ----------------------------------------------------------------
     MODEL        = "swin_t"
     PRETRAINED   = True
-    FREEZE_UNTIL = "features.4"
+    FREEZE_UNTIL = "features.6"
     HIDDEN_DIM   = 384
     USE_FILM     = True    # Feature-wise Linear Modulation for metadata conditioning
     USE_ANGULAR_LOSS = True # Von Mises / Angular Cosine Loss for cyclic regression
@@ -35,16 +35,18 @@ class Config:
         "aug_magnitude": "heavy",
         "mixup_alpha": 0.1776,
         "label_noise": 0.0437,
+        "freeze_until": "features.4",
     }
     
     PARAMS_SWIN_T = {
-        "dropout": 0.029274015233555814,
-        "lr": 1.46e-04,
-        "eta_min": 3.77e-06,
-        "weight_decay": 4.32e-03,
-        "aug_magnitude": "moderate",
-        "mixup_alpha": 0.14411297399224515,
-        "label_noise": 0.03142830830721105,
+        "dropout": 0.08979877262955549,
+        "lr": 0.00023688639503640813,
+        "eta_min": 5.395030966670232e-06,
+        "weight_decay": 0.04123206532618727,
+        "aug_magnitude": "heavy",
+        "mixup_alpha": 0.0733991780504304,
+        "label_noise": 0.014680559213273096,
+        "freeze_until": "features.6",
     }
 
     # --- Training & Hardware Optimizations ------------------------------------
@@ -61,7 +63,11 @@ class Config:
     NUM_WORKERS      = 8
     WEIGHTED_SAMPLER = True
 
-    # --- Augmentation ---------------------------------------------------------
+    # --- Augmentation & Regularization Defaults -------------------------------
+    DROPOUT          = 0.1
+    AUG_MAGNITUDE    = "moderate"
+    MIXUP_ALPHA      = 0.15
+    LABEL_NOISE_STD  = 0.02
 
     # --- Test-Time Augmentation -----------------------------------------------
     TTA_ENABLED = True

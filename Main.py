@@ -14,6 +14,8 @@ from typing import List, Optional, Tuple
 import multiprocessing as mp
 
 import torch
+if torch.cuda.is_available():
+    torch.set_float32_matmul_precision("high")
 import torch._dynamo
 torch._dynamo.config.cache_size_limit = 32
 import torch.nn as nn

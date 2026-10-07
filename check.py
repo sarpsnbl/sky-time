@@ -1,12 +1,12 @@
 import torch
 from config import Config as cfg
-from main import TimeOfDayModel, CyclicMSELoss, cyclic_mae_minutes, load_checkpoint
+from Main import TimeOfDayModel, CyclicMSELoss, cyclic_mae_minutes, load_checkpoint
 from TimeOfDayDataLoader import TimeOfDayDataset, create_dataloaders, get_transforms
 
 device = torch.device("cuda")
 
 model = TimeOfDayModel(pretrained=False, freeze_until=cfg.FREEZE_UNTIL,
-                       hidden_dim=cfg.HIDDEN_DIM, dropout=cfg.DROPOUT).to(device)
+                       hidden_dim=cfg.HIDDEN_DIM, dropout=getattr(cfg, "DROPOUT", 0.1)).to(device)
 model.to(memory_format=torch.channels_last)
 load_checkpoint("checkpoints/best_fold2.pt", model, device=device)
 model.eval()

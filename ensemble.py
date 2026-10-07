@@ -30,7 +30,7 @@ import torch.nn as nn
 from torch.utils.data import DataLoader
 
 from config import Config as cfg
-from main import (
+from Main import (
     TimeOfDayModel,
     CyclicMSELoss,
     AngularCosineLoss,
@@ -53,14 +53,16 @@ from TimeOfDayDataLoader import (
 # ---------------------------------------------------------------------------
 
 def discover_checkpoints(ckpt_dir: str) -> List[str]:
-    """Auto-discovers best_fold*.pt files, falling back to last_fold*.pt."""
+    """Auto-discovers best_*fold*.pt files, falling back to last_fold*.pt."""
     ckpt_dir = Path(ckpt_dir)
-    paths = sorted(ckpt_dir.glob("best_fold*.pt"))
+    paths = sorted(ckpt_dir.glob(f"best_{cfg.MODEL}_fold*.pt"))
+    if not paths:
+        paths = sorted(ckpt_dir.glob("best_fold*.pt"))
     if not paths:
         paths = sorted(ckpt_dir.glob("last_fold*.pt"))
     if not paths:
         raise FileNotFoundError(
-            f"No best_fold*.pt or last_fold*.pt checkpoints found in '{ckpt_dir}'."
+            f"No best_{cfg.MODEL}_fold*.pt, best_fold*.pt, or last_fold*.pt checkpoints found in '{ckpt_dir}'."
         )
     return [str(p) for p in paths]
 
@@ -73,7 +75,7 @@ def load_ensemble(checkpoint_paths: List[str], device: torch.device) -> List[Tim
             pretrained=False,
             freeze_until=cfg.FREEZE_UNTIL,
             hidden_dim=cfg.HIDDEN_DIM,
-            dropout=cfg.DROPOUT,
+            dropout=getattr(cfg, "DROPOUT", 0.0),
         ).to(device)
         load_checkpoint(path, model, device=device)
         model.eval()

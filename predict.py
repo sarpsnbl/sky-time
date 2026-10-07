@@ -84,7 +84,7 @@ def predict_single_image(
         day_of_year=day_of_year,
         latitude=exif.lat if exif else None,
         longitude=exif.lon if exif else None,
-        day_of_week=exif.day_of_week if exif else None,
+        day_of_week=exif.day_of_week if (exif and exif.day_of_week is not None) else 0,
         tz_offset=exif.tz_offset if exif else 3.0,
         heading=exif.heading if exif else None,
         altitude=exif.altitude if exif else None,
