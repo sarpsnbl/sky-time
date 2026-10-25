@@ -79,8 +79,39 @@ log = logging.getLogger("tune")
 # Search space
 # ---------------------------------------------------------------------------
 def get_search_space(trial: optuna.Trial, model_name: str) -> dict:
+    space_path = os.path.join(cfg.OUTPUT_DIR, "narrowed_search_space.json")
+    if os.path.exists(space_path) and model_name == "swin_t":
+        try:
+            with open(space_path, "r", encoding="utf-8") as f:
+                nspace = json.load(f).get("search_space", {})
+            lr            = trial.suggest_float("lr",           nspace["lr"]["low"], nspace["lr"]["high"], log=nspace["lr"].get("log", True))
+            weight_decay  = trial.suggest_float("weight_decay", nspace["weight_decay"]["low"], nspace["weight_decay"]["high"], log=nspace["weight_decay"].get("log", True))
+            eta_min       = trial.suggest_float("eta_min",      nspace["eta_min"]["low"], nspace["eta_min"]["high"], log=nspace["eta_min"].get("log", True))
+            dropout       = trial.suggest_float("dropout",      nspace["dropout"]["low"], nspace["dropout"]["high"])
+            label_noise   = trial.suggest_float("label_noise",  nspace["label_noise"]["low"], nspace["label_noise"]["high"])
+            mixup_alpha   = trial.suggest_float("mixup_alpha",  nspace["mixup_alpha"]["low"], nspace["mixup_alpha"]["high"])
+            aug_magnitude = trial.suggest_categorical("aug_magnitude", nspace["aug_magnitude"]["choices"])
+            freeze_until  = trial.suggest_categorical("freeze_until", nspace["freeze_until"]["choices"])
+            beta_minutes  = trial.suggest_float("beta_minutes", nspace["beta_minutes"]["low"], nspace["beta_minutes"]["high"])
+            return {
+                "lr":            lr,
+                "weight_decay":  weight_decay,
+                "hidden_dim":    384,
+                "dropout":       dropout,
+                "freeze_until":  freeze_until,
+                "eta_min":       eta_min,
+                "aug_magnitude": aug_magnitude,
+                "mixup_alpha":   mixup_alpha,
+                "label_noise":   label_noise,
+                "beta_minutes":  beta_minutes,
+                "batch_size":    cfg.BATCH_SIZE,
+                "accum_steps":   cfg.ACCUM_STEPS,
+            }
+        except Exception as exc:
+            log.warning(f"Could not load narrowed_search_space.json: {exc}")
+
     if model_name == "swin_t":
-        # SwinT search space
+        # SwinT search space (default)
         lr           = trial.suggest_float("lr",           8.0e-5, 5.0e-4, log=True)
         weight_decay = trial.suggest_float("weight_decay", 1.0e-3, 8.0e-2, log=True)
         eta_min      = trial.suggest_float("eta_min",      1.0e-6, 1.0e-5, log=True)
@@ -276,7 +307,13 @@ def save_best_params_json(study: optuna.Study, model_name: str, output_dir: str,
     clean_params.setdefault("beta_minutes", best.params.get("beta_minutes", getattr(cfg, "BETA_MINUTES", 10.0)))
     clean_params.setdefault("model", model_name)
 
-    val_val = float(best.value) if best.value is not None else float("inf")
+    if hasattr(best, "value") and best.value is not None:
+        val_val = float(best.value)
+    else:
+        try:
+            val_val = float(study.best_value)
+        except Exception:
+            val_val = float("inf")
 
     record = {
         "model": model_name,
@@ -296,11 +333,11 @@ def save_best_params_json(study: optuna.Study, model_name: str, output_dir: str,
 # ---------------------------------------------------------------------------
 # Study runner & Retrain best
 # ---------------------------------------------------------------------------
-def run_study(device: torch.device, model_list: list, retrain_best: bool = True) -> None:
+def run_study(device: torch.device, model_list: list, retrain_best: bool = True, study_name_override: Optional[str] = None, enqueue_seed: bool = True) -> None:
     os.makedirs(cfg.OUTPUT_DIR, exist_ok=True)
     model_name = model_list[0]
-    study_name = f"tod_hpo_v2_{model_name}" if len(model_list) == 1 else "tod_hpo_multi"
-    storage_path = os.path.join(cfg.OUTPUT_DIR, f"optuna_v2_{model_name}.db")
+    study_name = study_name_override or (f"tod_hpo_v3_{model_name}" if len(model_list) == 1 else "tod_hpo_multi")
+    storage_path = os.path.join(cfg.OUTPUT_DIR, f"{study_name}.db")
     storage_url = f"sqlite:///{storage_path}"
     optuna.logging.set_verbosity(optuna.logging.WARNING)
 
@@ -309,6 +346,22 @@ def run_study(device: torch.device, model_list: list, retrain_best: bool = True)
         sampler=TPESampler(seed=cfg.SEED, n_startup_trials=cfg.OPTUNA_N_STARTUP_TRIALS),
         pruner=MedianPruner(n_startup_trials=cfg.OPTUNA_N_STARTUP_TRIALS, n_warmup_steps=max(18, cfg.OPTUNA_EPOCHS // 4)),
     )
+
+    if enqueue_seed and len(study.trials) == 0 and model_name == "swin_t":
+        seed_trial = {
+            "model": "swin_t",
+            "lr": 0.00035,
+            "weight_decay": 0.025,
+            "dropout": 0.02,
+            "mixup_alpha": 0.02,
+            "beta_minutes": 10.0,
+            "aug_magnitude": "heavy",
+            "freeze_until": "features.6",
+            "eta_min": 5.0e-6,
+            "label_noise": 0.012,
+        }
+        study.enqueue_trial(seed_trial)
+        log.info(f"Enqueued seed landmark trial from boundary probe: {seed_trial}")
 
     completed = len([t for t in study.trials if t.state.is_finished()])
     remaining = cfg.OPTUNA_N_TRIALS - completed
@@ -321,12 +374,20 @@ def run_study(device: torch.device, model_list: list, retrain_best: bool = True)
     log.info(f"Epochs        : {cfg.OPTUNA_EPOCHS}")
     log.info(f"CV Folds      : {cfg.OPTUNA_CV_FOLDS}")
     log.info(f"Batch Size    : {cfg.BATCH_SIZE} (accum steps: {cfg.ACCUM_STEPS}, effective: {cfg.BATCH_SIZE * cfg.ACCUM_STEPS})")
-    log.info(f"Image Size    : {cfg.IMAGE_SIZE}px")
+    log.info(f"Image Size    : {cfg.IMAGE_SIZE}px  (dir: {cfg.IMAGE_DIR})")
     log.info(f"Optimizers    : Compile={cfg.USE_COMPILE}, 8-bit={cfg.USE_8BIT_OPTIM}, NHWC={cfg.USE_CHANNELS_LAST}")
     log.info("=" * 60)
 
-    train_dataset = TimeOfDayDataset(image_dir=cfg.IMAGE_DIR, transform=get_transforms(augment=True, magnitude=getattr(cfg, "AUG_MAGNITUDE", "moderate")))
-    val_dataset   = TimeOfDayDataset(image_dir=cfg.IMAGE_DIR, transform=get_transforms(augment=False))
+    train_dataset = TimeOfDayDataset(
+        image_dir=cfg.IMAGE_DIR,
+        target_size=cfg.IMAGE_SIZE,
+        transform=get_transforms(augment=True, target_size=cfg.IMAGE_SIZE, magnitude=getattr(cfg, "AUG_MAGNITUDE", "moderate"))
+    )
+    val_dataset = TimeOfDayDataset(
+        image_dir=cfg.IMAGE_DIR,
+        target_size=cfg.IMAGE_SIZE,
+        transform=get_transforms(augment=False, target_size=cfg.IMAGE_SIZE)
+    )
 
     if remaining > 0:
         with tqdm(total=remaining, desc="Optuna trials", unit="trial", dynamic_ncols=True, colour="green") as trial_pbar:
@@ -359,8 +420,16 @@ def _retrain_best(params: dict, device: torch.device) -> None:
     cfg.MODEL  = model_name
     log.info(f"Retraining best config ({model_name}) for {cfg.EPOCHS} epochs ...")
 
-    train_dataset = TimeOfDayDataset(image_dir=cfg.IMAGE_DIR, transform=get_transforms(augment=True, magnitude=params.get("aug_magnitude", "none")))
-    val_dataset   = TimeOfDayDataset(image_dir=cfg.IMAGE_DIR, transform=get_transforms(augment=False))
+    train_dataset = TimeOfDayDataset(
+        image_dir=cfg.IMAGE_DIR,
+        target_size=cfg.IMAGE_SIZE,
+        transform=get_transforms(augment=True, target_size=cfg.IMAGE_SIZE, magnitude=params.get("aug_magnitude", "none"))
+    )
+    val_dataset = TimeOfDayDataset(
+        image_dir=cfg.IMAGE_DIR,
+        target_size=cfg.IMAGE_SIZE,
+        transform=get_transforms(augment=False, target_size=cfg.IMAGE_SIZE)
+    )
     train_loader, val_loader = create_dataloaders(
         train_dataset, val_dataset, fold=cfg.FOLD, n_splits=cfg.N_SPLITS,
         batch_size=params.get("batch_size", cfg.BATCH_SIZE), num_workers=cfg.NUM_WORKERS,
@@ -405,13 +474,28 @@ if __name__ == "__main__":
     parser.add_argument("--epochs", type=int, default=None, help="Epochs per trial")
     parser.add_argument("--cv-folds", type=int, default=None, help="Number of CV folds to evaluate per trial")
     parser.add_argument("--output-dir", type=str, default=None, help="Checkpoints and output directory")
+    parser.add_argument("--image-dir", type=str, default=None, help="Dataset directory (e.g. dataset_224 or dataset_512)")
+    parser.add_argument("--image-size", type=int, default=None, help="Target image size (e.g. 224 or 512)")
+    parser.add_argument("--study-name", type=str, default=None, help="Custom Optuna study name")
     parser.add_argument("--no-retrain", action="store_true", default=False, help="Skip full retraining of best config")
+    parser.add_argument("--no-enqueue", action="store_true", default=False, help="Skip enqueuing seed landmark")
+    parser.add_argument("--compile", action="store_true", default=False, help="Force enable torch.compile")
+    parser.add_argument("--no-compile", action="store_true", default=False, help="Disable torch.compile")
     args = parser.parse_args()
 
     if args.n_trials is not None: cfg.OPTUNA_N_TRIALS = args.n_trials
     if args.epochs is not None: cfg.OPTUNA_EPOCHS = args.epochs
     if args.cv_folds is not None: cfg.OPTUNA_CV_FOLDS = args.cv_folds
     if args.output_dir is not None: cfg.OUTPUT_DIR = args.output_dir
+    if args.image_dir is not None: cfg.IMAGE_DIR = args.image_dir
+    if args.image_size is not None: cfg.IMAGE_SIZE = args.image_size
+
+    if args.no_compile:
+        cfg.USE_COMPILE = False
+    elif args.compile:
+        cfg.USE_COMPILE = True
+    elif cfg.IMAGE_SIZE % 28 != 0:
+        cfg.USE_COMPILE = False
 
     model_list = [args.model]
     if mp.get_start_method(allow_none=True) != "spawn": mp.set_start_method("spawn", force=True)
@@ -421,4 +505,4 @@ if __name__ == "__main__":
 
     device = torch.device("cuda" if torch.cuda.is_available() else "mps" if torch.backends.mps.is_available() else "cpu")
     setup_logging(cfg.OUTPUT_DIR)
-    run_study(device, model_list, retrain_best=not args.no_retrain)
+    run_study(device, model_list, retrain_best=not args.no_retrain, study_name_override=args.study_name, enqueue_seed=not args.no_enqueue)

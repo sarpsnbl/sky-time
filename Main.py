@@ -121,8 +121,16 @@ class FiLMFusionHead(nn.Module):
         metadata_dim:   int   = 108,
         hidden_dim:     int   = 256,
         dropout:        float = 0.3,
+        use_mixture_head: Optional[bool] = None,
+        num_modes:      int   = 2,
     ):
         super().__init__()
+        if use_mixture_head is None:
+            use_mixture_head = getattr(cfg, "USE_MIXTURE_HEAD", True)
+        self.use_mixture_head = use_mixture_head
+        self.num_modes = num_modes
+        out_dim = (num_modes * 2 + num_modes) if use_mixture_head else 2
+
         # FiLM generator: predicts per-feature gamma and beta
         self.film_generator = nn.Sequential(
             nn.Linear(metadata_dim, hidden_dim),
@@ -153,7 +161,7 @@ class FiLMFusionHead(nn.Module):
             nn.LayerNorm(hidden_dim // 2),
             nn.GELU(),
             nn.Dropout(dropout),
-            nn.Linear(hidden_dim // 2, 2),
+            nn.Linear(hidden_dim // 2, out_dim),
         )
 
     def forward(self, image_feats: torch.Tensor, metadata: torch.Tensor) -> torch.Tensor:
@@ -181,8 +189,16 @@ class MetadataFusionMLP(nn.Module):
         metadata_dim:   int   = 108,
         hidden_dim:     int   = 256,
         dropout:        float = 0.3,
+        use_mixture_head: Optional[bool] = None,
+        num_modes:      int   = 2,
     ):
         super().__init__()
+        if use_mixture_head is None:
+            use_mixture_head = getattr(cfg, "USE_MIXTURE_HEAD", True)
+        self.use_mixture_head = use_mixture_head
+        self.num_modes = num_modes
+        out_dim = (num_modes * 2 + num_modes) if use_mixture_head else 2
+
         in_dim = image_feat_dim + metadata_dim
         self.net = nn.Sequential(
             nn.Linear(in_dim, hidden_dim),
@@ -193,7 +209,7 @@ class MetadataFusionMLP(nn.Module):
             nn.LayerNorm(hidden_dim // 2),
             nn.GELU(),
             nn.Dropout(dropout),
-            nn.Linear(hidden_dim // 2, 2),   
+            nn.Linear(hidden_dim // 2, out_dim),   
         )
 
     def forward(self, image_feats: torch.Tensor, metadata: torch.Tensor) -> torch.Tensor:
@@ -210,6 +226,8 @@ class TimeOfDayModel(nn.Module):
         dropout:      float = 0.3,
         metadata_dim: Optional[int] = None,
         use_film:     Optional[bool] = None,
+        use_mixture_head: Optional[bool] = None,
+        num_modes:    int   = 2,
     ):
         super().__init__()
         if not _TORCHVISION_AVAILABLE:
@@ -221,6 +239,11 @@ class TimeOfDayModel(nn.Module):
         if use_film is None:
             use_film = getattr(cfg, "USE_FILM", True)
 
+        if use_mixture_head is None:
+            use_mixture_head = getattr(cfg, "USE_MIXTURE_HEAD", True)
+        self.use_mixture_head = use_mixture_head
+        self.num_modes = num_modes
+
         self._build_encoder(pretrained)
         self._freeze_layers(freeze_until)
 
@@ -230,6 +253,8 @@ class TimeOfDayModel(nn.Module):
                 metadata_dim=metadata_dim,
                 hidden_dim=hidden_dim,
                 dropout=dropout,
+                use_mixture_head=use_mixture_head,
+                num_modes=num_modes,
             )
         else:
             self.fusion = MetadataFusionMLP(
@@ -237,6 +262,8 @@ class TimeOfDayModel(nn.Module):
                 metadata_dim=metadata_dim,
                 hidden_dim=hidden_dim,
                 dropout=dropout,
+                use_mixture_head=use_mixture_head,
+                num_modes=num_modes,
             )
 
     def _build_encoder(self, pretrained: bool) -> None:
@@ -268,8 +295,15 @@ class TimeOfDayModel(nn.Module):
     def forward(self, images: torch.Tensor, metadata: torch.Tensor) -> torch.Tensor:
         x = self.encoder(images).flatten(start_dim=1)
         raw_out = self.fusion(x, metadata)
-        # Unit-circle projection ensures stable S1 spherical output
-        return nn.functional.normalize(raw_out, p=2, dim=-1)
+        if getattr(self, "use_mixture_head", getattr(cfg, "USE_MIXTURE_HEAD", True)):
+            # raw_out shape: (B, 6) -> logits: (B, 2), v1: (B, 2), v2: (B, 2)
+            logits = raw_out[:, :2]
+            v1 = nn.functional.normalize(raw_out[:, 2:4], p=2, dim=-1)
+            v2 = nn.functional.normalize(raw_out[:, 4:6], p=2, dim=-1)
+            return torch.cat([logits, v1, v2], dim=-1)
+        else:
+            # Unit-circle projection ensures stable S1 spherical output
+            return nn.functional.normalize(raw_out, p=2, dim=-1)
 
     def count_trainable_params(self) -> int:
         return sum(p.numel() for p in self.parameters() if p.requires_grad)
@@ -304,6 +338,56 @@ class CircularSmoothL1Loss(nn.Module):
         )
         return smooth_l1.mean()
 
+class CircularMixtureLoss(nn.Module):
+    """
+    Circular Mixture Geodesic Huber Loss on S^1 (Bimodal Circular MoE).
+    Computes geodesic Huber errors for two competing circular hypotheses:
+        delta_k = arccos(clamp(<v_k, y_true>, -1 + eps, 1 - eps))
+        h_k = Huber(delta_k, beta)
+    Likelihood of target under bimodal mixture:
+        L = -logsumexp([log(pi_1) - h_1 / tau, log(pi_2) - h_2 / tau])
+    Prevents destructive AM/PM cross-contamination by letting modes specialize
+    between sunrise and sunset golden hours without penalizing the inactive mode.
+    """
+    def __init__(self, beta_minutes: float = 10.0, temperature: float = 0.15, eps: float = 1e-7):
+        super().__init__()
+        self.beta = (beta_minutes / MINUTES_PER_DAY) * 2.0 * math.pi
+        self.temperature = max(1e-4, temperature)
+        self.eps = eps
+
+    def forward(self, pred: torch.Tensor, target: torch.Tensor) -> torch.Tensor:
+        t_norm = nn.functional.normalize(target, p=2, dim=-1, eps=self.eps)
+        if pred.shape[-1] == 2:
+            p_norm = nn.functional.normalize(pred, p=2, dim=-1, eps=self.eps)
+            cos_sim = torch.clamp((p_norm * t_norm).sum(dim=-1), -1.0 + self.eps, 1.0 - self.eps)
+            delta_rad = torch.acos(cos_sim)
+            smooth_l1 = torch.where(
+                delta_rad < self.beta,
+                0.5 * (delta_rad ** 2) / self.beta,
+                delta_rad - 0.5 * self.beta
+            )
+            return smooth_l1.mean()
+
+        logits = pred[:, :2]
+        log_pi = nn.functional.log_softmax(logits, dim=-1)
+
+        v1 = nn.functional.normalize(pred[:, 2:4], p=2, dim=-1, eps=self.eps)
+        v2 = nn.functional.normalize(pred[:, 4:6], p=2, dim=-1, eps=self.eps)
+
+        cos_sim1 = torch.clamp((v1 * t_norm).sum(dim=-1), -1.0 + self.eps, 1.0 - self.eps)
+        cos_sim2 = torch.clamp((v2 * t_norm).sum(dim=-1), -1.0 + self.eps, 1.0 - self.eps)
+
+        delta1 = torch.acos(cos_sim1)
+        delta2 = torch.acos(cos_sim2)
+
+        huber1 = torch.where(delta1 < self.beta, 0.5 * (delta1 ** 2) / self.beta, delta1 - 0.5 * self.beta)
+        huber2 = torch.where(delta2 < self.beta, 0.5 * (delta2 ** 2) / self.beta, delta2 - 0.5 * self.beta)
+
+        scaled_logits = torch.stack([log_pi[:, 0] - (huber1 / self.temperature),
+                                     log_pi[:, 1] - (huber2 / self.temperature)], dim=-1)
+        nll = -torch.logsumexp(scaled_logits, dim=-1)
+        return nll.mean()
+
 class AngularCosineLoss(nn.Module):
     """
     Cyclic Angular Cosine Loss on the unit circle S^1:
@@ -330,8 +414,11 @@ class CyclicMSELoss(nn.Module):
         return self.mse(pred, target)
 
 def get_loss_criterion(loss_type: Optional[str] = None, beta_minutes: float = 10.0) -> nn.Module:
-    lt = (loss_type or getattr(cfg, "LOSS_FUNCTION", "circular_smooth_l1")).lower()
-    if "smooth_l1" in lt or "huber" in lt or "geodesic" in lt:
+    lt = (loss_type or getattr(cfg, "LOSS_FUNCTION", "circular_mixture")).lower()
+    if getattr(cfg, "USE_MIXTURE_HEAD", False) or "mix" in lt:
+        temp = getattr(cfg, "MIXTURE_TEMPERATURE", 0.15)
+        return CircularMixtureLoss(beta_minutes=beta_minutes, temperature=temp)
+    elif "smooth_l1" in lt or "huber" in lt or "geodesic" in lt:
         return CircularSmoothL1Loss(beta_minutes=beta_minutes)
     elif "cosine" in lt or "angular" in lt:
         return AngularCosineLoss()
@@ -506,6 +593,10 @@ def evaluate_with_log(
     all_paths:   List[str]   = []
     all_preds:   List[float] = []
     all_actuals: List[float] = []
+    all_m1:      List[float] = []
+    all_m2:      List[float] = []
+    all_p1:      List[float] = []
+    all_p2:      List[float] = []
 
     subset  = loader.dataset
     dataset = subset.dataset
@@ -535,12 +626,23 @@ def evaluate_with_log(
         total_loss += loss.item()
         total_mae  += cyclic_mae_minutes(preds.cpu(), targets.cpu()).item()
 
-        all_preds.extend(decode_time_tensor(preds.cpu()).tolist())
+        if preds.shape[-1] > 2:
+            from TimeOfDayDataLoader import decode_mixture_tensor
+            best_mins, m1, m2, probs = decode_mixture_tensor(preds.cpu())
+            all_preds.extend(best_mins.tolist())
+            all_m1.extend(m1.tolist())
+            all_m2.extend(m2.tolist())
+            all_p1.extend(probs[:, 0].tolist())
+            all_p2.extend(probs[:, 1].tolist())
+        else:
+            all_preds.extend(decode_time_tensor(preds.cpu()).tolist())
+
         all_actuals.extend(decode_time_tensor(targets.cpu()).tolist())
         all_paths.extend(next(path_iter) for _ in range(images.size(0)))
 
     n = len(loader)
-    return total_loss / n, total_mae / n, all_paths, all_preds, all_actuals
+    has_mix = len(all_m1) > 0
+    return total_loss / n, total_mae / n, all_paths, all_preds, all_actuals, (all_m1 if has_mix else None), (all_m2 if has_mix else None), (all_p1 if has_mix else None), (all_p2 if has_mix else None)
 
 # ---------------------------------------------------------------------------
 # Checkpoint helpers
@@ -586,14 +688,20 @@ def _log_epoch(log_path, fold, epoch, train_loss, train_mae, val_loss, val_mae):
     with open(log_path, "a") as f:
         f.write(_json.dumps(record) + "\n")
 
-def _log_images(log_path, image_paths, pred_mins, actual_mins):
+def _log_images(log_path, image_paths, pred_mins, actual_mins, mode1_mins=None, mode2_mins=None, p1_vals=None, p2_vals=None):
     os.makedirs(os.path.dirname(log_path) or ".", exist_ok=True)
     with open(log_path, "a") as f:
-        for path, pred, actual in zip(image_paths, pred_mins, actual_mins):
-            f.write(_json.dumps({
+        for idx, (path, pred, actual) in enumerate(zip(image_paths, pred_mins, actual_mins)):
+            rec = {
                 "type": "image", "path": path,
                 "pred_min": float(pred), "actual_min": float(actual),
-            }) + "\n")
+            }
+            if mode1_mins is not None and idx < len(mode1_mins):
+                rec["mode1_min"] = float(mode1_mins[idx])
+                rec["mode2_min"] = float(mode2_mins[idx])
+                rec["prob1"] = float(p1_vals[idx])
+                rec["prob2"] = float(p2_vals[idx])
+            f.write(_json.dumps(rec) + "\n")
 
 # ---------------------------------------------------------------------------
 # Model Setup Helper
@@ -605,6 +713,8 @@ def build_and_compile_model(device: torch.device, params: dict = None) -> TimeOf
         hidden_dim=params.get("hidden_dim", cfg.HIDDEN_DIM) if params else cfg.HIDDEN_DIM,
         dropout=params.get("dropout", 0.0) if params else 0.0,
         use_film=getattr(cfg, "USE_FILM", True),
+        use_mixture_head=getattr(cfg, "USE_MIXTURE_HEAD", True),
+        num_modes=getattr(cfg, "NUM_MIXTURE_MODES", 2),
     ).to(device)
     
     if cfg.USE_CHANNELS_LAST:
@@ -658,6 +768,9 @@ def train_fold(fold: int, device: torch.device) -> float:
         start_epoch = load_checkpoint(cfg.CHECKPOINT, model, optimizer, scheduler, device)
 
     best_val_mae = float("inf")
+    best_epoch   = 0
+    epochs_no_improve = 0
+    patience     = getattr(cfg, "EARLY_STOPPING_PATIENCE", None)
     best_ckpt    = os.path.join(cfg.OUTPUT_DIR, f"best_{cfg.MODEL}_fold{fold}.pt")
 
     n_train_batches = len(train_loader)
@@ -707,14 +820,24 @@ def train_fold(fold: int, device: torch.device) -> float:
 
         if is_best:
             best_val_mae = val_mae
+            best_epoch   = epoch + 1
+            epochs_no_improve = 0
             save_checkpoint(model, optimizer, scheduler, epoch + 1, val_mae, best_ckpt)
+        else:
+            epochs_no_improve += 1
+            if patience is not None and epochs_no_improve >= patience:
+                log.info(
+                    f"Early stopping triggered at epoch {epoch + 1}: no validation MAE improvement "
+                    f"for {epochs_no_improve} consecutive epochs (best was {best_val_mae:.2f}m at Epoch {best_epoch})."
+                )
+                break
 
     # Load best checkpoint and log image diagnostics
     load_checkpoint(best_ckpt, model, device=device)
-    val_loss, val_mae, image_paths, pred_mins, actual_mins = evaluate_with_log(
+    val_loss, val_mae, image_paths, pred_mins, actual_mins, m1, m2, p1, p2 = evaluate_with_log(
         model, val_loader, criterion, device, use_tta=cfg.TTA_ENABLED, tta_passes=cfg.TTA_FLIPS
     )
-    _log_images(jsonl_path, image_paths, pred_mins, actual_mins)
+    _log_images(jsonl_path, image_paths, pred_mins, actual_mins, m1, m2, p1, p2)
     log.info(f"Per-image diagnostics logged -> {jsonl_path}")
 
     log.info(f"Fold {fold} complete -- best val MAE: {best_val_mae:.2f} min ")
@@ -740,7 +863,11 @@ def main() -> None:
     parser.add_argument("--mixup-alpha", type=float, default=None, help="Mixup alpha parameter")
     parser.add_argument("--label-noise", type=float, default=None, help="Label noise std")
     parser.add_argument("--beta-minutes", type=float, default=None, help="Circular Huber threshold beta in minutes")
-    parser.add_argument("--loss", dest="loss_function", type=str, choices=["circular_smooth_l1", "angular_cosine", "cyclic_mse"], default=None, help="Loss function")
+    parser.add_argument("--loss", dest="loss_function", type=str, choices=["circular_mixture", "circular_smooth_l1", "angular_cosine", "cyclic_mse"], default=None, help="Loss function")
+    parser.add_argument("--use-mixture-head", dest="use_mixture_head", action="store_true", default=None, help="Enable bimodal circular mixture head")
+    parser.add_argument("--no-mixture-head", dest="use_mixture_head", action="store_false", help="Disable bimodal circular mixture head")
+    parser.add_argument("--mixture-temp", dest="mixture_temperature", type=float, default=None, help="Mixture temperature")
+    parser.add_argument("--early-stopping", "--patience", dest="early_stopping", type=int, default=None, help="Patience (epochs without improvement) before early stopping")
     parser.add_argument("--eval-only", action="store_true", default=False, help="Run evaluation only")
     parser.add_argument("--checkpoint", type=str, default=None, help="Path to checkpoint for resume or evaluation")
     parser.add_argument("--no-compile", action="store_true", default=False, help="Disable torch.compile")

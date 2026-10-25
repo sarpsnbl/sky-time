@@ -17,7 +17,7 @@ class Config:
     FOLD            = 0     
     N_SPLITS        = 5
     VAL_RATIO       = 0.2
-    TRAIN_ALL_FOLDS = True
+    TRAIN_ALL_FOLDS = False
 
     # --- Image Heuristic Features & Optical Physics ---------------------------
     USE_IMAGE_FEATURES = True
@@ -25,27 +25,31 @@ class Config:
     PCA_COMPONENTS     = 25     # Captures >90% variance while eliminating collinear noise
     FEATURE_CACHE_FILE = "dataset_512/heuristics_feature_cache_v2.pt"
     PCA_MODEL_FILE     = "dataset_512/heuristics_pca_v2.pt"
-    COORDINATED_FLIP   = True   # Synchronize horizontal flip with directional metadata
+    COORDINATED_FLIP   = False  # Disabled: preserves strict East/West solar azimuth consistency
 
     # --- Model & Architecture (Swin-T Focus) ----------------------------------
-    MODEL            = "swin_t"
-    PRETRAINED       = True
-    FREEZE_UNTIL     = "features.6"
-    HIDDEN_DIM       = 384
-    USE_FILM         = True     # Feature-wise Linear Modulation for metadata conditioning
-    LOSS_FUNCTION    = "circular_smooth_l1"  # 'circular_smooth_l1' (geodesic Huber) or 'angular_cosine'
-    BETA_MINUTES     = 10.0     # Smooth transition threshold between quadratic and linear Huber penalty
-    USE_ANGULAR_LOSS = True     # Backward-compatible alias for non-MSE regression
+    MODEL               = "swin_t"
+    PRETRAINED          = True
+    FREEZE_UNTIL        = "features.6"
+    HIDDEN_DIM          = 384
+    USE_FILM            = True     # Feature-wise Linear Modulation for metadata conditioning
+    USE_MIXTURE_HEAD    = True     # Output bimodal circular hypotheses [v1, v2] + mode confidences [pi1, pi2]
+    NUM_MIXTURE_MODES   = 2        # Bimodal (AM/Sunrise vs PM/Sunset)
+    MIXTURE_TEMPERATURE = 0.15     # Softmin temperature for mixture likelihood assignment
+    LOSS_FUNCTION       = "circular_mixture"  # 'circular_mixture', 'circular_smooth_l1', 'angular_cosine'
+    BETA_MINUTES        = 10.0     # Smooth transition threshold between quadratic and linear Huber penalty
+    USE_ANGULAR_LOSS    = True     # Backward-compatible alias for non-MSE regression
 
     # --- Training & Hardware Optimizations ------------------------------------
-    EPOCHS           = 80
-    UNFREEZE_EPOCH   = None         
-    BATCH_SIZE       = 8
+    EPOCHS                  = 70
+    EARLY_STOPPING_PATIENCE = None  # None = disabled; int = stop after N epochs without val MAE improvement
+    UNFREEZE_EPOCH          = None         
+    BATCH_SIZE              = 8
     ACCUM_STEPS      = 1      # Effective batch size = BATCH_SIZE * ACCUM_STEPS
     
     # Accelerated execution
     USE_AMP           = True   # Mixed Precision
-    USE_COMPILE       = True   # torch.compile() for graph optimization (PT 2.0+)
+    USE_COMPILE       = False  # Eager mode default (avoids 20-min Swin-T Inductor compilation overhead)
     USE_CHANNELS_LAST = True   # NHWC memory format for Tensor Core speedup
     USE_8BIT_OPTIM    = True   # bitsandbytes 8-bit AdamW to save VRAM
     NUM_WORKERS      = 8
@@ -172,6 +176,10 @@ class Config:
             "loss_function": ("LOSS_FUNCTION", str),
             "image_size": ("IMAGE_SIZE", int),
             "output_dir": ("OUTPUT_DIR", str),
+            "use_mixture_head": ("USE_MIXTURE_HEAD", bool),
+            "mixture_temperature": ("MIXTURE_TEMPERATURE", float),
+            "coordinated_flip": ("COORDINATED_FLIP", bool),
+            "early_stopping": ("EARLY_STOPPING_PATIENCE", int),
         }
 
         for cli_key, (attr_name, cast_fn) in cli_mappings.items():
@@ -182,6 +190,9 @@ class Config:
                 # Keep PARAMS in sync
                 param_key = cli_key if cli_key in cls.PARAMS else cli_key.lower()
                 cls.PARAMS[param_key] = cast_val
+
+        if arg_dict.get("fold") is not None and not arg_dict.get("train_all_folds"):
+            cls.TRAIN_ALL_FOLDS = False
 
         if arg_dict.get("no_compile") is True:
             cls.USE_COMPILE = False

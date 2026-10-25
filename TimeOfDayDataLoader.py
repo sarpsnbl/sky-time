@@ -222,9 +222,41 @@ def cyclic_decode(sin_val: float, cos_val: float, period: float) -> float:
     return angle * period / (2.0 * math.pi)
 
 def decode_time_tensor(pred: torch.Tensor) -> torch.Tensor:
-    angles = torch.atan2(pred[:, 0], pred[:, 1])
+    if pred.shape[-1] > 2:
+        # Mixture output (B, 6): pick primary mode (highest logit/confidence)
+        best_mode = torch.argmax(pred[:, :2], dim=-1)
+        v1 = pred[:, 2:4]
+        v2 = pred[:, 4:6]
+        primary_v = torch.where(best_mode.unsqueeze(-1) == 0, v1, v2)
+        angles = torch.atan2(primary_v[:, 0], primary_v[:, 1])
+    else:
+        angles = torch.atan2(pred[:, 0], pred[:, 1])
     angles = torch.where(angles < 0, angles + 2 * math.pi, angles)
     return angles * MINUTES_PER_DAY / (2 * math.pi)
+
+def decode_mixture_tensor(pred: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor]:
+    """
+    Decodes circular mixture output (B, 6):
+        [w1, w2, sin_theta1, cos_theta1, sin_theta2, cos_theta2]
+    Returns:
+        (primary_mins, mode1_mins, mode2_mins, mode_probabilities)
+    """
+    if pred.shape[-1] == 2:
+        mins = decode_time_tensor(pred)
+        ones = torch.ones_like(mins)
+        return mins, mins, mins, torch.stack([ones, torch.zeros_like(mins)], dim=-1)
+
+    logits = pred[:, :2]
+    probs = torch.softmax(logits, dim=-1)
+    v1 = pred[:, 2:4]
+    v2 = pred[:, 4:6]
+
+    m1_mins = decode_time_tensor(v1)
+    m2_mins = decode_time_tensor(v2)
+
+    best_mode = torch.argmax(logits, dim=-1)
+    primary_mins = torch.where(best_mode == 0, m1_mins, m2_mins)
+    return primary_mins, m1_mins, m2_mins, probs
 
 def compute_astronomy(
     month: int,
@@ -759,7 +791,12 @@ class TimeOfDayDataset(Dataset):
                     print(f"Failed to load cache ({e}), recomputing...")
                     self._feature_cache = {}
 
-            missing_samples = [path for path, _ in self.samples if path not in self._feature_cache]
+            missing_samples = [
+                path for path, _ in self.samples 
+                if path not in self._feature_cache 
+                and f"dataset_512/{os.path.basename(path)}" not in self._feature_cache
+                and os.path.basename(path) not in self._feature_cache
+            ]
             if missing_samples:
                 print(f"Pre-computing {len(missing_samples)} handcrafted optical physics features (multi-threaded)...")
                 from concurrent.futures import ThreadPoolExecutor
@@ -872,8 +909,8 @@ class TimeOfDayDataset(Dataset):
             print(f"ERROR: Failed to load {img_path}: {exc}")
             image = Image.new("RGB", (self.target_size, self.target_size), (0, 0, 0))
 
-        # Coordinated directional horizontal flip: mirrors image and flips directional metadata in tandem
-        is_flipped = bool(self.augment and getattr(cfg, "COORDINATED_FLIP", True) and (random.random() < 0.5))
+        # Coordinated directional horizontal flip: ONLY flip if heading metadata exists to maintain azimuth consistency!
+        is_flipped = bool(self.augment and getattr(cfg, "COORDINATED_FLIP", False) and (orig_label.heading is not None) and (random.random() < 0.5))
 
         if is_flipped:
             image = image.transpose(Image.FLIP_LEFT_RIGHT)
@@ -882,9 +919,15 @@ class TimeOfDayDataset(Dataset):
             label = orig_label.clone()
 
         if cfg.USE_IMAGE_FEATURES:
-            if img_path not in self._feature_cache:
-                self._feature_cache[img_path] = ImageFeatureExtractor.extract(image if not is_flipped else image.transpose(Image.FLIP_LEFT_RIGHT))
-            raw_feat = self._feature_cache[img_path]
+            cached_feat = self._feature_cache.get(img_path)
+            if cached_feat is None:
+                cached_feat = self._feature_cache.get(f"dataset_512/{os.path.basename(img_path)}")
+            if cached_feat is None:
+                cached_feat = self._feature_cache.get(os.path.basename(img_path))
+            if cached_feat is None:
+                cached_feat = ImageFeatureExtractor.extract(image if not is_flipped else image.transpose(Image.FLIP_LEFT_RIGHT))
+                self._feature_cache[img_path] = cached_feat
+            raw_feat = cached_feat
             if is_flipped:
                 raw_feat = ImageFeatureExtractor.flip_features(raw_feat)
 
@@ -997,8 +1040,15 @@ def tta_predict(
 
     p_flip = model(flipped_images, flipped_meta)
     stacked = torch.stack([p_orig, p_flip], dim=0)
-    mean_pred = stacked.mean(dim=0)
-    return torch.nn.functional.normalize(mean_pred, p=2, dim=-1)
+    if p_orig.shape[-1] == 2:
+        mean_pred = stacked.mean(dim=0)
+        return torch.nn.functional.normalize(mean_pred, p=2, dim=-1)
+    else:
+        # Mixture output (B, 6): average logits and separately normalize direction vectors
+        mean_logits = stacked[:, :, :2].mean(dim=0)
+        mean_v1 = torch.nn.functional.normalize(stacked[:, :, 2:4].mean(dim=0), p=2, dim=-1)
+        mean_v2 = torch.nn.functional.normalize(stacked[:, :, 4:6].mean(dim=0), p=2, dim=-1)
+        return torch.cat([mean_logits, mean_v1, mean_v2], dim=-1)
 
 
 # ---------------------------------------------------------------------------

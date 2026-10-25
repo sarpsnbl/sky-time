@@ -95,9 +95,18 @@ def smoke_test():
     dummy_target = torch.tensor([[0.0, 1.0], [1.0, 0.0]], dtype=torch.float32)
 
     preds = model(dummy_img, dummy_meta)
-    assert preds.shape == (B, 2), f"Expected preds shape ({B}, 2), got {preds.shape}"
-    norms = preds.norm(p=2, dim=-1)
-    assert torch.allclose(norms, torch.ones_like(norms), atol=1e-5), "Predictions not normalized on S¹ unit circle"
+    if getattr(cfg, "USE_MIXTURE_HEAD", False):
+        assert preds.shape == (B, 6), f"Expected mixture preds shape ({B}, 6), got {preds.shape}"
+        v1_norm = preds[:, 2:4].norm(p=2, dim=-1)
+        v2_norm = preds[:, 4:6].norm(p=2, dim=-1)
+        assert torch.allclose(v1_norm, torch.ones_like(v1_norm), atol=1e-5), "Mode 1 not normalized on S¹"
+        assert torch.allclose(v2_norm, torch.ones_like(v2_norm), atol=1e-5), "Mode 2 not normalized on S¹"
+        print(f"  ✓ Bimodal S¹ mixture projection verified: v1_norm={v1_norm[0].item():.4f}, v2_norm={v2_norm[0].item():.4f}")
+    else:
+        assert preds.shape == (B, 2), f"Expected preds shape ({B}, 2), got {preds.shape}"
+        norms = preds.norm(p=2, dim=-1)
+        assert torch.allclose(norms, torch.ones_like(norms), atol=1e-5), "Predictions not normalized on S¹ unit circle"
+        print(f"  ✓ S¹ Unit-circle projection verified: norm={norms[0].item():.5f}")
 
     criterion = get_loss_criterion(cfg.LOSS_FUNCTION, cfg.BETA_MINUTES)
     loss = criterion(preds, dummy_target)
@@ -105,8 +114,7 @@ def smoke_test():
 
     has_grad = any(p.grad is not None and p.grad.norm() > 0 for p in model.fusion.parameters())
     assert has_grad, "Gradient did not backpropagate through FiLM fusion head"
-    print(f"  ✓ S¹ Unit-circle projection verified: norm={norms[0].item():.5f}")
-    print(f"  ✓ CircularSmoothL1 Loss: {loss.item():.4f} with active gradient flow")
+    print(f"  ✓ Loss criterion ({criterion.__class__.__name__}): {loss.item():.4f} with active gradient flow")
 
     # -----------------------------------------------------------------------
     # 5. Dataset Loading & Iteration
