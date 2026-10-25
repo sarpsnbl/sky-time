@@ -31,6 +31,7 @@ from sklearn.model_selection import KFold, ShuffleSplit
 from torch.utils.data import DataLoader, Dataset, Subset
 from torchvision import transforms
 from skimage import color, filters, feature
+from scipy.ndimage import minimum_filter
 from torchvision.transforms import v2
 
 from config import Config as cfg
@@ -45,14 +46,19 @@ except ImportError:
 MINUTES_PER_DAY    = 1440.0
 DAYS_PER_YEAR      = 365.25
 
-# 28 core astronomical, sensor, orientation, and calendar dimensions
-_PHYSICAL_METADATA_DIM = 28
+# 30 core astronomical, sensor, orientation, and calendar dimensions (includes relative solar azimuth)
+_PHYSICAL_METADATA_DIM = 30
 _CALENDAR_DIM          = _PHYSICAL_METADATA_DIM   # Backward compatibility alias
-_IMAGE_FEATURE_DIM     = 80   # Handcrafted photometric descriptors (77 base + 3 atmospheric gradients)
+_IMAGE_FEATURE_RAW_DIM = 97   # Handcrafted physical/photometric descriptors (80 base + 17 optical physics)
+_IMAGE_FEATURE_DIM     = _IMAGE_FEATURE_RAW_DIM   # Backward compatibility alias
 
 def get_metadata_dim() -> int:
     from config import Config as _cfg   
-    return _PHYSICAL_METADATA_DIM + (_IMAGE_FEATURE_DIM if _cfg.USE_IMAGE_FEATURES else 0)
+    if not _cfg.USE_IMAGE_FEATURES:
+        return _PHYSICAL_METADATA_DIM
+    if getattr(_cfg, "USE_PCA_FEATURES", False):
+        return _PHYSICAL_METADATA_DIM + getattr(_cfg, "PCA_COMPONENTS", 25)
+    return _PHYSICAL_METADATA_DIM + _IMAGE_FEATURE_RAW_DIM
 
 
 # ---------------------------------------------------------------------------
@@ -144,7 +150,62 @@ class ImageFeatureExtractor:
         bot_b = lab_norm[max(0, 4 * H // 5) :, :, 2].mean()
         feat += [float(bot_b - top_b)]
 
+        # --- Advanced Optical Physics & Symmetry-Breaking Features (17 new features) ---
+        # 16. McCamy Correlated Color Temperature (CCT norm = 1)
+        M_xyz = np.array([[0.4124564, 0.3575761, 0.1804375],
+                          [0.2126729, 0.7151522, 0.0721750],
+                          [0.0193339, 0.1191920, 0.9503041]], dtype=np.float32)
+        xyz_mean = np.dot(rgb.reshape(-1, 3), M_xyz.T).mean(axis=0)
+        denom_xyz = float(xyz_mean.sum() + 1e-6)
+        x_c = float(xyz_mean[0] / denom_xyz)
+        y_c = float(xyz_mean[1] / denom_xyz)
+        n_c = (x_c - 0.3320) / (0.1858 - y_c + 1e-6)
+        cct = 449.0 * (n_c ** 3) + 3525.0 * (n_c ** 2) + 6823.3 * n_c + 5520.33
+        cct_norm = float(np.clip((cct - 2000.0) / 10000.0, 0.0, 1.0))
+        feat += [cct_norm]
+
+        # 17. Dark Channel Prior (DCP Airmass / Haze: mean, std, p90 = 3)
+        min_rgb = rgb.min(axis=2)
+        dcp = minimum_filter(min_rgb, size=15)
+        dcp_mean = float(dcp.mean())
+        dcp_std  = float(dcp.std())
+        dcp_p90  = float(np.percentile(dcp, 90))
+        feat += [dcp_mean, dcp_std, dcp_p90]
+
+        # 18. Sun Position Centroid & Solar Glare (x_sun, y_sun, glare_ratio = 3)
+        p98 = np.percentile(V, 98)
+        mask = V >= max(0.90, p98)
+        if np.any(mask):
+            ys, xs = np.where(mask)
+            sun_x = float(xs.mean() / max(1, W))
+            sun_y = float(ys.mean() / max(1, H))
+            glare_ratio = float(mask.sum() / (H * W))
+        else:
+            sun_x, sun_y, glare_ratio = 0.5, 0.5, 0.0
+        feat += [sun_x, sun_y, glare_ratio]
+
+        # 19. Multi-Band Zenith-to-Horizon Color Profile (5 bands b*, 5 bands V = 10)
+        b_star = lab_norm[:, :, 2]
+        for i in range(5):
+            feat.append(float(b_star[i * H // 5 : (i + 1) * H // 5, :].mean()))
+        for i in range(5):
+            feat.append(float(V[i * H // 5 : (i + 1) * H // 5, :].mean()))
+
         return np.array(feat, dtype=np.float32)
+
+    @classmethod
+    def flip_features(cls, feat: np.ndarray) -> np.ndarray:
+        """
+        Inverts directional features under horizontal image mirroring.
+        - Index 78: horizontal_asymmetry -> negated (-feat[78])
+        - Index 84: sun_x_centroid -> mirrored (1.0 - feat[84])
+        """
+        if feat is None or len(feat) < 85:
+            return feat.copy() if feat is not None else None
+        f = feat.copy()
+        f[78] = -f[78]
+        f[84] = 1.0 - f[84]
+        return f
 
 # ---------------------------------------------------------------------------
 # Cyclic encoding helpers & Astrometric Engine
@@ -496,6 +557,59 @@ class TimeOfDayLabel:
         self.fov            = fov
         self.image_features = image_features   
 
+    def clone(self) -> "TimeOfDayLabel":
+        """
+        Creates an independent clone of the label so sample references in Dataset are never mutated.
+        """
+        return TimeOfDayLabel(
+            time_min=self.time_min,
+            month=self.month,
+            day_of_year=self.day_of_year,
+            latitude=self.latitude,
+            longitude=self.longitude,
+            day_of_week=self.day_of_week,
+            tz_offset=self.tz_offset,
+            heading=self.heading,
+            altitude=self.altitude,
+            ev100=self.ev100,
+            brightness_val=self.brightness_val,
+            shutter_speed=self.shutter_speed,
+            iso=self.iso,
+            f_number=self.f_number,
+            exposure_bias=self.exposure_bias,
+            fov=self.fov,
+            image_features=self.image_features.copy() if self.image_features is not None else None,
+        )
+
+    def flip_horizontal(self) -> "TimeOfDayLabel":
+        """
+        Creates a new TimeOfDayLabel with inverted directional orientation
+        for synchronized horizontal image augmentation.
+        """
+        new_heading = ((360.0 - self.heading) % 360.0) if self.heading is not None else None
+        new_feats = None
+        if self.image_features is not None:
+            new_feats = ImageFeatureExtractor.flip_features(self.image_features)
+        return TimeOfDayLabel(
+            time_min=self.time_min,
+            month=self.month,
+            day_of_year=self.day_of_year,
+            latitude=self.latitude,
+            longitude=self.longitude,
+            day_of_week=self.day_of_week,
+            tz_offset=self.tz_offset,
+            heading=new_heading,
+            altitude=self.altitude,
+            ev100=self.ev100,
+            brightness_val=self.brightness_val,
+            shutter_speed=self.shutter_speed,
+            iso=self.iso,
+            f_number=self.f_number,
+            exposure_bias=self.exposure_bias,
+            fov=self.fov,
+            image_features=new_feats,
+        )
+
     def to_metadata_tensor(self) -> torch.Tensor:
         # Tier D: Calendar & Temporal Cycles (6 dims)
         sin_m, cos_m = cyclic_encode(self.month, 12.0)
@@ -512,7 +626,7 @@ class TimeOfDayLabel:
         daylen_norm   = float(np.clip((day_len_h - 12.0) / 12.0, -1.0, 1.0))
         alphamax_norm = float(alpha_max_deg / 90.0)
 
-        # Tier B: Geodetic, Spatial & Orientation (8 dims)
+        # Tier B: Geodetic, Spatial & Orientation (10 dims: was 8, now +2 for relative solar azimuth)
         has_gps     = 1.0 if (self.latitude is not None and self.longitude is not None) else 0.0
         lat_norm    = (self.latitude / 90.0) if self.latitude is not None else (38.5 / 90.0)
         lon_norm    = (self.longitude / 180.0) if self.longitude is not None else (27.0 / 180.0)
@@ -521,6 +635,11 @@ class TimeOfDayLabel:
         sin_head, cos_head = cyclic_encode(self.heading if self.heading is not None else 0.0, 360.0)
         if not has_heading:
             sin_head, cos_head = 0.0, 0.0
+            sin_rel_az, cos_rel_az = 0.0, 0.0
+        else:
+            # Relative solar azimuth: camera heading relative to true solar noon azimuth (180 deg in northern hemisphere)
+            rel_azimuth = (self.heading - 180.0) % 360.0
+            sin_rel_az, cos_rel_az = cyclic_encode(rel_azimuth, 360.0)
         alt_norm    = float(np.clip(math.log2(1.0 + max(0.0, self.altitude if self.altitude is not None else 0.0)) / 14.0, 0.0, 1.0))
 
         # Tier A: Photometric Hardware & Sensor Physics (8 dims)
@@ -533,15 +652,15 @@ class TimeOfDayLabel:
         bias_norm     = float(np.clip(self.exposure_bias / 3.0, -1.0, 1.0)) if self.exposure_bias is not None else 0.0
         fov_norm      = float(np.clip(self.fov / math.pi, 0.0, 1.0)) if self.fov is not None else (65.0 / 180.0)
 
-        # 28 Core Metadata Dimensions
+        # 30 Core Metadata Dimensions
         core_parts: List[float] = [
-            # Tier D (6)
+            # Tier D: Calendar & Temporal Cycles (6)
             sin_m, cos_m, sin_d, cos_d, sin_dow, cos_dow,
-            # Tier C (6)
+            # Tier C: Astrometric Ephemeris (6)
             delta_norm, eot_norm, daylen_norm, sin_noon, cos_noon, alphamax_norm,
-            # Tier B (8)
-            has_gps, lat_norm, lon_norm, tz_norm, has_heading, sin_head, cos_head, alt_norm,
-            # Tier A (8)
+            # Tier B: Geodetic, Spatial & Orientation (10)
+            has_gps, lat_norm, lon_norm, tz_norm, has_heading, sin_head, cos_head, alt_norm, sin_rel_az, cos_rel_az,
+            # Tier A: Photometric Hardware & Sensor Physics (8)
             has_exp, ev_norm, bv_norm, shutter_norm, iso_norm, aperture_norm, bias_norm, fov_norm,
         ]
 
@@ -571,14 +690,17 @@ class TimeOfDayDataset(Dataset):
         transform:   Optional[Callable] = None,
         target_size: int = cfg.IMAGE_SIZE,
         random_seed: int = 42,
+        augment:     bool = False,
     ):
         self.image_dir   = image_dir
         self.transform   = transform
         self.target_size = target_size
         self.random_seed = random_seed
+        self.augment     = augment
 
         self.samples: List[Tuple[str, TimeOfDayLabel]] = []
         self._feature_cache: Dict[str, np.ndarray] = {}
+        self._pca_model = None
         self._build_dataset()
 
         print(f"TimeOfDayDataset: {len(self.samples)} valid samples loaded "
@@ -627,7 +749,7 @@ class TimeOfDayDataset(Dataset):
             raise RuntimeError("No valid images with EXIF data found.")
 
         if cfg.USE_IMAGE_FEATURES:
-            cache_file = os.path.join(self.image_dir, "heuristics_feature_cache.pt")
+            cache_file = getattr(cfg, "FEATURE_CACHE_FILE", os.path.join(self.image_dir, "heuristics_feature_cache_v2.pt"))
             if os.path.exists(cache_file):
                 print(f"Loading cached image features from {cache_file}...")
                 try:
@@ -639,7 +761,7 @@ class TimeOfDayDataset(Dataset):
 
             missing_samples = [path for path, _ in self.samples if path not in self._feature_cache]
             if missing_samples:
-                print(f"Pre-computing {len(missing_samples)} handcrafted image features (multi-threaded)...")
+                print(f"Pre-computing {len(missing_samples)} handcrafted optical physics features (multi-threaded)...")
                 from concurrent.futures import ThreadPoolExecutor
                 from tqdm import tqdm
 
@@ -661,6 +783,30 @@ class TimeOfDayDataset(Dataset):
                     print(f"Saved feature cache to {cache_file}")
                 except Exception as e:
                     print(f"Warning: could not save feature cache ({e})")
+
+            # Load or fit PCA model if requested
+            if getattr(cfg, "USE_PCA_FEATURES", False):
+                pca_file = getattr(cfg, "PCA_MODEL_FILE", os.path.join(self.image_dir, "heuristics_pca_v2.pt"))
+                if os.path.exists(pca_file):
+                    print(f"Loading PCA feature model from {pca_file}...")
+                    try:
+                        self._pca_model = torch.load(pca_file, weights_only=False)
+                    except Exception as e:
+                        self._pca_model = None
+                
+                if self._pca_model is None and len(self._feature_cache) > 0:
+                    print("Fitting PCA model on handcrafted optical feature representations...")
+                    from sklearn.decomposition import PCA
+                    feats = np.stack([self._feature_cache[p] for p, _ in self.samples if p in self._feature_cache], axis=0)
+                    n_comp = min(getattr(cfg, "PCA_COMPONENTS", 25), feats.shape[1])
+                    pca = PCA(n_components=n_comp, random_state=42)
+                    pca.fit(feats)
+                    self._pca_model = pca
+                    try:
+                        torch.save(pca, pca_file)
+                        print(f"Fitted and saved PCA model ({n_comp} components, {pca.explained_variance_ratio_.sum()*100:.1f}% variance) to {pca_file}")
+                    except Exception as e:
+                        print(f"Warning: could not save PCA model ({e})")
 
     def _is_valid_file(self, filename: str) -> bool:
         ext = os.path.splitext(filename.lower())[1]
@@ -717,7 +863,7 @@ class TimeOfDayDataset(Dataset):
         return len(self.samples)
 
     def __getitem__(self, idx: int) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
-        img_path, label = self.samples[idx]
+        img_path, orig_label = self.samples[idx]
         image = None
 
         try:
@@ -725,11 +871,28 @@ class TimeOfDayDataset(Dataset):
         except Exception as exc:
             print(f"ERROR: Failed to load {img_path}: {exc}")
             image = Image.new("RGB", (self.target_size, self.target_size), (0, 0, 0))
-        
+
+        # Coordinated directional horizontal flip: mirrors image and flips directional metadata in tandem
+        is_flipped = bool(self.augment and getattr(cfg, "COORDINATED_FLIP", True) and (random.random() < 0.5))
+
+        if is_flipped:
+            image = image.transpose(Image.FLIP_LEFT_RIGHT)
+            label = orig_label.flip_horizontal()
+        else:
+            label = orig_label.clone()
+
         if cfg.USE_IMAGE_FEATURES:
             if img_path not in self._feature_cache:
-                self._feature_cache[img_path] = ImageFeatureExtractor.extract(image)
-            label.image_features = self._feature_cache[img_path]
+                self._feature_cache[img_path] = ImageFeatureExtractor.extract(image if not is_flipped else image.transpose(Image.FLIP_LEFT_RIGHT))
+            raw_feat = self._feature_cache[img_path]
+            if is_flipped:
+                raw_feat = ImageFeatureExtractor.flip_features(raw_feat)
+
+            if getattr(cfg, "USE_PCA_FEATURES", False) and self._pca_model is not None:
+                final_feat = self._pca_model.transform(raw_feat.reshape(1, -1))[0]
+            else:
+                final_feat = raw_feat
+            label.image_features = final_feat
 
         if image.size != (self.target_size, self.target_size):
             image = self._letterbox_resize(image)
@@ -765,9 +928,10 @@ def get_transforms(
 
     mag = magnitude.lower()
 
+    # Note: Horizontal flip is handled exclusively in TimeOfDayDataset.__getitem__
+    # to maintain strict physical synchronization with camera heading and directional physics!
     spatial = [
         v2.RandomResizedCrop(target_size, scale=(0.8, 1.0), antialias=True),
-        v2.RandomHorizontalFlip(p=0.5),
     ]
 
     if mag == "light":
@@ -815,15 +979,24 @@ def tta_predict(
     model:      "torch.nn.Module",
     images:     torch.Tensor,
     metadata:   torch.Tensor,
-    n_passes:   int = 4,
+    n_passes:   int = 2,
 ) -> torch.Tensor:
-    preds = []
-    preds.append(model(images, metadata))
-    for _ in range(n_passes - 1):
-        flipped = torch.flip(images, dims=[3])   
-        preds.append(model(flipped, metadata))
+    """
+    Test-Time Augmentation with coordinated directional metadata inversion.
+    Evaluates both original and mirrored orientations in the same temporal frame.
+    """
+    p_orig = model(images, metadata)
+    if n_passes <= 1:
+        return p_orig
 
-    stacked = torch.stack(preds, dim=0)          
+    flipped_images = torch.flip(images, dims=[3])
+    flipped_meta = metadata.clone()
+    # Invert sin_heading at index 17 and sin_rel_az at index 20 (Tier B)
+    flipped_meta[:, 17] = -flipped_meta[:, 17]
+    flipped_meta[:, 20] = -flipped_meta[:, 20]
+
+    p_flip = model(flipped_images, flipped_meta)
+    stacked = torch.stack([p_orig, p_flip], dim=0)
     mean_pred = stacked.mean(dim=0)
     return torch.nn.functional.normalize(mean_pred, p=2, dim=-1)
 
@@ -846,6 +1019,10 @@ def create_dataloaders(
 
     if len(train_dataset) != len(val_dataset):
         raise ValueError("train_dataset and val_dataset must have the same length.")
+
+    # Configure dataset-level augmentation flags
+    train_dataset.augment = True
+    val_dataset.augment   = False
 
     indices = np.arange(len(train_dataset))
 

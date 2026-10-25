@@ -7,6 +7,7 @@ import os
 os.environ["MKL_THREADING_LAYER"] = "GNU"
 import argparse
 import gc
+import json
 import logging
 import time
 import multiprocessing as mp
@@ -33,6 +34,8 @@ from TimeOfDayDataLoader import (
 from Main import (
     CyclicMSELoss,
     AngularCosineLoss,
+    CircularSmoothL1Loss,
+    get_loss_criterion,
     train_one_epoch,
     evaluate,
     save_checkpoint,
@@ -78,14 +81,15 @@ log = logging.getLogger("tune")
 def get_search_space(trial: optuna.Trial, model_name: str) -> dict:
     if model_name == "swin_t":
         # SwinT search space
-        lr           = trial.suggest_float("lr",           1.0e-4, 1.0e-3, log=True)
-        weight_decay = trial.suggest_float("weight_decay", 1.0e-3, 5.0e-2, log=True)
+        lr           = trial.suggest_float("lr",           8.0e-5, 5.0e-4, log=True)
+        weight_decay = trial.suggest_float("weight_decay", 1.0e-3, 8.0e-2, log=True)
         eta_min      = trial.suggest_float("eta_min",      1.0e-6, 1.0e-5, log=True)
-        dropout      = trial.suggest_float("dropout",      0.0, 0.15)
-        label_noise  = trial.suggest_float("label_noise",  0.01, 0.04)
-        mixup_alpha  = trial.suggest_float("mixup_alpha",  0.05, 0.2)
+        dropout      = trial.suggest_float("dropout",      0.02, 0.20)
+        label_noise  = trial.suggest_float("label_noise",  0.005, 0.03)
+        mixup_alpha  = trial.suggest_float("mixup_alpha",  0.02, 0.15)
         aug_magnitude = trial.suggest_categorical("aug_magnitude", ["moderate", "heavy"])
         freeze_until = trial.suggest_categorical("freeze_until", ["features.4", "features.6"])
+        beta_minutes = trial.suggest_float("beta_minutes", 5.0, 25.0)
     else:
         # ConvNeXt search space
         lr           = trial.suggest_float("lr",           1.5e-4, 4.5e-4, log=True)
@@ -96,6 +100,7 @@ def get_search_space(trial: optuna.Trial, model_name: str) -> dict:
         mixup_alpha  = trial.suggest_float("mixup_alpha",  0.1, 0.3)
         aug_magnitude = trial.suggest_categorical("aug_magnitude", ["moderate", "heavy"])
         freeze_until = trial.suggest_categorical("freeze_until", ["features.4", "features.6"])
+        beta_minutes = trial.suggest_float("beta_minutes", 5.0, 25.0)
 
     hidden_dim    = 384
 
@@ -109,6 +114,7 @@ def get_search_space(trial: optuna.Trial, model_name: str) -> dict:
         "aug_magnitude": aug_magnitude,
         "mixup_alpha":   mixup_alpha,
         "label_noise":   label_noise,
+        "beta_minutes":  beta_minutes,
         "batch_size":    cfg.BATCH_SIZE,
         "accum_steps":   cfg.ACCUM_STEPS,
     }
@@ -162,7 +168,7 @@ def objective(
             log.info(f"  ✗ Trial {trial.number}: model build failed ({exc}), pruning.")
             raise optuna.exceptions.TrialPruned()
 
-        criterion = AngularCosineLoss() if getattr(cfg, "USE_ANGULAR_LOSS", True) else CyclicMSELoss()
+        criterion = get_loss_criterion(getattr(cfg, "LOSS_FUNCTION", "circular_smooth_l1"), params.get("beta_minutes", 10.0))
         optimizer = get_optimizer(model, params["lr"], params["weight_decay"])
         scheduler = get_scheduler(optimizer, epochs=cfg.OPTUNA_EPOCHS, eta_min=params["eta_min"])
         scaler = torch.amp.GradScaler('cuda') if (cfg.USE_AMP and device.type == "cuda") else None
@@ -247,20 +253,55 @@ def objective(
     param_str = ", ".join(f"{k}={v}" for k, v in params.items() if k not in ["batch_size", "accum_steps"])
     log.info(f"Trial {trial.number:>3} [{model_name:<15}] mean val {mean_mae:.2f}m" + ("  ★ best" if is_study_best else "") + f"  | Params: {param_str}")
 
+    if is_study_best:
+        try:
+            save_best_params_json(trial.study, model_name, cfg.OUTPUT_DIR, best_trial=trial)
+        except Exception as e:
+            log.warning(f"Could not write best_params JSON: {e}")
+
     return mean_mae
+
+# ---------------------------------------------------------------------------
+# Best params persistence
+# ---------------------------------------------------------------------------
+def save_best_params_json(study: optuna.Study, model_name: str, output_dir: str, best_trial=None) -> str:
+    os.makedirs(output_dir, exist_ok=True)
+    best = best_trial if best_trial is not None else study.best_trial
+    best_json_path = os.path.join(output_dir, f"best_params_{model_name}.json")
+    
+    clean_params = dict(best.params)
+    clean_params.setdefault("hidden_dim", 384)
+    clean_params.setdefault("batch_size", cfg.BATCH_SIZE)
+    clean_params.setdefault("accum_steps", cfg.ACCUM_STEPS)
+    clean_params.setdefault("beta_minutes", best.params.get("beta_minutes", getattr(cfg, "BETA_MINUTES", 10.0)))
+    clean_params.setdefault("model", model_name)
+
+    val_val = float(best.value) if best.value is not None else float("inf")
+
+    record = {
+        "model": model_name,
+        "score": {
+            "metric": "val_mae_minutes",
+            "val_mae": val_val,
+            "trial_number": int(best.number),
+            "timestamp": time.strftime("%Y-%m-%dT%H:%M:%S"),
+        },
+        "params": clean_params
+    }
+    with open(best_json_path, "w", encoding="utf-8") as f:
+        json.dump(record, f, indent=4)
+    log.info(f"Saved best parameters JSON -> {best_json_path} (score: {val_val:.2f}m)")
+    return best_json_path
 
 # ---------------------------------------------------------------------------
 # Study runner & Retrain best
 # ---------------------------------------------------------------------------
-def run_study(device: torch.device, model_list: list) -> None:
+def run_study(device: torch.device, model_list: list, retrain_best: bool = True) -> None:
     os.makedirs(cfg.OUTPUT_DIR, exist_ok=True)
-    if len(model_list) == 1:
-        study_name   = f"tod_hpo_{model_list[0]}"
-        storage_path = os.path.join(cfg.OUTPUT_DIR, f"optuna_{model_list[0]}.db")
-    else:
-        study_name   = "tod_hpo_multi"
-        storage_path = os.path.join(cfg.OUTPUT_DIR, "optuna_multi.db")
-    storage_url  = f"sqlite:///{storage_path}"
+    model_name = model_list[0]
+    study_name = f"tod_hpo_v2_{model_name}" if len(model_list) == 1 else "tod_hpo_multi"
+    storage_path = os.path.join(cfg.OUTPUT_DIR, f"optuna_v2_{model_name}.db")
+    storage_url = f"sqlite:///{storage_path}"
     optuna.logging.set_verbosity(optuna.logging.WARNING)
 
     study = optuna.create_study(
@@ -307,7 +348,11 @@ def run_study(device: torch.device, model_list: list) -> None:
     for k, v in best.params.items():
         log.info(f"    {k}: {v}")
     log.info("=" * 60)
-    _retrain_best(best.params, device)
+
+    save_best_params_json(study, model_list[0], cfg.OUTPUT_DIR)
+
+    if retrain_best:
+        _retrain_best(best.params, device)
 
 def _retrain_best(params: dict, device: torch.device) -> None:
     model_name = params.get("model", cfg.MODEL)
@@ -323,7 +368,7 @@ def _retrain_best(params: dict, device: torch.device) -> None:
     )
 
     model = build_and_compile_model(device, params)
-    criterion = AngularCosineLoss() if getattr(cfg, "USE_ANGULAR_LOSS", True) else CyclicMSELoss()
+    criterion = get_loss_criterion(getattr(cfg, "LOSS_FUNCTION", "circular_smooth_l1"), params.get("beta_minutes", 10.0))
     optimizer = get_optimizer(model, params["lr"], params["weight_decay"])
     scheduler = get_scheduler(optimizer, epochs=cfg.EPOCHS, eta_min=params["eta_min"])
     scaler = torch.amp.GradScaler('cuda') if (cfg.USE_AMP and device.type == "cuda") else None
@@ -354,9 +399,19 @@ def _retrain_best(params: dict, device: torch.device) -> None:
     log.info(f"Best val MAE    : {best_val_mae:.2f} min")
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description="Optuna HPO -- ConvNeXt")
-    parser.add_argument("--model", choices=SUPPORTED_MODELS, required=True, help="Model to optimize")
+    parser = argparse.ArgumentParser(description="Optuna Hyperparameter Optimization")
+    parser.add_argument("--model", choices=SUPPORTED_MODELS, default="swin_t", help="Model architecture (default: swin_t)")
+    parser.add_argument("--n-trials", type=int, default=None, help="Total number of trials to run")
+    parser.add_argument("--epochs", type=int, default=None, help="Epochs per trial")
+    parser.add_argument("--cv-folds", type=int, default=None, help="Number of CV folds to evaluate per trial")
+    parser.add_argument("--output-dir", type=str, default=None, help="Checkpoints and output directory")
+    parser.add_argument("--no-retrain", action="store_true", default=False, help="Skip full retraining of best config")
     args = parser.parse_args()
+
+    if args.n_trials is not None: cfg.OPTUNA_N_TRIALS = args.n_trials
+    if args.epochs is not None: cfg.OPTUNA_EPOCHS = args.epochs
+    if args.cv_folds is not None: cfg.OPTUNA_CV_FOLDS = args.cv_folds
+    if args.output_dir is not None: cfg.OUTPUT_DIR = args.output_dir
 
     model_list = [args.model]
     if mp.get_start_method(allow_none=True) != "spawn": mp.set_start_method("spawn", force=True)
@@ -366,4 +421,4 @@ if __name__ == "__main__":
 
     device = torch.device("cuda" if torch.cuda.is_available() else "mps" if torch.backends.mps.is_available() else "cpu")
     setup_logging(cfg.OUTPUT_DIR)
-    run_study(device, model_list)
+    run_study(device, model_list, retrain_best=not args.no_retrain)

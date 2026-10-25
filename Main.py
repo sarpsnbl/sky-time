@@ -12,6 +12,7 @@ import logging
 import time
 from typing import List, Optional, Tuple
 import multiprocessing as mp
+import math
 
 import torch
 if torch.cuda.is_available():
@@ -276,6 +277,33 @@ class TimeOfDayModel(nn.Module):
 # ---------------------------------------------------------------------------
 # Loss & metrics
 # ---------------------------------------------------------------------------
+class CircularSmoothL1Loss(nn.Module):
+    """
+    Circular Smooth L1 / Huber Loss on S^1.
+    Computes exact geodesic angular error:
+        delta_theta = arccos(clamp(<y_pred, y_true>, -1 + eps, 1 - eps))
+    For delta_theta > beta: provides constant gradient magnitude (+-1.0),
+    directly penalizing MAE down to fine thresholds without vanishing.
+    For delta_theta <= beta: quadratic smoothing avoids gradient oscillation.
+    """
+    def __init__(self, beta_minutes: float = 10.0, eps: float = 1e-7):
+        super().__init__()
+        self.beta = (beta_minutes / MINUTES_PER_DAY) * 2.0 * math.pi
+        self.eps = eps
+
+    def forward(self, pred: torch.Tensor, target: torch.Tensor) -> torch.Tensor:
+        p_norm = nn.functional.normalize(pred, p=2, dim=-1, eps=self.eps)
+        t_norm = nn.functional.normalize(target, p=2, dim=-1, eps=self.eps)
+        cos_sim = torch.clamp((p_norm * t_norm).sum(dim=-1), -1.0 + self.eps, 1.0 - self.eps)
+        delta_rad = torch.acos(cos_sim)
+        
+        smooth_l1 = torch.where(
+            delta_rad < self.beta,
+            0.5 * (delta_rad ** 2) / self.beta,
+            delta_rad - 0.5 * self.beta
+        )
+        return smooth_l1.mean()
+
 class AngularCosineLoss(nn.Module):
     """
     Cyclic Angular Cosine Loss on the unit circle S^1:
@@ -300,6 +328,16 @@ class CyclicMSELoss(nn.Module):
 
     def forward(self, pred: torch.Tensor, target: torch.Tensor) -> torch.Tensor:
         return self.mse(pred, target)
+
+def get_loss_criterion(loss_type: Optional[str] = None, beta_minutes: float = 10.0) -> nn.Module:
+    lt = (loss_type or getattr(cfg, "LOSS_FUNCTION", "circular_smooth_l1")).lower()
+    if "smooth_l1" in lt or "huber" in lt or "geodesic" in lt:
+        return CircularSmoothL1Loss(beta_minutes=beta_minutes)
+    elif "cosine" in lt or "angular" in lt:
+        return AngularCosineLoss()
+    elif "mse" in lt:
+        return CyclicMSELoss()
+    return CircularSmoothL1Loss(beta_minutes=beta_minutes)
 
 def cyclic_mae_minutes(pred: torch.Tensor, target: torch.Tensor) -> torch.Tensor:
     pred_min   = decode_time_tensor(pred)
@@ -582,30 +620,35 @@ def build_and_compile_model(device: torch.device, params: dict = None) -> TimeOf
 # Single-fold training
 # ---------------------------------------------------------------------------
 def train_fold(fold: int, device: torch.device) -> float:
-    # Load model-specific parameters
-    params = cfg.PARAMS_SWIN_T if cfg.MODEL == "swin_t" else cfg.PARAMS_CONVNEXT_TINY
+    # Acquire active parameters (from best_params JSON or CLI overrides)
+    params = cfg.PARAMS if cfg.PARAMS else cfg.load_params_from_json()
     
     jsonl_path = os.path.join(cfg.OUTPUT_DIR, f"train_log_{cfg.MODEL}.jsonl")
 
+    aug_mag = params.get("aug_magnitude", getattr(cfg, "AUG_MAGNITUDE", "heavy"))
     train_dataset = TimeOfDayDataset(
         image_dir=cfg.IMAGE_DIR,
-        transform=get_transforms(augment=True, magnitude=params["aug_magnitude"]),
+        transform=get_transforms(augment=True, magnitude=aug_mag),
     )
     val_dataset = TimeOfDayDataset(
         image_dir=cfg.IMAGE_DIR,
         transform=get_transforms(augment=False),
     )
 
+    batch_size = params.get("batch_size", cfg.BATCH_SIZE)
+    accum_steps = params.get("accum_steps", cfg.ACCUM_STEPS)
+
     train_loader, val_loader = create_dataloaders(
         train_dataset, val_dataset, fold=fold, n_splits=cfg.N_SPLITS,
-        batch_size=cfg.BATCH_SIZE, num_workers=cfg.NUM_WORKERS,
+        batch_size=batch_size, num_workers=cfg.NUM_WORKERS,
         val_ratio=cfg.VAL_RATIO, use_weighted_sampler=cfg.WEIGHTED_SAMPLER,
     )
 
     model = build_and_compile_model(device, params)
     log.info(f"Fold {fold} | trainable params: {model.count_trainable_params():,}")
 
-    criterion = AngularCosineLoss() if getattr(cfg, "USE_ANGULAR_LOSS", True) else CyclicMSELoss()
+    beta_minutes = params.get("beta_minutes", getattr(cfg, "BETA_MINUTES", 10.0))
+    criterion = get_loss_criterion(getattr(cfg, "LOSS_FUNCTION", "circular_smooth_l1"), beta_minutes)
     optimizer = get_optimizer(model, params["lr"], params["weight_decay"])
     scheduler = get_scheduler(optimizer, epochs=cfg.EPOCHS, eta_min=params["eta_min"])
     scaler = torch.amp.GradScaler('cuda') if (cfg.USE_AMP and device.type == "cuda") else None
@@ -625,7 +668,6 @@ def train_fold(fold: int, device: torch.device) -> float:
         t0 = time.time()
 
         if cfg.UNFREEZE_EPOCH is not None and epoch == cfg.UNFREEZE_EPOCH:
-            # We must access the original uncompiled model's method if it was compiled
             raw_model = model._orig_mod if hasattr(model, '_orig_mod') else model
             raw_model.unfreeze_all()
             optimizer = get_optimizer(model, params["lr"] * 0.1, params["weight_decay"])
@@ -637,7 +679,9 @@ def train_fold(fold: int, device: torch.device) -> float:
             pbar.set_description(f"{desc} [train]")
             train_loss, train_mae = train_one_epoch(
                 model, train_loader, optimizer, criterion, device, scaler,
-                mixup_alpha=params["mixup_alpha"], label_noise=params["label_noise"], pbar=pbar, accum_steps=cfg.ACCUM_STEPS
+                mixup_alpha=params.get("mixup_alpha", cfg.MIXUP_ALPHA),
+                label_noise=params.get("label_noise", cfg.LABEL_NOISE_STD),
+                pbar=pbar, accum_steps=accum_steps
             )
             pbar.set_description(f"{desc} [val]  ")
             val_loss, val_mae = evaluate(
@@ -681,11 +725,37 @@ def train_fold(fold: int, device: torch.device) -> float:
 # ---------------------------------------------------------------------------
 def main() -> None:
     import argparse
-    parser = argparse.ArgumentParser(description="Train Time-of-Day Model")
-    parser.add_argument("--model", type=str, required=True, help="Model to train")
-    args, unknown = parser.parse_known_args()
+    parser = argparse.ArgumentParser(description="Train Time-of-Day Swin-T Model")
+    parser.add_argument("--model", type=str, default="swin_t", help="Model to train (default: swin_t)")
+    parser.add_argument("--params-file", type=str, default=None, help="Path to best_params JSON (default: checkpoints/best_params_{model}.json)")
+    parser.add_argument("--fold", type=int, default=None, help="Specific cross-validation fold to train (0-4)")
+    parser.add_argument("--train-all-folds", action="store_true", default=None, help="Train all 5 cross-validation folds")
+    parser.add_argument("--epochs", type=int, default=None, help="Number of training epochs")
+    parser.add_argument("--lr", type=float, default=None, help="Learning rate override")
+    parser.add_argument("--weight-decay", type=float, default=None, help="Weight decay override")
+    parser.add_argument("--dropout", type=float, default=None, help="Dropout rate override")
+    parser.add_argument("--batch-size", type=int, default=None, help="Batch size override")
+    parser.add_argument("--accum-steps", type=int, default=None, help="Gradient accumulation steps override")
+    parser.add_argument("--aug-magnitude", type=str, choices=["none", "light", "moderate", "heavy"], default=None, help="Augmentation intensity")
+    parser.add_argument("--mixup-alpha", type=float, default=None, help="Mixup alpha parameter")
+    parser.add_argument("--label-noise", type=float, default=None, help="Label noise std")
+    parser.add_argument("--beta-minutes", type=float, default=None, help="Circular Huber threshold beta in minutes")
+    parser.add_argument("--loss", dest="loss_function", type=str, choices=["circular_smooth_l1", "angular_cosine", "cyclic_mse"], default=None, help="Loss function")
+    parser.add_argument("--eval-only", action="store_true", default=False, help="Run evaluation only")
+    parser.add_argument("--checkpoint", type=str, default=None, help="Path to checkpoint for resume or evaluation")
+    parser.add_argument("--no-compile", action="store_true", default=False, help="Disable torch.compile")
+    parser.add_argument("--output-dir", type=str, default=None, help="Output directory for checkpoints and logs")
     
-    cfg.MODEL = args.model
+    args, unknown = parser.parse_known_args()
+
+    # Automatically resolve params file if not explicitly given
+    if args.params_file is None:
+        candidate = os.path.join(cfg.OUTPUT_DIR, f"best_params_{args.model}.json")
+        if os.path.isfile(candidate):
+            args.params_file = candidate
+
+    # Apply JSON params and CLI overrides to Config
+    cfg.apply_args(args)
 
     setup_logging(cfg.OUTPUT_DIR)
 
@@ -699,13 +769,17 @@ def main() -> None:
         "cpu"
     )
 
+    eff_bs = cfg.BATCH_SIZE * cfg.ACCUM_STEPS
+    p = cfg.PARAMS
     log.info("=" * 60)
-    log.info("Time-of-Day Estimation  --  ConvNeXt")
-    log.info(f"Device      : {device}")
-    log.info(f"Model       : {cfg.MODEL}")
-    log.info(f"Image size  : {cfg.IMAGE_SIZE}")
-    log.info(f"Batch Size  : Physical {cfg.BATCH_SIZE} | Effective {cfg.BATCH_SIZE * cfg.ACCUM_STEPS}")
-    log.info(f"Optimizers  : Compile={cfg.USE_COMPILE}, AMP={cfg.USE_AMP}, 8-bit={cfg.USE_8BIT_OPTIM}, NHWC={cfg.USE_CHANNELS_LAST}")
+    log.info(f"Time-of-Day Estimation  --  {cfg.MODEL.upper()}")
+    log.info(f"Device        : {device}")
+    log.info(f"Model         : {cfg.MODEL}")
+    log.info(f"Params file   : {cfg.PARAMS_FILE if os.path.isfile(cfg.PARAMS_FILE) else 'Class defaults'}")
+    log.info(f"Active Params : lr={p.get('lr', cfg.LR):.2e}, wd={p.get('weight_decay', cfg.WEIGHT_DECAY):.2e}, drop={p.get('dropout', cfg.DROPOUT)}, beta={p.get('beta_minutes', cfg.BETA_MINUTES)}m")
+    log.info(f"Image size    : {cfg.IMAGE_SIZE}px")
+    log.info(f"Batch Size    : Physical {cfg.BATCH_SIZE} | Effective {eff_bs}")
+    log.info(f"Optimizers    : Compile={cfg.USE_COMPILE}, AMP={cfg.USE_AMP}, 8-bit={cfg.USE_8BIT_OPTIM}, NHWC={cfg.USE_CHANNELS_LAST}")
     log.info("=" * 60)
 
     os.makedirs(cfg.OUTPUT_DIR, exist_ok=True)
@@ -717,9 +791,9 @@ def main() -> None:
             dataset, dataset, fold=cfg.FOLD, n_splits=cfg.N_SPLITS,
             batch_size=cfg.BATCH_SIZE, num_workers=cfg.NUM_WORKERS,
         )
-        model = build_and_compile_model(device)
+        model = build_and_compile_model(device, p)
         load_checkpoint(cfg.CHECKPOINT, model, device=device)
-        criterion = AngularCosineLoss() if getattr(cfg, "USE_ANGULAR_LOSS", True) else CyclicMSELoss()
+        criterion = get_loss_criterion(getattr(cfg, "LOSS_FUNCTION", "circular_smooth_l1"), getattr(cfg, "BETA_MINUTES", 10.0))
         val_loss, val_mae = evaluate(
             model, val_loader, criterion, device,
             use_tta=cfg.TTA_ENABLED, tta_passes=cfg.TTA_FLIPS,
