@@ -841,6 +841,13 @@ def train_fold(fold: int, device: torch.device) -> float:
     log.info(f"Per-image diagnostics logged -> {jsonl_path}")
 
     log.info(f"Fold {fold} complete -- best val MAE: {best_val_mae:.2f} min ")
+
+    del model, optimizer, scheduler, train_loader, val_loader
+    import gc
+    gc.collect()
+    if torch.cuda.is_available():
+        torch.cuda.empty_cache()
+
     return best_val_mae
 
 # ---------------------------------------------------------------------------
